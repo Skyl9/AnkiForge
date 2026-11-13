@@ -1,0 +1,246 @@
+"""Fournisseur LLM Google Gemini adossé au SDK officiel `google-genai`."""
+
+import base64
+import logging
+from collections.abc import Iterator
+from typing import Any
+
+from google import genai
+from google.genai import types
+
+from ankidraft.services.ai.base import LLMProvider, LLMResult
+from ankidraft.services.ai.flexible_service import extract_thought_tags
+from ankidraft.services.ai.retry import RETRYABLE_STATUS_CODES, with_retry
+from ankidraft.services.ai.utils import get_human_readable_api_error, log_token_usage
+from ankidraft.utils.ssl_certificates import setup_ssl_certificates
+
+logger = logging.getLogger(__name__)
+
+
+def _is_retryable_gemini_error(exc: BaseException) -> bool:
+    """Détecte les erreurs Gemini transitoires (quota/surcharge/timeout réseau)."""
+    if isinstance(exc, ConnectionError | TimeoutError):
+        return True
+    if not isinstance(exc, genai.errors.APIError):
+        return False
+    code = getattr(exc, "code", None)
+    if isinstance(code, int) and code in RETRYABLE_STATUS_CODES:
+        return True
+    text = str(exc).lower()
+    return any(token in text for token in ("429", "500", "502", "503", "504", "timeout", "unavailable", "overloaded"))
+
+
+class GeminiService(LLMProvider):
+    """Service d'intégration pour l'API Google Gemini.
+
+    Gère l'authentification et la communication avec les modèles Gemini via le SDK officiel
+    de Google. Supporte les fonctionnalités multimodales (vision).
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        model_name: str = "gemini-3.5-flash-lite",
+        max_tokens: int = 65536,
+        timeout: float = 600.0,
+        default_temperature: float = 0.2,
+    ):
+        """Initialise le client Gemini.
+
+        Args:
+            api_key: Clé API Google AI Studio.
+            model_name: Nom du modèle Gemini à utiliser.
+            max_tokens: Nombre maximal de tokens de sortie.
+            timeout: Délai maximal (secondes) par requête réseau.
+            default_temperature: Température par défaut du modèle.
+
+        Raises:
+            ValueError: Si aucune clé API n'est disponible.
+        """
+        self.api_key = api_key
+        self.model_name = model_name
+        self.max_tokens = max_tokens
+        self.timeout = timeout
+        self.default_temperature = default_temperature
+
+        if not self.api_key:
+            raise ValueError("Clé API Gemini manquante. Veuillez la configurer dans les paramètres.")
+
+        # Garantir un environnement de certificats SSL valide avant d'instancier genai.Client
+        setup_ssl_certificates()
+
+        # Connexion directe à l'API Google AI Studio (timeout converti en millisecondes pour le SDK)
+        http_options: types.HttpOptionsDict = {}
+        if timeout > 0:
+            http_options["timeout"] = int(timeout * 1000)
+        self.client = genai.Client(api_key=self.api_key, http_options=http_options)
+
+    def generate_response(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "json",
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> LLMResult:
+        """Génère une réponse structurée avec LLMResult incluant la chaîne de pensée de Gemini."""
+        effective_max = max_tokens or self.max_tokens
+        effective_temp = temperature if temperature is not None else getattr(self, "default_temperature", 0.2)
+        config = types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=effective_temp,
+            max_output_tokens=effective_max,
+        )
+
+        if response_format == "json":
+            config.response_mime_type = "application/json"
+
+        try:
+            # --- ADAPTATION POUR LA VISION ---
+            contents_to_send: list[Any] = []
+
+            if isinstance(user_prompt, str):
+                contents_to_send = [user_prompt]
+            else:
+                # C'est un payload multimodal (OpenAI style), on le traduit pour Gemini
+                for item in user_prompt:
+                    if item["type"] == "text":
+                        contents_to_send.append(item["text"])
+                    elif item["type"] == "image_url":
+                        # Gemini SDK attend un objet Part pour les images
+                        b64_data = item["image_url"]["url"].split("base64,")[1]
+                        mime_type = item["image_url"]["url"].split(";")[0].split(":")[1]
+
+                        contents_to_send.append(
+                            types.Part.from_bytes(
+                                data=base64.b64decode(b64_data),
+                                mime_type=mime_type,
+                            )
+                        )
+            # ---------------------------------
+
+            # On envoie la liste transformée
+            response = with_retry(
+                lambda: self.client.models.generate_content(model=self.model_name, contents=contents_to_send, config=config),
+                max_attempts=3,
+                should_retry=_is_retryable_gemini_error,
+                description=f"Gemini {self.model_name}",
+            )
+
+            if hasattr(response, "usage_metadata") and response.usage_metadata:
+                p_tokens = response.usage_metadata.prompt_token_count or 0
+                c_tokens = response.usage_metadata.candidates_token_count or 0
+                log_token_usage("gemini", self.model_name, p_tokens, c_tokens)
+
+            # Extraction des parties textuelles et des éventuelles parties thought
+            raw_thought_parts: list[str] = []
+            text_parts: list[str] = []
+
+            candidates = getattr(response, "candidates", None) or []
+            if candidates:
+                first_candidate = candidates[0]
+                content_obj = getattr(first_candidate, "content", None)
+                parts = getattr(content_obj, "parts", None) or []
+                for part in parts:
+                    is_thought = getattr(part, "thought", False)
+                    p_text = getattr(part, "text", "") or ""
+                    if is_thought:
+                        if p_text:
+                            raw_thought_parts.append(p_text)
+                    else:
+                        if p_text:
+                            text_parts.append(p_text)
+
+            raw_thought = "\n\n".join(raw_thought_parts) if raw_thought_parts else None
+            raw_content = "".join(text_parts) if text_parts else (response.text or "")
+
+            cleaned_content, thought = extract_thought_tags(raw_content, initial_thought=raw_thought)
+            return LLMResult(content=cleaned_content, thought=thought, raw_response=response)
+        except genai.errors.APIError as e:
+            logger.exception("Erreur API Gemini brute (%s) : %s", self.model_name, e)
+            human_msg = get_human_readable_api_error(e)
+            raise RuntimeError(f"Erreur API Gemini ({self.model_name}) : {human_msg}") from e
+
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "json",
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
+        """Génère une réponse textuelle ou JSON structurée via Gemini (délégation à generate_response)."""
+        return self.generate_response(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_format=response_format,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        ).content
+
+    def stream_response(
+        self,
+        system_prompt: str,
+        user_prompt: str | list[dict[str, Any]],
+        response_format: str = "text",
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """Génère un flux de streaming normalisé émettant des thought_delta et text_delta pour Google Gemini (2.0 / 2.5 Thinking)."""
+        effective_max = max_tokens or self.max_tokens
+        config = types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=temperature if temperature is not None else getattr(self, "default_temperature", 0.2),
+            max_output_tokens=effective_max,
+        )
+        if response_format == "json":
+            config.response_mime_type = "application/json"
+
+        try:
+            contents_to_send: list[Any] = []
+            if isinstance(user_prompt, str):
+                contents_to_send = [user_prompt]
+            else:
+                for item in user_prompt:
+                    if item.get("type") == "text":
+                        contents_to_send.append(item.get("text", ""))
+
+            stream = self.client.models.generate_content_stream(
+                model=self.model_name,
+                contents=contents_to_send,
+                config=config,
+            )
+
+            accumulated_thought: list[str] = []
+            accumulated_content: list[str] = []
+
+            for chunk in stream:
+                candidates = getattr(chunk, "candidates", None) or []
+                if not candidates:
+                    continue
+                content_obj = getattr(candidates[0], "content", None)
+                parts = getattr(content_obj, "parts", None) or []
+                for part in parts:
+                    is_thought = getattr(part, "thought", False)
+                    p_text = getattr(part, "text", "") or ""
+                    if is_thought and p_text:
+                        accumulated_thought.append(p_text)
+                        yield {"type": "thought_delta", "delta": p_text}
+                    elif p_text:
+                        accumulated_content.append(p_text)
+                        yield {"type": "text_delta", "delta": p_text}
+
+            full_content = "".join(accumulated_content)
+            full_thought = "".join(accumulated_thought) if accumulated_thought else None
+            cleaned_content, thought_from_tags = extract_thought_tags(full_content, initial_thought=full_thought)
+            yield {"type": "finish", "content": cleaned_content, "thought": thought_from_tags}
+
+        except Exception as e:
+            logger.warning("Échec du streaming natif Gemini (%s), repli sur super().stream_response : %s", self.model_name, e)
+            yield from super().stream_response(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                response_format=response_format,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )

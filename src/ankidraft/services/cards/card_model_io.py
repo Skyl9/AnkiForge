@@ -1,0 +1,616 @@
+"""Service d'Exportation et d'Importation de Modèles de Cartes AnkiForge.
+
+Supporte le format de paquet bundle communautaire .afmodel (archive zip) et le format .json.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import zipfile
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+from ankidraft.database.models import DEFAULT_LATEX_POST, DEFAULT_LATEX_PRE, NoteTypeModel
+from ankidraft.database.note_type_catalog import cloze_starter_pack_entry
+
+logger = logging.getLogger(__name__)
+
+SCHEMA_VERSION = "1.0"
+BUNDLE_EXTENSION = ".afmodel"
+
+
+class CardModelIO:
+    """Gestionnaire d'import / export pour les modèles de cartes (NoteTypeModel) et paquets .afmodel."""
+
+    @classmethod
+    def export_to_dict(
+        cls,
+        model: NoteTypeModel,
+        author: str = "AnkiForge User",
+        version: str = "1.0.0",
+        description: str = "",
+        tags: list[str] | None = None,
+        demo_cards: list[dict[str, str]] | None = None,
+    ) -> dict[str, Any]:
+        """Convertit un NoteTypeModel en dictionnaire standardisé AnkiForge."""
+        try:
+            fields = json.loads(str(model.fields_schema)) if model.fields_schema else ["Front", "Back"]
+        except Exception:
+            fields = ["Front", "Back"]
+
+        try:
+            templates = json.loads(str(model.templates)) if model.templates else []
+        except Exception:
+            templates = []
+
+        if not demo_cards:
+            demo_cards = [{f: f"Exemple de contenu pour {f}" for f in fields}]
+
+        return {
+            "ankiforge_schema_version": SCHEMA_VERSION,
+            "metadata": {
+                "name": model.name,
+                "author": author or "AnkiForge User",
+                "version": version or "1.0.0",
+                "description": description or "",
+                "exported_at": datetime.now(UTC).isoformat(),
+                "tags": tags or ["ankidraft", "card-model"],
+            },
+            "fields_schema": fields,
+            "templates": templates,
+            "css_style": model.css_style or "",
+            "latex_pre": model.latex_pre or DEFAULT_LATEX_PRE,
+            "latex_post": model.latex_post or DEFAULT_LATEX_POST,
+            "latex_svg": model.latex_svg if model.latex_svg is not None else True,
+            "demo_cards": demo_cards,
+        }
+
+    @classmethod
+    def export_to_json(
+        cls,
+        model: NoteTypeModel,
+        author: str = "AnkiForge User",
+        version: str = "1.0.0",
+        description: str = "",
+        tags: list[str] | None = None,
+        demo_cards: list[dict[str, str]] | None = None,
+    ) -> str:
+        """Sérialise un modèle de carte en JSON formaté."""
+        data = cls.export_to_dict(
+            model=model,
+            author=author,
+            version=version,
+            description=description,
+            tags=tags,
+            demo_cards=demo_cards,
+        )
+        return json.dumps(data, indent=2, ensure_ascii=False)
+
+    @classmethod
+    def export_to_bundle(
+        cls,
+        model: NoteTypeModel,
+        output_path: Path | str,
+        author: str = "AnkiForge User",
+        version: str = "1.0.0",
+        description: str = "",
+        tags: list[str] | None = None,
+        demo_cards: list[dict[str, str]] | None = None,
+        assets: dict[str, bytes] | None = None,
+    ) -> Path:
+        """Exporte un modèle au format bundle .afmodel (archive ZIP contenant templates, CSS, manifeste et démos)."""
+        out = Path(output_path)
+        if out.suffix.lower() != BUNDLE_EXTENSION:
+            out = out.with_suffix(BUNDLE_EXTENSION)
+
+        model_dict = cls.export_to_dict(
+            model=model,
+            author=author,
+            version=version,
+            description=description,
+            tags=tags,
+            demo_cards=demo_cards,
+        )
+
+        manifest = {
+            "ankiforge_schema_version": SCHEMA_VERSION,
+            "metadata": model_dict["metadata"],
+            "fields_schema": model_dict["fields_schema"],
+            "templates_count": len(model_dict["templates"]),
+            "latex_pre": model_dict.get("latex_pre", DEFAULT_LATEX_PRE),
+            "latex_post": model_dict.get("latex_post", DEFAULT_LATEX_POST),
+            "latex_svg": model_dict.get("latex_svg", True),
+        }
+
+        with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
+
+            templates = model_dict["templates"]
+            if templates:
+                first_tmpl = templates[0]
+                zf.writestr("front.html", first_tmpl.get("qfmt", "{{Front}}"))
+                zf.writestr("back.html", first_tmpl.get("afmt", "{{FrontSide}}<hr id='answer'>{{Back}}"))
+            zf.writestr("templates.json", json.dumps(templates, indent=2, ensure_ascii=False))
+
+            zf.writestr("style.css", model_dict.get("css_style", ""))
+            zf.writestr("latex_pre.tex", model_dict.get("latex_pre", DEFAULT_LATEX_PRE))
+            zf.writestr("latex_post.tex", model_dict.get("latex_post", DEFAULT_LATEX_POST))
+            zf.writestr("latex_svg.json", json.dumps({"latex_svg": model_dict.get("latex_svg", True)}))
+
+            zf.writestr("demo_cards.json", json.dumps(model_dict.get("demo_cards", []), indent=2, ensure_ascii=False))
+
+            if assets:
+                for asset_name, asset_bytes in assets.items():
+                    zf.writestr(f"assets/{asset_name}", asset_bytes)
+
+        logger.info("Paquet modèle .afmodel créé avec succès dans : %s", out)
+        return out
+
+    @classmethod
+    def validate_and_parse_json(cls, json_str: str) -> tuple[bool, dict[str, Any] | None, str]:
+        """Valide et normalise la structure d'un modèle JSON AnkiForge."""
+        try:
+            data = json.loads(json_str)
+        except Exception as e:
+            return False, None, f"JSON invalide : {str(e)}"
+
+        if not isinstance(data, dict):
+            return False, None, "Le contenu doit être un objet JSON valide."
+
+        name = ""
+        if "metadata" in data and isinstance(data["metadata"], dict) and "name" in data["metadata"]:
+            name = str(data["metadata"]["name"]).strip()
+        elif "name" in data:
+            name = str(data["name"]).strip()
+
+        if not name:
+            return False, None, "Nom du modèle manquant dans le fichier JSON."
+
+        fields = data.get("fields_schema", [])
+        if not isinstance(fields, list) or not fields:
+            fields = ["Front", "Back"]
+
+        templates = data.get("templates", [])
+        if not isinstance(templates, list) or not templates:
+            templates = [{"name": "Carte 1", "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr id='answer'>{{Back}}"}]
+
+        css_style = data.get("css_style", "")
+        demo_cards = data.get("demo_cards", [])
+        latex_pre = data.get("latex_pre", DEFAULT_LATEX_PRE)
+        latex_post = data.get("latex_post", DEFAULT_LATEX_POST)
+        latex_svg = data.get("latex_svg", True)
+
+        normalized_data = {
+            "name": name,
+            "fields_schema": fields,
+            "templates": templates,
+            "css_style": css_style,
+            "latex_pre": latex_pre,
+            "latex_post": latex_post,
+            "latex_svg": latex_svg,
+            "metadata": data.get("metadata", {}),
+            "demo_cards": demo_cards,
+        }
+
+        return True, normalized_data, ""
+
+    @classmethod
+    def read_bundle_file(cls, bundle_path: Path | str) -> tuple[bool, dict[str, Any] | None, str]:
+        """Lit et extrait les métadonnées et gabarits d'une archive .afmodel."""
+        path = Path(bundle_path)
+        if not path.exists():
+            return False, None, f"Le fichier '{path}' est introuvable."
+
+        try:
+            with zipfile.ZipFile(path, "r") as zf:
+                file_list = zf.namelist()
+
+                if "manifest.json" not in file_list:
+                    return False, None, "Archive .afmodel invalide : 'manifest.json' manquant."
+
+                manifest_raw = zf.read("manifest.json").decode("utf-8")
+                manifest = json.loads(manifest_raw)
+
+                css_style = ""
+                if "style.css" in file_list:
+                    css_style = zf.read("style.css").decode("utf-8")
+
+                templates = []
+                if "templates.json" in file_list:
+                    templates_raw = zf.read("templates.json").decode("utf-8")
+                    templates = json.loads(templates_raw)
+                elif "front.html" in file_list and "back.html" in file_list:
+                    front = zf.read("front.html").decode("utf-8")
+                    back = zf.read("back.html").decode("utf-8")
+                    templates = [{"name": "Carte 1", "qfmt": front, "afmt": back}]
+
+                demo_cards = []
+                if "demo_cards.json" in file_list:
+                    demos_raw = zf.read("demo_cards.json").decode("utf-8")
+                    demo_cards = json.loads(demos_raw)
+
+                latex_pre = DEFAULT_LATEX_PRE
+                if "latex_pre.tex" in file_list:
+                    latex_pre = zf.read("latex_pre.tex").decode("utf-8")
+                elif "latex_pre" in manifest:
+                    latex_pre = manifest.get("latex_pre", DEFAULT_LATEX_PRE)
+
+                latex_post = DEFAULT_LATEX_POST
+                if "latex_post.tex" in file_list:
+                    latex_post = zf.read("latex_post.tex").decode("utf-8")
+                elif "latex_post" in manifest:
+                    latex_post = manifest.get("latex_post", DEFAULT_LATEX_POST)
+
+                latex_svg = True
+                if "latex_svg.json" in file_list:
+                    try:
+                        latex_svg_data = json.loads(zf.read("latex_svg.json").decode("utf-8"))
+                        latex_svg = latex_svg_data.get("latex_svg", True)
+                    except Exception:
+                        pass
+                elif "latex_svg" in manifest:
+                    latex_svg = manifest.get("latex_svg", True)
+
+                name = manifest.get("metadata", {}).get("name", path.stem)
+                fields = manifest.get("fields_schema", ["Front", "Back"])
+
+                model_data = {
+                    "name": name,
+                    "fields_schema": fields,
+                    "templates": templates,
+                    "css_style": css_style,
+                    "latex_pre": latex_pre,
+                    "latex_post": latex_post,
+                    "latex_svg": latex_svg,
+                    "metadata": manifest.get("metadata", {}),
+                    "demo_cards": demo_cards,
+                }
+                return True, model_data, ""
+        except Exception as e:
+            return False, None, f"Erreur lors de la lecture du paquet .afmodel : {str(e)}"
+
+    @classmethod
+    def read_model_file(cls, file_path: Path | str) -> tuple[bool, dict[str, Any] | None, str]:
+        """Détecte automatiquement l'extension et charge le modèle depuis un fichier .afmodel ou .json."""
+        p = Path(file_path)
+        if p.suffix.lower() == BUNDLE_EXTENSION or zipfile.is_zipfile(p):
+            return cls.read_bundle_file(p)
+        else:
+            try:
+                content = p.read_text(encoding="utf-8")
+                return cls.validate_and_parse_json(content)
+            except Exception as e:
+                return False, None, f"Impossible de lire le fichier JSON : {str(e)}"
+
+    @classmethod
+    def save_model_to_db(
+        cls,
+        model_data: dict[str, Any],
+        overwrite_existing: bool | None = None,
+        new_name: str | None = None,
+        on_conflict: str = "error",
+    ) -> tuple[NoteTypeModel, bool]:
+        """Enregistre les données du modèle en base SQLite Peewee avec validation structurelle et gestion explicite des collisions (error, rename, overwrite)."""
+        from ankidraft.services.cards.note_type_service import NoteTypeService
+
+        name = (new_name or model_data.get("name", "")).strip()
+        data_to_validate = dict(model_data)
+        data_to_validate["name"] = name
+
+        is_valid, errors = NoteTypeService.validate_structure(data_to_validate)
+        if not is_valid:
+            raise ValueError(f"Erreur de validation de la structure du type de note : {'; '.join(errors)}")
+
+        fields_json = json.dumps(model_data["fields_schema"], ensure_ascii=False)
+        templates_json = json.dumps(model_data["templates"], ensure_ascii=False)
+        css_style = model_data.get("css_style", "")
+        latex_pre = model_data.get("latex_pre", DEFAULT_LATEX_PRE)
+        latex_post = model_data.get("latex_post", DEFAULT_LATEX_POST)
+        latex_svg = model_data.get("latex_svg", True)
+        description = str(model_data.get("description", "") or model_data.get("metadata", {}).get("description", "") or "").strip()
+
+        if overwrite_existing is True:
+            conflict_policy = "overwrite"
+        elif overwrite_existing is False:
+            conflict_policy = "rename"
+        else:
+            conflict_policy = on_conflict or "error"
+
+        existing = NoteTypeModel.get_or_none(NoteTypeModel.name == name)
+
+        if existing:
+            if conflict_policy == "error":
+                raise ValueError(f"Un type de note portant le nom '{name}' existe déjà.")
+            elif conflict_policy == "overwrite":
+                # Protection non destructive des notes locales existantes
+                old_fields: list[str] = json.loads(existing.fields_schema) if existing.fields_schema else []
+                new_fields: list[str] = json.loads(fields_json) if fields_json else []
+                removed_fields = [f for f in old_fields if f not in new_fields]
+                if removed_fields:
+                    from ankidraft.database.models import NoteModel, NoteVersionModel
+
+                    for note_to_archive in NoteModel.select().where(NoteModel.note_type == existing):
+                        active_v = NoteVersionModel.get_or_none(
+                            NoteVersionModel.note == note_to_archive,
+                            NoteVersionModel.is_active == True,  # noqa: E712
+                        )
+                        if active_v and active_v.content:
+                            try:
+                                c_dict = json.loads(active_v.content)
+                                orphaned = {rf: c_dict[rf] for rf in removed_fields if rf in c_dict and c_dict[rf]}
+                                if orphaned:
+                                    if "_orphaned_fields" not in c_dict:
+                                        c_dict["_orphaned_fields"] = {}
+                                    c_dict["_orphaned_fields"].update(orphaned)
+                                    active_v.content = json.dumps(c_dict, ensure_ascii=False)
+                                    active_v.save()
+                            except Exception as ex:
+                                logger.warning("Erreur archivage _orphaned_fields lors de l'écrasement du modèle : %s", ex)
+
+                existing.fields_schema = fields_json
+                existing.templates = templates_json
+                existing.css_style = css_style
+                existing.latex_pre = latex_pre
+                existing.latex_post = latex_post
+                existing.latex_svg = latex_svg
+                existing.description = description
+                existing.save()
+                logger.info("Modèle de carte '%s' écrasé en base de données avec succès.", name)
+                return existing, False
+            elif conflict_policy == "rename":
+                idx = 2
+                while NoteTypeModel.get_or_none(NoteTypeModel.name == f"{name} ({idx})"):
+                    idx += 1
+                name = f"{name} ({idx})"
+            else:
+                raise ValueError(f"Politique de conflit inconnue : '{conflict_policy}'. Doit être 'error', 'rename' ou 'overwrite'.")
+
+        created = NoteTypeModel.create(
+            name=name,
+            fields_schema=fields_json,
+            templates=templates_json,
+            css_style=css_style,
+            latex_pre=latex_pre,
+            latex_post=latex_post,
+            latex_svg=latex_svg,
+            description=description,
+        )
+        logger.info("Modèle de carte '%s' enregistré en base de données avec succès.", name)
+        return created, True
+
+    @classmethod
+    def get_starter_pack_models(cls) -> list[dict[str, Any]]:
+        """Retourne les 5 modèles préconfigurés du Starter Pack.
+
+        Quatre modèles communautaires, plus le modèle « Texte à trous (Cloze) »
+        désormais activable à la demande au lieu d'être injecté d'office (ADR 0037).
+        """
+        return [
+            {
+                "id": "medical_qcm",
+                "name": "Médical & QCM Interactif",
+                "category": "Médecine & Concours",
+                "author": "AnkiForge Santé",
+                "version": "1.2.0",
+                "description": "Gabarit pour questions médicales à choix multiples (QCM) avec explications physiopathologiques et badges de sévérité.",
+                "fields_schema": ["Question", "Options", "Reponse_Correcte", "Explication", "Pathologie", "Source"],
+                "templates": [
+                    {
+                        "name": "QCM Médical",
+                        "qfmt": """
+<div class="card-med">
+  <div class="header-badge">{{Pathologie}}</div>
+  <div class="q-title">{{Question}}</div>
+  <div class="options-box">{{Options}}</div>
+</div>
+                        """.strip(),
+                        "afmt": """
+{{FrontSide}}
+<hr id="answer">
+<div class="ans-med">
+  <div class="correct-badge">✓ Réponse : {{Reponse_Correcte}}</div>
+  <div class="explanation-box">
+    <strong>Justification Clinique :</strong><br>
+    {{Explication}}
+  </div>
+  <div class="source-ref">Ref : {{Source}}</div>
+</div>
+                        """.strip(),
+                    }
+                ],
+                "css_style": """
+.card-med { font-family: -apple-system, system-ui, sans-serif; padding: 16px; background: var(--bg-panel, #1e1e2e); color: var(--text-primary, #cdd6f4); border-radius: 10px; }
+.header-badge {
+  display: inline-block;
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+.q-title { font-size: 15px; font-weight: 600; line-height: 1.5; margin-bottom: 14px; }
+.options-box { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; padding: 10px; line-height: 1.6; }
+.correct-badge { color: #10b981; font-weight: bold; font-size: 14px; margin-bottom: 8px; }
+.explanation-box { background: rgba(16, 185, 129, 0.08); border-left: 3px solid #10b981; padding: 10px; border-radius: 4px; font-size: 13px; }
+.source-ref { margin-top: 10px; font-size: 10px; color: #888; text-align: right; }
+                """.strip(),
+                "demo_cards": [
+                    {
+                        "Question": "Quel traitement de première intention est recommandé pour une fibrillation auriculaire aiguë instable ?",
+                        "Options": "A. Bêta-bloquants per os<br>B. Cardioversion électrique synchronisée<br>C. Amiodarone IV lente<br>D. Digoxine",
+                        "Reponse_Correcte": "B. Cardioversion électrique synchronisée",
+                        "Explication": "L'instabilité hémodynamique impose une cardioversion électrique en urgence selon les recommandations ESC.",
+                        "Pathologie": "Cardiologie / Rythmologie",
+                        "Source": "Guide ESC 2024",
+                    }
+                ],
+            },
+            {
+                "id": "dev_jetbrains",
+                "name": "Dev & Code JetBrains",
+                "category": "Informatique & Dev",
+                "author": "AnkiForge Dev",
+                "version": "1.1.0",
+                "description": "Style sombre avec police JetBrains Mono, coloration syntaxique et encadré de solution pas à pas.",
+                "fields_schema": ["Concept", "Code_Snippet", "Solution", "Complexite", "Documentation"],
+                "templates": [
+                    {
+                        "name": "Snippet Code",
+                        "qfmt": """
+<div class="dev-card">
+  <div class="dev-header">
+    <span class="lang-tag">Python 3.12</span>
+    <span class="concept-title">{{Concept}}</span>
+  </div>
+  <pre class="code-block"><code>{{Code_Snippet}}</code></pre>
+</div>
+                        """.strip(),
+                        "afmt": """
+{{FrontSide}}
+<hr id="answer">
+<div class="solution-card">
+  <div class="sol-title">⚡ Explication & Solution :</div>
+  <div class="sol-content">{{Solution}}</div>
+  <div class="complexity-badge">⏱️ Complexité : {{Complexite}}</div>
+</div>
+                        """.strip(),
+                    }
+                ],
+                "css_style": """
+.dev-card { font-family: 'JetBrains Mono', monospace; background: #1e1f22; color: #bcbec4; padding: 14px; border-radius: 8px; border: 1px solid #393b40; }
+.dev-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.lang-tag { background: #3574f0; color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+.concept-title { font-size: 13px; font-weight: bold; color: #dfe1e5; }
+.code-block { background: #2b2d30; padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.5; overflow-x: auto; }
+.solution-card { margin-top: 12px; background: #26282b; border: 1px solid #43454a; border-radius: 6px; padding: 12px; font-size: 12px; }
+.sol-title { color: #56a8f5; font-weight: bold; margin-bottom: 6px; }
+.complexity-badge { margin-top: 8px; font-size: 11px; color: #e5c07b; font-style: italic; }
+                """.strip(),
+                "demo_cards": [
+                    {
+                        "Concept": "Inversion de liste in-place",
+                        "Code_Snippet": "def reverse_list(arr: list[int]) -> None:\n    # Comment inverser sans tableau temporaire ?\n    pass",
+                        "Solution": "Utiliser deux pointeurs gauche/droite et échanger : `arr[l], arr[r] = arr[r], arr[l]`",
+                        "Complexite": "O(N) temps, O(1) espace",
+                        "Documentation": "https://docs.python.org",
+                    }
+                ],
+            },
+            {
+                "id": "math_katex",
+                "name": "Maths & KaTeX Minimal",
+                "category": "Mathématiques & Sciences",
+                "author": "AnkiForge Sciences",
+                "version": "1.0.0",
+                "description": "Rendu KaTeX épuré avec théorèmes encadrés, hypothèses et démonstrations pliables.",
+                "fields_schema": ["Theoreme", "Enonce_Formule", "Hypotheses", "Demonstration"],
+                "templates": [
+                    {
+                        "name": "Théorème Math",
+                        "qfmt": """
+<div class="math-card">
+  <div class="math-badge">THÉORÈME</div>
+  <div class="thm-name">{{Theoreme}}</div>
+  <div class="hypo-box"><em>Hypothèses :</em> {{Hypotheses}}</div>
+</div>
+                        """.strip(),
+                        "afmt": """
+{{FrontSide}}
+<hr id="answer">
+<div class="math-body">
+  <div class="formula-box">$${{Enonce_Formule}}$$</div>
+  <details class="demo-box">
+    <summary>Démonstration / Preuve</summary>
+    <div>{{Demonstration}}</div>
+  </details>
+</div>
+                        """.strip(),
+                    }
+                ],
+                "css_style": """
+.math-card { font-family: 'STIX Two Text', 'Latin Modern Math', serif; background: #fafafa; color: #1f2937; padding: 18px; border-radius: 8px; border: 1px solid #e5e7eb; }
+.math-badge { display: inline-block; background: #4f46e5; color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; }
+.thm-name { font-size: 16px; font-weight: bold; margin-top: 8px; margin-bottom: 6px; }
+.hypo-box { font-size: 13px; color: #4b5563; line-height: 1.5; }
+.formula-box { background: #f3f4f6; border-radius: 6px; padding: 14px; text-align: center; font-size: 16px; margin: 12px 0; }
+.demo-box { margin-top: 10px; font-size: 12px; color: #6b7280; }
+                """.strip(),
+                "demo_cards": [
+                    {
+                        "Theoreme": "Théorème Fondamental de l'Analyse",
+                        "Enonce_Formule": "\\int_a^b f(t)\\,dt = F(b) - F(a)",
+                        "Hypotheses": "Soit $f: [a, b] \\to \\mathbb{R}$ une fonction continue et $F$ une primitive de $f$.",
+                        "Demonstration": "Par le théorème de la valeur moyenne et la continuité uniforme.",
+                    }
+                ],
+            },
+            {
+                "id": "vocab_languages",
+                "name": "Vocabulaire & Langues Étrangères",
+                "category": "Langues & Vocabulaire",
+                "author": "AnkiForge Polyglot",
+                "version": "1.0.0",
+                "description": "Cartes de langues avec transcription phonétique IPA, classe grammaticale, phrase d'exemple et note culturelle.",
+                "fields_schema": ["Mot_Etranger", "Phonetique", "Traduction", "Classe_Grammaticale", "Exemple_Phrase", "Traduction_Exemple"],
+                "templates": [
+                    {
+                        "name": "Vocabulaire",
+                        "qfmt": """
+<div class="lang-card">
+  <div class="word-main">{{Mot_Etranger}}</div>
+  <div class="ipa">{{Phonetique}}</div>
+  <div class="pos-tag">{{Classe_Grammaticale}}</div>
+</div>
+                        """.strip(),
+                        "afmt": """
+{{FrontSide}}
+<hr id="answer">
+<div class="lang-ans">
+  <div class="trans-main">{{Traduction}}</div>
+  <div class="example-box">
+    <p class="ex-foreign">« {{Exemple_Phrase}} »</p>
+    <p class="ex-native">« {{Traduction_Exemple}} »</p>
+  </div>
+</div>
+                        """.strip(),
+                    }
+                ],
+                "css_style": """
+.lang-card { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 20px; background: #ffffff; color: #111827; border-radius: 12px; }
+.word-main { font-size: 24px; font-weight: 700; color: #1e3a8a; }
+.ipa { font-size: 14px; color: #6b7280; font-family: monospace; margin-top: 4px; }
+.pos-tag { display: inline-block; background: #e0e7ff; color: #3730a3; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-top: 8px; }
+.trans-main { font-size: 18px; font-weight: 600; color: #047857; margin-bottom: 12px; }
+.example-box { background: #f9fafb; border-left: 3px solid #6366f1; padding: 10px 14px; border-radius: 6px; text-align: left; font-size: 13px; }
+.ex-foreign { font-style: italic; color: #374151; margin: 0 0 4px 0; }
+.ex-native { color: #6b7280; margin: 0; }
+                """.strip(),
+                "demo_cards": [
+                    {
+                        "Mot_Etranger": "Serendipity",
+                        "Phonetique": "/ˌser.ənˈdɪp.ə.t̬i/",
+                        "Traduction": "Sérendipité (découverte heureuse et imprévue)",
+                        "Classe_Grammaticale": "Nom féminin",
+                        "Exemple_Phrase": "Finding this rare book was pure serendipity.",
+                        "Traduction_Exemple": "Trouver ce livre rare était un pur coup de chance.",
+                    }
+                ],
+            },
+            cloze_starter_pack_entry(),
+        ]
+
+    @classmethod
+    def install_starter_pack(cls, pack_id: str, overwrite: bool = False) -> NoteTypeModel | None:
+        """Installe un modèle du starter pack par son identifiant unique."""
+        packs = {p["id"]: p for p in cls.get_starter_pack_models()}
+        pack = packs.get(pack_id)
+        if not pack:
+            return None
+
+        model, _ = cls.save_model_to_db(pack, overwrite_existing=overwrite)
+        return model

@@ -1,0 +1,34 @@
+"""Migration 020 : ajout du champ description (directives IA) à notetypemodel."""
+
+import logging
+
+import peewee as pw
+from peewee_migrate import Migrator
+
+logger = logging.getLogger(__name__)
+
+
+def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:
+    """Migration 020 : Ajout du champ description (directives IA) dans notetypemodel."""
+    if not fake and (database.table_exists("notetypemodel") or "notetypemodel" in migrator.orm):
+        cols = [c.name for c in database.get_columns("notetypemodel")]
+        if "description" not in cols:
+            try:
+                migrator.add_fields(
+                    "notetypemodel",
+                    description=pw.TextField(null=True, default=""),
+                )
+            except Exception:
+                try:
+                    database.execute_sql("ALTER TABLE notetypemodel ADD COLUMN description TEXT DEFAULT '';")
+                except Exception as err:
+                    logger.debug("ALTER TABLE notetypemodel (description) ignoré : %s", err)
+
+
+def rollback(migrator: Migrator, database: pw.Database, *, fake: bool = False) -> None:
+    """Rollback 020 : Suppression du champ description."""
+    if not fake and (database.table_exists("notetypemodel") or "notetypemodel" in migrator.orm):
+        try:
+            migrator.remove_fields("notetypemodel", "description")
+        except Exception as err:
+            logger.debug("Suppression du champ description ignorée : %s", err)

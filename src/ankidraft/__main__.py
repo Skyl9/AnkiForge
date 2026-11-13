@@ -1,0 +1,381 @@
+"""Point d'entrée de l'application AnkiForge : analyse de la ligne de commande, initialisation de l'environnement et lancement de l'IHM.
+
+Ce module assure l'ordre d'initialisation critique : préparation des chemins macOS/Nuitka, certificats SSL,
+logging asynchrone, verrou de profil, migrations de base de données, puis ouverture de la fenêtre principale.
+"""
+
+import os
+import sys
+from pathlib import Path
+
+from ankidraft.utils.i18n import install_translator, tr
+
+# Empêcher l'écriture de fichiers .pyc à l'exécution pour ne pas invalider la signature de code Apple
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+sys.dont_write_bytecode = True
+
+# Support pour les bundles macOS .app (Contents/Resources sur sys.path pour les dépendances tierces et métadonnées dist-info)
+if sys.platform == "darwin":
+    _exe_res = Path(sys.executable).parent.parent / "Resources"
+    if _exe_res.exists() and str(_exe_res) not in sys.path:
+        sys.path.insert(0, str(_exe_res))
+    _exe_lib = _exe_res / "lib"
+    if _exe_lib.exists() and str(_exe_lib) not in sys.path:
+        sys.path.insert(0, str(_exe_lib))
+    try:
+        _mod_res = Path(__file__).resolve().parent.parent.parent / "Resources"
+        if _mod_res.exists() and str(_mod_res) not in sys.path:
+            sys.path.insert(0, str(_mod_res))
+    except (OSError, ValueError):
+        pass
+
+import xml
+import xml.etree.ElementTree  # nosec B405  # import statique pour forcer Nuitka à lier xml.etree dans le bundle C
+
+# Raccordement de secours du package standard xml pour les dépendances non compilées (markdown, defusedxml)
+for _xml_cand in (
+    Path(sys.executable).parent.parent / "Resources" / "xml",
+    Path(sys.executable).parent / "xml",
+):
+    if _xml_cand.exists():
+        if hasattr(xml, "__path__") and str(_xml_cand) not in xml.__path__:
+            xml.__path__.append(str(_xml_cand))
+        if (
+            hasattr(xml, "__spec__")
+            and xml.__spec__
+            and hasattr(xml.__spec__, "submodule_search_locations")
+            and xml.__spec__.submodule_search_locations is not None
+            and str(_xml_cand) not in xml.__spec__.submodule_search_locations
+        ):
+            xml.__spec__.submodule_search_locations.append(str(_xml_cand))
+
+from ankidraft.utils.ssl_certificates import setup_ssl_certificates
+
+# Initialisation précoce des certificats racines SSL (évite FileNotFoundError sous Nuitka/macOS)
+setup_ssl_certificates()
+
+from dotenv import load_dotenv
+from PySide6.QtCore import QCoreApplication, QTranslator
+
+os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-logging --log-level=3 --disable-skia-graphite"
+os.environ["QT_LOGGING_RULES"] = "qt.webenginecontext.*=false"
+# ruff : noqa: E402
+import argparse
+
+from PySide6.QtGui import QFont, QIcon
+from PySide6.QtWidgets import QApplication
+
+from ankidraft.services.profile_manager import ProfileManager
+from ankidraft.ui.widgets.profile_selector import ProfileSelectorDialog
+
+_installed_translator: QTranslator | None = None
+
+
+def parse_cli_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, list[str]]:
+    """Analyse les drapeaux en ligne de commande passés à AnkiForge.
+
+    Supporte les options standard, de test, et d'exécution du serveur MCP headless.
+    """
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("-h", "--help", action="store_true")
+    parser.add_argument("-v", "--version", action="store_true")
+    parser.add_argument("--smoke-test", action="store_true")
+    parser.add_argument("--dev", action="store_true")
+    parser.add_argument("--prod", action="store_true")
+    parser.add_argument("--clone-prod-to-dev", action="store_true")
+    parser.add_argument("--mcp-server", action="store_true")
+    parser.add_argument("--rotate-mcp-token", action="store_true")
+    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--profile", type=str, default=None)
+
+    raw_args = argv if argv is not None else sys.argv[1:]
+    return parser.parse_known_args(raw_args)
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Lance AnkiForge : analyse les arguments, prépare l'environnement puis ouvre l'interface.
+
+    Args:
+        argv: Arguments de ligne de commande ; ``sys.argv[1:]`` est utilisé si omis.
+    """
+    global _installed_translator
+
+    known_args, _ = parse_cli_args(argv)
+
+    if known_args.help:
+        from ankidraft import __version__
+
+        sys.stdout.write(
+            f"AnkiForge v{__version__}\n\n"
+            "Options:\n"
+            "  -h, --help               Affiche ce message d'aide et quitte.\n"
+            "  -v, --version            Affiche la version de l'application et quitte.\n"
+            "  --dev                    Force l'environnement de DÉVELOPPEMENT (~/.ankidraft-dev).\n"
+            "  --prod                   Force l'environnement de PRODUCTION (~/.ankidraft).\n"
+            "  --smoke-test             Exécute une vérification rapide d'intégrité binaire et quitte.\n"
+            "  --clone-prod-to-dev      Clone les profils et médias de production vers le dossier dev.\n"
+            "  --mcp-server             Lance le serveur MCP en mode console headless (sans interface graphique).\n"
+            "  --rotate-mcp-token       Renouvelle le jeton Bearer MCP (génère un nouveau jeton aléatoire 256 bits).\n"
+            "  --port <port>            Port TCP d'écoute du serveur MCP (défaut : 8765).\n"
+            "  --profile <nom>          Profil utilisateur et base SQLite cibles (défaut : profil actif ou 'default').\n"
+        )
+        sys.exit(0)
+
+    if known_args.version:
+        from ankidraft import __version__
+
+        sys.stdout.write(f"AnkiForge v{__version__}\n")
+        sys.exit(0)
+
+    if known_args.smoke_test:
+        from ankidraft import __version__
+
+        sys.stdout.write(f"AnkiForge v{__version__} - Smoke Test Passed\n")
+        sys.exit(0)
+
+    # Imports lourds diffères après les drapeaux immédiats (--help / --version / --smoke-test)
+    # afin que ces commandes rapides ne paient pas le coût des modules graphiques, IA et BDD.
+    from ankidraft.database.backup import backup_database
+    from ankidraft.database.migration import run_migrations
+    from ankidraft.database.models import init_db, seed_initial_data
+    from ankidraft.services.ai.flexible_service import AIManager
+    from ankidraft.ui.main_window import MainWindow
+    from ankidraft.ui.theme import setup_dynamic_theme
+    from ankidraft.utils.environment import (
+        AppEnvironment,
+        clone_production_data_to_development,
+        get_app_qsettings,
+        get_current_environment,
+        get_settings_app_name,
+        get_settings_org_name,
+        is_development,
+        set_environment,
+    )
+    from ankidraft.utils.logger import install_crash_handlers, setup_logging, shutdown_logging
+    from ankidraft.utils.paths import get_active_profile, get_app_data_dir, get_project_root, get_resource_path
+
+    # Gestion précoce des drapeaux d'environnement CLI
+    if known_args.dev:
+        set_environment(AppEnvironment.DEVELOPMENT)
+    elif known_args.prod:
+        set_environment(AppEnvironment.PRODUCTION)
+
+    if known_args.clone_prod_to_dev:
+        sys.stdout.write("Clonage des données de production (~/.ankidraft) vers le développement (~/.ankidraft-dev)...\n")
+        cloned, media = clone_production_data_to_development(copy_media=True)
+        sys.stdout.write(f"Succès : {cloned} profil(s) et {media} média(s) copiés dans ~/.ankidraft-dev/profiles/.\n")
+        sys.exit(0)
+
+    # Renouvellement explicite du jeton Bearer MCP (mode CLI autonome sans UI)
+    if known_args.rotate_mcp_token and not known_args.mcp_server:
+        from ankidraft.services.ai.mcp_daemon import rotate_auth_token
+
+        data_dir = get_app_data_dir()
+        token_file = data_dir / "mcp_auth_token"
+        state_file = data_dir / "mcp_server.json"
+        rotate_auth_token(token_file=token_file, state_file=state_file)
+        sys.stdout.write(f"Jeton MCP renouvelé avec succès : {token_file}\n")
+        sys.exit(0)
+
+    # Chargement dynamique des variables d'environnement (.env)
+    if is_development():
+        root_dir = get_project_root()
+        for env_file in (".env.development", ".env.dev", ".env"):
+            candidate = root_dir / env_file
+            if candidate.exists():
+                load_dotenv(dotenv_path=candidate)
+    else:
+        prod_env = get_app_data_dir() / ".env"
+        if prod_env.exists():
+            load_dotenv(dotenv_path=prod_env)
+        else:
+            load_dotenv()
+
+    # 1. Initialisation du logging asynchrone et des gestionnaires de crash
+    setup_logging()
+    install_crash_handlers()
+
+    env_name = get_current_environment().value
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info("Démarrage d'AnkiForge en environnement : [%s] (Données : %s)", env_name, get_app_data_dir())
+
+    # Mode Headless : Serveur MCP autonome sans UI
+    if known_args.mcp_server:
+        if known_args.port < 1 or known_args.port > 65535:
+            sys.stderr.write(f"Erreur : Le port {known_args.port} doit être compris entre 1 et 65535.\n")
+            sys.stderr.flush()
+            shutdown_logging()
+            sys.exit(2)
+
+        from ankidraft.services.ai.mcp_cli import run_mcp_server_cli
+
+        exit_code = run_mcp_server_cli(
+            port=known_args.port,
+            profile_name=known_args.profile,
+            rotate_token=known_args.rotate_mcp_token,
+        )
+        shutdown_logging()
+        sys.exit(exit_code)
+
+    QCoreApplication.setOrganizationName(get_settings_org_name())
+    QCoreApplication.setApplicationName(get_settings_app_name())
+
+    app = QApplication(sys.argv)
+
+    # Initialiser l'invoker de thread principal pour le bus d'événements (cross-thread)
+    from ankidraft.utils.event_bus import ensure_main_thread_invoker
+
+    ensure_main_thread_invoker()
+
+    # ── Traduction : avant toute fenêtre, dialogue ou message ────────────────────
+    # ``install_translator`` ne lève jamais : un catalogue absent ou illisible laisse
+    # l'application parler français, langue source, sans faire échouer le démarrage.
+    _installed_translator = install_translator(app)
+
+    from ankidraft.ui.theme import DesignTokens
+
+    app.setFont(QFont(DesignTokens.FONT_MAIN, DesignTokens.FONT_SIZE_BASE))
+    from ankidraft.database.maintenance import execute_clean_shutdown
+    from ankidraft.services.profile_lock_service import ProfileLockService
+
+    app.aboutToQuit.connect(lambda: execute_clean_shutdown(get_active_profile() or "default", clean_orphan_media=False))
+    app.aboutToQuit.connect(ProfileLockService.release_all_locks)
+    app.aboutToQuit.connect(shutdown_logging)
+
+    # Application Window & Dock Icon
+    icon_path = get_resource_path("src", "ressources", "icons", "ankidraft.png")
+    if not icon_path.exists():
+        icon_path = get_resource_path("src", "ressources", "icons", "logo.svg")
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
+
+    # ── Application du thème global AVANT toute fenêtre ou dialog ──────────────
+    # Garantit que le ProfileSelectorDialog au démarrage reçoit le même style
+    # Fusion + QPalette + QSS que lorsqu'il est ouvert depuis MainWindow.
+    setup_dynamic_theme(app)
+
+    pm = ProfileManager()
+    profiles = pm.list_profiles()
+
+    settings = get_app_qsettings()
+    auto_open = settings.value("profiles/auto_open_startup", False, type=bool)
+    default_profile = str(settings.value("profiles/default_startup_profile", "default"))
+
+    selected_profile = "default"
+    if known_args.profile:
+        selected_profile = known_args.profile
+    elif not profiles:
+        pm.create_profile("default")
+        selected_profile = "default"
+    elif len(profiles) == 1:
+        selected_profile = profiles[0]
+    elif auto_open and default_profile in profiles:
+        selected_profile = default_profile
+    else:
+        dialog = ProfileSelectorDialog(
+            profiles,
+            current_profile=default_profile if default_profile in profiles else profiles[0],
+            is_startup=True,
+        )
+        if dialog.exec() == ProfileSelectorDialog.DialogCode.Accepted:
+            selected_profile = dialog.get_selected_profile()
+        else:
+            shutdown_logging()
+            sys.exit(0)  # Quitter
+
+    # ── Vérification et acquisition du verrou exclusif anti double-instance ────
+    acquired, lock_info = ProfileLockService.acquire_lock(selected_profile)
+    while not acquired:
+        pid_hint = f" (PID {lock_info.pid} sur {lock_info.hostname})" if lock_info else ""
+        from PySide6.QtWidgets import QMessageBox
+
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Icon.Warning)
+        msg.setWindowTitle(tr("Espace de travail en cours d'utilisation"))
+        msg.setText(
+            tr(
+                "Le profil « %1 » est déjà ouvert par une autre instance d'AnkiForge%2.\n\nL'accès simultané au même profil est formellement bloqué pour éviter toute corruption des données.",
+                selected_profile,
+                pid_hint,
+            )
+        )
+        btn_switch = msg.addButton(tr("Choisir un autre profil"), QMessageBox.ButtonRole.ActionRole)
+        msg.addButton(tr("Quitter"), QMessageBox.ButtonRole.RejectRole)
+        msg.exec()
+
+        if msg.clickedButton() == btn_switch:
+            dialog = ProfileSelectorDialog(
+                profiles,
+                current_profile=selected_profile,
+                is_startup=True,
+            )
+            if dialog.exec() == ProfileSelectorDialog.DialogCode.Accepted:
+                selected_profile = dialog.get_selected_profile()
+                acquired, lock_info = ProfileLockService.acquire_lock(selected_profile)
+            else:
+                shutdown_logging()
+                sys.exit(0)
+        else:
+            shutdown_logging()
+            sys.exit(0)
+
+    pm.switch_profile(selected_profile)
+
+    init_db()
+    backup_database(keep_last=5)
+    run_migrations()
+    seed_initial_data()
+    # Migrer les libellés de drapeaux legacy (SettingsService JSON) vers ProfileFlagLabelModel
+    from ankidraft.services.cards.flag_service import FlagService
+
+    FlagService.migrate_legacy_settings()
+    ai_manager = AIManager()
+
+    # Initialisation et chargement sécurisé des extensions
+    from ankidraft.services.plugins import get_plugin_manager
+
+    plugin_mgr = get_plugin_manager()
+    plugin_mgr.load_all_addons()
+
+    window = MainWindow(ai_manager, selected_profile)
+    window.show()
+
+    # Re-indexation migratoire en arrière-plan des documents indexés avec une ancienne
+    # stratégie de structuration (nécessite chunk_strategy_version == 0 ou absent).
+    from ankidraft.services.reindex_activity_service import ReindexActivityService
+    from ankidraft.services.reindex_service import get_stale_documents
+
+    stale_docs = get_stale_documents()
+    if stale_docs:
+        from ankidraft.services.workers.migration_reindex_worker import MigrationReindexWorker
+
+        activity = ReindexActivityService.get_instance()
+        if activity.begin(len(stale_docs)):
+            reindex_worker = MigrationReindexWorker(stale_docs, activity=activity, parent=window)
+
+            def _on_reindex_finished(processed: int, fragments: int, errors: int) -> None:
+                logger.info(
+                    "Re-indexation migratoire terminée : %d document(s) traité(s), %d fragment(s), %d erreur(s).",
+                    processed,
+                    fragments,
+                    errors,
+                )
+
+            reindex_worker.finished_processing.connect(_on_reindex_finished)
+            logger.info("Démarrage de la re-indexation migratoire de %d document(s)...", len(stale_docs))
+            reindex_worker.start()
+        else:
+            logger.warning(
+                "Re-indexation migratoire de %d document(s) différée : une passe est déjà en cours. Les documents obsolètes restent 'stale' et seront repris au prochain lancement.",
+                len(stale_docs),
+            )
+
+    exit_code = app.exec()
+    shutdown_logging()
+    sys.exit(exit_code)
+
+
+if __name__ == "__main__":
+    main()

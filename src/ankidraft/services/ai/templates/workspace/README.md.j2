@@ -1,0 +1,25 @@
+# Workspace Agentique AnkiForge
+
+Ce répertoire est l'harness local de référence pour les agents IA externes interagissant
+avec AnkiForge via le protocole FastMCP. Il est généré et audité par
+`WorkspaceSyncService` (ADR 0059).
+
+## Contenu
+
+- `AGENT.md` — maître d'instructions des agents
+- `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` — shims spécifiques par client
+- `.agents/active-profile.md` — profil AnkiForge actif
+- `.agents/mcp-catalog.md` — catalogue ordonné des outils MCP
+- `.agents/glossary-and-internals.md` — glossaire et schéma relationnel
+- `.agents/rules/ankiforge-conventions.md` — conventions de l'ingénierie
+- `.agents/skills/` — compétences agentiques (templates Jinja2)
+
+## Profil actif
+
+{{ active_profile }}
+
+## Outils MCP ({{ mcp_tools|length }})
+
+{% for tool in mcp_tools %}
+- `{{ tool }}`
+{% endfor %}

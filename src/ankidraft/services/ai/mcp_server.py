@@ -1,0 +1,2357 @@
+"""Serveur MCP in-process exposant l'outillage de consultation, d'audit et de mutation."""
+
+import hashlib
+import json
+import logging
+from collections import namedtuple
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any, Literal, cast
+
+from jinja2 import FileSystemLoader
+from jinja2.sandbox import SandboxedEnvironment
+from mcp.server.mcpserver import MCPServer
+
+from ankidraft.database.models import LLMConfigModel, NoteModel, NoteTypeModel, NoteVersionModel, db
+from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
+from ankidraft.services.ai.mcp_tracker import get_mcp_activity_tracker
+from ankidraft.services.ai.rag_service import RAGService
+from ankidraft.services.cards.note_manager import NoteManager
+from ankidraft.utils.jinja_sandbox import create_prompt_environment
+from ankidraft.utils.tags import split_tag_tokens
+
+__all__ = [
+    "DEFAULT_MCP_MUTATION_DOMAIN",
+    "MCP_MUTATION_DOMAINS",
+    "mcp",
+    "normalize_mutation_type",
+    "register_mutation_listener",
+    "register_staged_bundle_listener",
+    "register_staged_patch_listener",
+    "resolve_mcp_mutation_domain",
+    "run_server",
+    "unregister_mutation_listener",
+    "unregister_staged_bundle_listener",
+    "unregister_staged_patch_listener",
+]
+
+logger = logging.getLogger(__name__)
+
+# Écouteurs de mutations externes appliquées via les outils MCP
+_mutation_listeners: list[Callable[[dict[str, Any]], None]] = []
+
+# Écouteurs de propositions de patchs en attente (Two-Phase Commit)
+_staged_patch_listeners: list[Callable[[dict[str, Any]], None]] = []
+
+# Écouteurs de propositions de bundles en attente (Staged Bundles)
+_staged_bundle_listeners: list[Callable[[dict[str, Any]], None]] = []
+
+# Représentation légère d'un paquet virtuel intra-bundle avant écriture physique
+VirtualDeck = namedtuple("VirtualDeck", ["id", "name"])
+
+# Domaines fonctionnels exposés par une mutation MCP.
+MCP_MUTATION_DOMAINS: frozenset[str] = frozenset({"cards", "decks", "models", "docs"})
+
+#: Correspondance entre le type de mutation émis par les services et son domaine de vue.
+_MUTATION_DOMAIN_BY_TYPE: dict[str, str] = {
+    # Notes, cartes et opérations d'hygiène en masse.
+    "note_update": "cards",
+    "note_flag_update": "cards",
+    "card_suspend": "cards",
+    "card_unsuspend": "cards",
+    "note_create": "cards",
+    "batch_note_create": "cards",
+    "card_split": "cards",
+    "card_delete": "cards",
+    "note_delete": "cards",
+    "batch_note_delete": "cards",
+    "empty_cards_delete": "cards",
+    # Types historiques émis par `MCPToolRegistry.apply_patch`.
+    "card": "cards",
+    "split": "cards",
+    "bulk_html_sanitize": "cards",
+    "sanitize_fields_html": "cards",
+    "set_tags_bulk": "cards",
+    "merge_tags": "cards",
+    "delete_empty_cards": "cards",
+    "move_cards": "cards",
+    # Types de note, gabarits et CSS.
+    "css_tune": "models",
+    "note_type_update": "models",
+    "note_type_create": "models",
+    "note_type_change": "models",
+    "delete_note_type": "models",
+    "delete_unused_note_types": "models",
+    # Types historiques émis par `MCPToolRegistry.apply_patch`.
+    "model": "models",
+    "css": "models",
+    # Paquets et arborescence.
+    "create_deck": "decks",
+    "deck_create": "decks",
+    "deck_update": "decks",
+    "deck_delete": "decks",
+    "deck_rename": "decks",
+    "rename_deck": "decks",
+    # Bibliothèque documentaire.
+    "document_create": "docs",
+    "document_update": "docs",
+    "plate_ocr_update": "docs",
+    "database_backup": "docs",
+    "document_delete": "docs",
+    "document_index": "docs",
+    "exclude_document_region": "docs",
+    "neutralize_document_region": "docs",
+    "update_document_content": "docs",
+    "reindex_document": "docs",
+}
+
+DEFAULT_MCP_MUTATION_DOMAIN = "cards"
+
+
+def normalize_mutation_type(data: dict[str, Any]) -> str:
+    """Normalise le type de mutation porté par ``type`` ou ``mutation_type``."""
+    return str(data.get("type") or data.get("mutation_type") or "").strip().lower()
+
+
+def resolve_mcp_mutation_domain(data: dict[str, Any]) -> str:
+    """Résout le domaine fonctionnel d'une mutation MCP.
+
+    Un domaine explicite valide (``cards``, ``decks``, ``models`` ou ``docs``) est
+    prioritaire. À défaut, le type de mutation est traduit via la table de routage,
+    puis replié sur ``cards`` pour préserver la compatibilité des anciens outils.
+    """
+    explicit = str(data.get("domain") or "").strip().lower()
+    if explicit in MCP_MUTATION_DOMAINS:
+        return explicit
+
+    mutation_type = normalize_mutation_type(data)
+    domain = _MUTATION_DOMAIN_BY_TYPE.get(mutation_type)
+    if domain is None:
+        if mutation_type:
+            logger.debug(
+                "Type de mutation MCP inconnu '%s' : domaine '%s' appliqué par repli.",
+                mutation_type,
+                DEFAULT_MCP_MUTATION_DOMAIN,
+            )
+        return DEFAULT_MCP_MUTATION_DOMAIN
+    return domain
+
+
+def register_mutation_listener(callback: Callable[[dict[str, Any]], None]) -> None:
+    """Enregistre un écouteur de mutation de données via MCP."""
+    if callback not in _mutation_listeners:
+        _mutation_listeners.append(callback)
+
+
+def unregister_mutation_listener(callback: Callable[[dict[str, Any]], None]) -> None:
+    """Retire un écouteur de mutation."""
+    if callback in _mutation_listeners:
+        _mutation_listeners.remove(callback)
+
+
+def register_staged_patch_listener(callback: Callable[[dict[str, Any]], None]) -> None:
+    """Enregistre un écouteur de proposition de patch en attente via MCP."""
+    if callback not in _staged_patch_listeners:
+        _staged_patch_listeners.append(callback)
+
+
+def unregister_staged_patch_listener(callback: Callable[[dict[str, Any]], None]) -> None:
+    """Retire un écouteur de proposition de patch."""
+    if callback in _staged_patch_listeners:
+        _staged_patch_listeners.remove(callback)
+
+
+def _notify_mcp_mutation(data: dict[str, Any]) -> None:
+    """Notifie les écouteurs enregistrés et le bus d'événements central.
+
+    Le domaine fonctionnel est résolu une seule fois ici puis injecté dans la
+    charge utile transmise aux écouteurs, afin que la GUI n'ait pas à réimplémenter
+    la table de routage.
+    """
+    from ankidraft.utils.event_bus import MCPDataMutatedEvent, MCPDomain, event_bus
+
+    domain = cast(MCPDomain, resolve_mcp_mutation_domain(data))
+    payload = {**data, "domain": domain}
+
+    target_id = int(data.get("target_id") or data.get("parent_note_id") or data.get("note_id") or data.get("note_type_id") or data.get("document_id") or data.get("deck_id") or 0)
+    target_name = str(data.get("note_type_name") or data.get("deck_name") or data.get("document_title") or "")
+
+    try:
+        event_bus.publish(
+            MCPDataMutatedEvent(
+                mutation_type=normalize_mutation_type(data),
+                domain=domain,
+                target_id=target_id,
+                target_name=target_name,
+                details=payload,
+            )
+        )
+    except Exception as e:
+        logger.warning("Erreur publication event_bus MCPDataMutatedEvent : %s", e)
+
+    for listener in list(_mutation_listeners):
+        try:
+            listener(payload)
+        except Exception as e:
+            logger.warning("Erreur dans l'écouteur de mutation MCP : %s", e)
+
+
+def _notify_mcp_patch_staged(data: dict[str, Any]) -> None:
+    """Notifie les écouteurs enregistrés lors de la création d'un patch staged.
+
+    NOTE: Ne publie PAS sur le event_bus pour éviter la duplication.
+    L'appelant (StagedPatchRegistry._notify_staged_patch) s'en charge déjà.
+    """
+    for listener in list(_staged_patch_listeners):
+        try:
+            listener(data)
+        except Exception as e:
+            logger.warning("Erreur dans l'écouteur de patch staged MCP : %s", e)
+
+
+def register_staged_bundle_listener(callback: Callable[[dict[str, Any]], None]) -> None:
+    """Enregistre un écouteur appelé lors du scellement d'un Staged Bundle."""
+    if callback not in _staged_bundle_listeners:
+        _staged_bundle_listeners.append(callback)
+
+
+def unregister_staged_bundle_listener(callback: Callable[[dict[str, Any]], None]) -> None:
+    """Retire un écouteur de Staged Bundle."""
+    if callback in _staged_bundle_listeners:
+        _staged_bundle_listeners.remove(callback)
+
+
+def _notify_mcp_bundle_staged(data: dict[str, Any]) -> None:
+    """Notifie les écouteurs enregistrés et le bus d'événements lors du commit d'un Staged Bundle."""
+    from ankidraft.utils.event_bus import MCPBundleStagedEvent, event_bus
+
+    b_id = str(data.get("bundle_id", ""))
+    title = str(data.get("title", ""))
+    total_steps = int(data.get("total_steps", 0))
+
+    try:
+        event_bus.publish(
+            MCPBundleStagedEvent(
+                bundle_id=b_id,
+                title=title,
+                total_steps=total_steps,
+                details=data,
+            )
+        )
+    except Exception as e:
+        logger.debug("Erreur publication event_bus MCPBundleStagedEvent : %s", e)
+
+    for listener in list(_staged_bundle_listeners):
+        try:
+            listener(data)
+        except Exception as e:
+            logger.warning("Erreur dans l'écouteur de bundle staged MCP : %s", e)
+
+
+# Environnement Jinja2 sandboxé (partagé) pour l'interpolation des prompts.
+_PROMPT_ENV = create_prompt_environment()
+
+# Répertoire des templates d'amorçage d'agent MCP.
+_TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+_GUIDE_AGENT_FILENAMES: dict[str, str] = {
+    "claude": "CLAUDE.md",
+    "gemini": "GEMINI.md",
+    "cursor": ".cursorrules",
+    "generic": "ANKIFORGE_GUIDE.md",
+    "agy": "GEMINI.md",
+}
+# Environnement Jinja2 sandboxé dédié au rendu des guides d'amorçage (inclut les fichiers).
+_GUIDE_ENV = SandboxedEnvironment(
+    loader=FileSystemLoader(str(_TEMPLATES_DIR)),
+    autoescape=False,  # B701 non applicable : sortie Markdown texte
+)
+
+
+def _compute_guide_version_hash() -> str:
+    """Calcule le hash SHA-256 de version à partir des templates d'amorçage."""
+    h = hashlib.sha256()
+    if _TEMPLATES_DIR.exists():
+        for path in sorted(_TEMPLATES_DIR.glob("*.j2")):
+            try:
+                h.update(path.read_bytes())
+            except OSError:
+                continue
+    return h.hexdigest()
+
+
+_GUIDE_VERSION_HASH: str = _compute_guide_version_hash()
+
+mcp = MCPServer("AnkiForge")
+get_mcp_activity_tracker().attach_to_server(mcp)
+
+
+@mcp.tool()
+def audit_deck_wozniak(deck_name: str) -> str:
+    """Effectue un audit de qualité Wozniak complet sur un paquet (20 règles de formulation, atomicité, redondance)."""
+    return MCPToolRegistry.audit_deck_wozniak(deck_name)
+
+
+@mcp.tool()
+def audit_card_wozniak(note_id: int) -> str:
+    """Analyse chirurgicale d'une carte spécifique au regard des 20 règles de Piotr Wozniak."""
+    return MCPToolRegistry.audit_card_wozniak(note_id)
+
+
+@mcp.tool()
+def find_duplicate_cards(deck_name: str = "", threshold: float = 0.75) -> str:
+    """Détecte les cartes doublons ou formulées de manière quasi-identique dans un paquet via distance Levenshtein."""
+    return MCPToolRegistry.find_duplicate_cards(deck_name, threshold)
+
+
+@mcp.tool()
+def propose_card_refactor(note_id: int, new_fields_json: str, explanation: str = "") -> str:
+    """Propose une modification de carte avec Diff pour validation humaine (Garde-Fou)."""
+    return MCPToolRegistry.propose_card_refactor(note_id, new_fields_json, explanation)
+
+
+@mcp.tool()
+def propose_cards_batch_refactor(refactors_json: str, title: str = "", reason: str = "") -> str:
+    """Garde-fou : Propose la refactorisation atomique d'un lot de cartes sous forme de Staged Bundle multi-étapes.
+
+    Plafond dur de sécurité : maximum 100 cartes et 32 000 caractères par appel (bornes cumulatives).
+    Recommandation : fractionner en sous-lots de 5 à 8 cartes (≈ 8 000 caractères) sur un Staged Bundle ouvert.
+    """
+    return MCPToolRegistry.propose_cards_batch_refactor(refactors_json=refactors_json, title=title, reason=reason)
+
+
+@mcp.tool()
+def propose_card_split(note_id: int, new_cards_json: str, explanation: str = "") -> str:
+    """Propose de scinder une carte dense en N cartes atomiques avec Diff comparatif pour validation humaine."""
+    return MCPToolRegistry.propose_card_split(note_id, new_cards_json, explanation)
+
+
+@mcp.tool()
+def propose_card_deletion(note_id: int, reason: str = "") -> str:
+    """Garde-fou : Propose la suppression définitive d'une note et de ses cartes filles sous Two-Phase Commit."""
+    return MCPToolRegistry.propose_card_deletion(note_id=note_id, reason=reason)
+
+
+@mcp.tool()
+def propose_batch_card_deletion(note_ids_json: str, reason: str = "") -> str:
+    """Garde-fou : Propose la suppression groupée d'un lot de notes sous Two-Phase Commit (format JSON)."""
+    return MCPToolRegistry.propose_batch_card_deletion(note_ids_json=note_ids_json, reason=reason)
+
+
+@mcp.tool()
+def propose_deck_rename(old_name: str, new_name: str, reason: str = "") -> str:
+    """Garde-fou : Propose le renommage d'un paquet sous Two-Phase Commit avant modification de l'arborescence."""
+    return MCPToolRegistry.propose_deck_rename(old_name=old_name, new_name=new_name, reason=reason)
+
+
+@mcp.tool()
+def propose_deck_deletion(deck_name: str, move_cards_to_deck: str = "", reason: str = "") -> str:
+    """Garde-fou : Propose la suppression d'un paquet sous Two-Phase Commit avec réassignation optionnelle des cartes."""
+    return MCPToolRegistry.propose_deck_deletion(deck_name=deck_name, move_cards_to_deck=move_cards_to_deck, reason=reason)
+
+
+@mcp.tool()
+def apply_patch(
+    patch_id: str = "",
+    patch_json: str = "",
+    patch_type: str = "",
+    target_id: int = 0,
+    target_name: str = "",
+    patch_data_json: str = "{}",
+    explanation: str = "",
+) -> str:
+    """Applique un patch validé sur une note, scission, modèle ou CSS en base SQLite avec rollback versionné."""
+    p_id = patch_id.strip() or (patch_json.strip() if patch_json.strip().startswith("patch_") else "")
+    if p_id:
+        result = MCPToolRegistry.preview_and_apply_patch(p_id)
+    else:
+        result = MCPToolRegistry.apply_patch(
+            patch_json=patch_json,
+            patch_type=patch_type,
+            target_id=target_id,
+            target_name=target_name,
+            patch_data_json=patch_data_json,
+            explanation=explanation,
+        )
+    try:
+        data = json.loads(result)
+        # Le chemin staged (`preview_and_apply_patch`) notifie déjà via
+        # `StagedPatchRegistry` avec un type canonique : ne pas doubler la mutation.
+        if isinstance(data, dict) and data.get("status") == "applied" and normalize_mutation_type(data):
+            _notify_mcp_mutation(data)
+    except Exception as e:
+        logger.debug("Erreur analyse résultat apply_patch : %s", e)
+    return result
+
+
+@mcp.tool()
+def preview_and_apply_patch(patch_id: str) -> str:
+    """Valide et applique un patch chirurgical en attente (Two-Phase Commit) avec vérification de version optimiste."""
+    return MCPToolRegistry.preview_and_apply_patch(patch_id)
+
+
+@mcp.tool()
+def abort_staged_patch(patch_id: str, reason: str = "") -> str:
+    """Annule un patch staged précis sans purger son bundle ni ses patches frères."""
+    try:
+        return MCPToolRegistry.abort_staged_patch(patch_id=patch_id, reason=reason)
+    except Exception as e:
+        logger.error("Erreur abort_staged_patch : %s", e)
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def begin_staged_bundle(title: str, explanation: str = "") -> str:
+    """Ouvre une session transactionnelle groupée (Staged Bundle) permettant d'enchaîner plusieurs mutations sans interruption.
+
+    Retourne l'identifiant du bundle ouvert ('bundle_id') et initialise le contexte virtuel (Staged Overlay).
+    """
+    try:
+        from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        bundle_id = StagedPatchRegistry.begin_bundle(title=title, explanation=explanation)
+        return json.dumps(
+            {
+                "status": "bundle_opened",
+                "bundle_id": bundle_id,
+                "title": title.strip() or "Nouveau Bundle",
+                "explanation": explanation.strip(),
+                "message": (
+                    f"Session de bundle '{bundle_id}' ouverte avec succès. Toutes les mutations subséquentes seront "
+                    f"enregistrées comme étapes de ce bundle avec résolution virtuelle intra-bloc (Staged Overlay) jusqu'à l'appel de 'commit_staged_bundle'."
+                ),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    except Exception as e:
+        logger.error("Erreur begin_staged_bundle : %s", e)
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def commit_staged_bundle(bundle_id: str) -> str:
+    """Scelle un Staged Bundle au statut 'pending' et le transmet au Garde-Fou pour validation humaine.
+
+    Vérifie que le bundle contient au moins une étape.
+    """
+    try:
+        from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        res = StagedPatchRegistry.commit_bundle(bundle_id=bundle_id)
+        return json.dumps(
+            {
+                "status": "staged",
+                "bundle_id": res["bundle_id"],
+                "title": res["title"],
+                "total_steps": res["total_steps"],
+                "message": (f"Bundle '{res['bundle_id']}' scellé avec succès avec {res['total_steps']} étape(s). Transmis au Garde-Fou pour validation humaine séquentielle ou tout-en-un."),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    except Exception as e:
+        logger.error("Erreur commit_staged_bundle : %s", e)
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def abort_staged_bundle(bundle_id: str) -> str:
+    """Annule et supprime un Staged Bundle en cours de construction ainsi que toutes ses étapes associées."""
+    try:
+        from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        ok = StagedPatchRegistry.abort_bundle(bundle_id=bundle_id)
+        if not ok:
+            return json.dumps({"status": "error", "message": f"Bundle '{bundle_id}' introuvable ou déjà supprimé."}, ensure_ascii=False)
+        return json.dumps(
+            {
+                "status": "aborted",
+                "bundle_id": bundle_id,
+                "message": f"Bundle '{bundle_id}' et toutes ses étapes associées ont été supprimés avec succès.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    except Exception as e:
+        logger.error("Erreur abort_staged_bundle : %s", e)
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def get_staged_pending_operations(bundle_id: str = "") -> str:
+    """Consulte les bundles et propositions d'opérations en attente de validation humaine avec l'état virtuel de l'overlay."""
+    try:
+        from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        res = StagedPatchRegistry.get_staged_pending_operations(bundle_id=bundle_id)
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error("Erreur get_staged_pending_operations : %s", e)
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def propose_css_tune(note_type_name: str, css_snippet: str, selector: str = "") -> str:
+    """Propose un ajustement CSS pour un modèle de carte avec aperçu live avant enregistrement."""
+    return MCPToolRegistry.propose_css_tune(note_type_name, css_snippet, selector)
+
+
+@mcp.tool()
+def get_collection_panorama_360() -> str:
+    """Fournit une vision panoramique 360° de la collection (paquets, cartes, sangsues, santé globale)."""
+    return MCPToolRegistry.get_collection_panorama_360()
+
+
+@mcp.tool()
+def inspect_deck_deep_scan(deck_name: str) -> str:
+    """Effectue une analyse approfondie d'un paquet spécifique (distribution des intervalles, top cartes sangsues)."""
+    return MCPToolRegistry.inspect_deck_deep_scan(deck_name)
+
+
+@mcp.tool()
+def diagnose_deck_weaknesses(deck_name: str) -> str:
+    """Effectue un diagnostic chirurgical approfondi d'un paquet (sangsues, surcharge de texte, clozes excessives, Wozniak)."""
+    return MCPToolRegistry.diagnose_deck_weaknesses(deck_name)
+
+
+@mcp.tool()
+def list_card_models_manifest() -> str:
+    """Dresse la cartographie complète des modèles de notes (champs requis, templates HTML Recto/Verso, CSS effectif, volumétrie)."""
+    return MCPToolRegistry.list_card_models_manifest()
+
+
+@mcp.tool()
+def refactor_cards_by_criteria(query: str, instruction: str = "") -> str:
+    """Extrait un échantillon condensé de cartes selon un critère ('deck:Nom', 'tag:Nom', 'sangsues', 'verbeux') pour émettre des StagedPatches."""
+    return MCPToolRegistry.refactor_cards_by_criteria(query, instruction)
+
+
+@mcp.tool()
+def search_knowledge_context(query: str, max_chunks: int = 5) -> str:
+    """Interroge la bibliothèque documentaire locale via RAG pour extraire des passages avec citations et tags de traçabilité."""
+    return MCPToolRegistry.search_knowledge_context(query, max_chunks=max_chunks)
+
+
+@mcp.tool()
+def get_note_full_profile_360(note_id: int) -> str:
+    """Génère le profil complet 360° d'une note (cartes, historique Time Machine, stats SRS, tags)."""
+    return MCPToolRegistry.get_note_full_profile_360(note_id)
+
+
+@mcp.tool()
+def query_peewee(sql_query: str, limit: int = 50, offset: int = 0) -> str:
+    """Exécute une requête SQL en lecture seule sur la base de données SQLite avec pagination."""
+    return MCPToolRegistry.query_peewee(sql_query, limit=limit, offset=offset)
+
+
+@mcp.tool()
+def get_deck_stats(deck_name: str) -> str:
+    """Récupère les statistiques détaillées d'un paquet Anki (nombre total de cartes, révisions et difficultés)."""
+    return MCPToolRegistry.get_deck_stats(deck_name)
+
+
+@mcp.tool()
+def get_cards_by_deck_or_tag(
+    deck_name: str = "",
+    tag: str = "",
+    limit: int = 20,
+    offset: int = 0,
+    note_type_name: str = "",
+    recursive: bool = True,
+    include_subdecks: bool | None = None,
+) -> str:
+    """Récupère une liste de cartes filtrée par nom de paquet (avec sous-paquets optionnels), tag ou type de note avec pagination.
+
+    Args:
+        recursive: Inclure les sous-paquets (nom canonique, défaut True). Alias déprécié: include_subdecks.
+        include_subdecks: [Déprécié] Utilisez `recursive` à la place.
+    """
+    effective_recursive = recursive if include_subdecks is None else include_subdecks
+    return MCPToolRegistry.get_cards_by_deck_or_tag(
+        deck_name=deck_name,
+        tag=tag,
+        limit=limit,
+        offset=offset,
+        note_type_name=note_type_name,
+        include_subdecks=effective_recursive,
+    )
+
+
+@mcp.tool()
+def get_notes_by_model(
+    note_type_name: str,
+    recursive: bool = True,
+    deck_name: str = "",
+    limit: int = 20,
+    offset: int = 0,
+    include_subdecks: bool | None = None,
+) -> str:
+    """Liste les notes rattachées à un type de note spécifique, avec descente optionnelle dans les sous-paquets et pagination.
+
+    Args:
+        recursive: Inclure les sous-paquets (nom canonique, défaut True). Alias déprécié: include_subdecks.
+        include_subdecks: [Déprécié] Utilisez `recursive` à la place.
+    """
+    effective_recursive = recursive if include_subdecks is None else include_subdecks
+    return MCPToolRegistry.get_cards_by_deck_or_tag(
+        deck_name=deck_name,
+        limit=limit,
+        offset=offset,
+        note_type_name=note_type_name,
+        include_subdecks=effective_recursive,
+    )
+
+
+@mcp.tool()
+def list_decks(filter: str = "") -> str:
+    """Liste tous les paquets et sous-paquets hiérarchiques disponibles dans la collection avec filtrage optionnel."""
+    try:
+        from ankidraft.database.models import DeckModel
+
+        query = DeckModel.select().order_by(DeckModel.name.asc())
+        decks = list(query)
+        if filter.strip():
+            f_lower = filter.strip().lower()
+            decks = [d for d in decks if f_lower in d.name.lower()]
+
+        res = {
+            "status": "success",
+            "count": len(decks),
+            "decks": [{"id": d.id, "name": d.name, "description": d.description or ""} for d in decks],
+        }
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error("Erreur list_decks : %s", e)
+        return json.dumps({"status": "error", "message": f"Erreur lors du listage des paquets : {e}"}, ensure_ascii=False)
+
+
+@mcp.tool()
+def create_deck(deck_name: str, description: str = "") -> str:
+    """Crée un paquet et toute son arborescence hiérarchique ('Parent::Enfant') en écriture directe et idempotente."""
+    try:
+        from ankidraft.database.models import DeckModel
+        from ankidraft.repositories.deck_repository import DeckRepository
+
+        dk_clean = deck_name.strip()
+        if not dk_clean:
+            return json.dumps({"status": "error", "message": "Le nom du paquet ne peut pas être vide."}, ensure_ascii=False)
+
+        from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        existing = DeckModel.get_or_none(DeckModel.name == dk_clean)
+        is_new = existing is None
+
+        # Si un bundle est actif et que le paquet est nouveau, enregistrer l'étape staged dans le bundle
+        bundle_id = StagedPatchRegistry.get_active_bundle_id()
+        if bundle_id and is_new:
+            patch = StagedPatchRegistry.create_patch(
+                patch_type="deck_create",
+                diff_payload={
+                    "deck_name": dk_clean,
+                    "description": description.strip(),
+                    "title": f"Création du paquet '{dk_clean}'",
+                    "explanation": f"Proposition de création du paquet hiérarchique '{dk_clean}' (étape de bundle).",
+                },
+                bundle_id=bundle_id,
+            )
+            return json.dumps(
+                {
+                    "status": "staged",
+                    "patch_id": patch.patch_id,
+                    "bundle_id": bundle_id,
+                    "step_order": patch.step_order,
+                    "deck_name": dk_clean,
+                    "message": f"Création du paquet '{dk_clean}' enregistrée comme étape {patch.step_order} du bundle {bundle_id}.",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+
+        repo = DeckRepository()
+        deck = repo.get_or_create_deck_hierarchical(dk_clean, description=description.strip())
+
+        if is_new:
+            _notify_mcp_mutation(
+                {
+                    "type": "create_deck",
+                    "domain": "decks",
+                    "target_id": deck.id,
+                    "target_name": deck.name,
+                    "deck_id": deck.id,
+                    "deck_name": deck.name,
+                }
+            )
+
+        return json.dumps(
+            {
+                "status": "success",
+                "deck_id": deck.id,
+                "deck_name": deck.name,
+                "is_new": is_new,
+                "message": f"Paquet '{deck.name}' {'créé avec succès' if is_new else 'existant récupéré'}.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    except Exception as e:
+        logger.error("Erreur create_deck : %s", e)
+        return json.dumps({"status": "error", "message": f"Erreur lors de la création du paquet : {e}"}, ensure_ascii=False)
+
+
+def _check_first_field_duplicate(deck_id: int, note_type_id: int, first_field_value: str) -> int | None:
+    """Vérifie si une note active dans le deck cible partage déjà le même premier champ."""
+    val_clean = first_field_value.strip().lower()
+    if not val_clean:
+        return None
+    from ankidraft.database.models import CardModel, NoteModel, NoteVersionModel
+
+    candidates = (
+        NoteModel.select(NoteModel.id)
+        .join(CardModel, on=(CardModel.note_id == NoteModel.id))
+        .where((CardModel.deck_id == deck_id) & (NoteModel.note_type_id == note_type_id) & (NoteModel.status != "archived"))
+        .distinct()
+        .limit(300)
+    )
+    for c_note in candidates:
+        n_obj = NoteModel.get_or_none(NoteModel.id == c_note.id)
+        if not n_obj:
+            continue
+        v = n_obj.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+        if v:
+            try:
+                cnt = json.loads(v.content) if isinstance(v.content, str) else v.content
+                if isinstance(cnt, dict):
+                    first_val = next(iter(cnt.values()), "")
+                    if str(first_val).strip().lower() == val_clean:
+                        return n_obj.id
+            except Exception:
+                pass
+    return None
+
+
+def _validate_note_creation_data(
+    note_type_name: str,
+    deck_name: str,
+    fields_input: str | dict[str, Any],
+    bundle_id: str | None = None,
+) -> tuple[NoteTypeModel, Any, dict[str, str], list[str]]:
+    """Valide les paramètres d'une note. Lève ValueError si invalide.
+
+    Retourne (NoteTypeModel, DeckModel, sanitized_fields, warnings).
+    """
+
+    from ankidraft.database.models import DeckModel, NoteTypeModel
+    from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+
+    # 1. Contrôle du deck (anti-hallucination avec support Staged Overlay)
+    dk_clean = deck_name.strip()
+    if not dk_clean:
+        raise ValueError("Le nom du paquet cible ne peut pas être vide.")
+
+    db_deck = DeckModel.get_or_none(DeckModel.name == dk_clean)
+    overlay = StagedPatchRegistry.get_active_overlay(bundle_id)
+    is_in_overlay = overlay is not None and overlay.is_deck_available(dk_clean)
+
+    if not db_deck and not is_in_overlay:
+        avail = [d.name for d in DeckModel.select().limit(5)]
+        avail_str = f" Exemples de paquets existants : {avail}." if avail else ""
+        raise ValueError(
+            f"Paquet '{dk_clean}' introuvable en base.{avail_str} Pour éviter toute création de paquet fantôme par hallucination, "
+            f"veuillez utiliser un paquet existant ou le créer préalablement via 'create_deck'."
+        )
+
+    deck: Any = db_deck if db_deck is not None else VirtualDeck(id=0, name=dk_clean)
+
+    # 2. Contrôle du type de note
+    nt_clean = note_type_name.strip()
+    if not nt_clean:
+        raise ValueError("Le nom du type de note ne peut pas être vide.")
+
+    nt = NoteTypeModel.get_or_none(NoteTypeModel.name == nt_clean)
+    if not nt:
+        raise ValueError(f"Type de note '{nt_clean}' introuvable en base.")
+
+    # 3. Contrôle des champs
+    if isinstance(fields_input, str):
+        try:
+            fields_dict = json.loads(fields_input)
+        except Exception as e:
+            raise ValueError(f"Format JSON invalide pour fields_json : {e}") from e
+    elif isinstance(fields_input, dict):
+        fields_dict = fields_input
+    else:
+        raise ValueError("fields_json doit être un dictionnaire ou une chaîne JSON.")
+
+    schema = json.loads(str(nt.fields_schema)) if nt.fields_schema else []
+    if not isinstance(schema, list) or not schema:
+        raise ValueError(f"Le type de note '{nt.name}' ne possède aucun champ dans son schéma.")
+
+    unknown = set(fields_dict.keys()) - set(schema)
+    if unknown:
+        raise ValueError(f"Champs inconnus pour le type de note '{nt.name}' : {sorted(list(unknown))}. Champs valides attendus : {schema}.")
+
+    sanitized: dict[str, str] = {k: str(fields_dict.get(k, "")).strip() for k in schema}
+
+    if not any(v for v in sanitized.values()):
+        raise ValueError(f"Tous les champs de la note pour le type '{nt.name}' sont vides.")
+
+    # 4. Warnings (doublons sur premier champ physique et virtuel)
+    warnings: list[str] = []
+    first_field_name = schema[0] if schema else None
+    if first_field_name and sanitized.get(first_field_name):
+        val_first = sanitized[first_field_name]
+        deck_id = int(getattr(deck, "id", 0))
+        deck_name_str = str(getattr(deck, "name", dk_clean))
+        if deck_id > 0:
+            dup_id = _check_first_field_duplicate(deck_id, nt.id, val_first)
+            if dup_id:
+                warnings.append(f"Doublon potentiel : la note #{dup_id} dans le paquet '{deck_name_str}' possède déjà la valeur '{val_first[:50]}' pour le champ '{first_field_name}'.")
+        if overlay and overlay.has_duplicate_first_field(deck_name_str, val_first):
+            warnings.append(
+                f"Doublon potentiel intra-bundle : une note créée plus tôt dans ce bundle dans le paquet '{deck_name_str}' "
+                f"possède déjà la valeur '{val_first[:50]}' pour le champ '{first_field_name}'."
+            )
+
+    return nt, deck, sanitized, warnings
+
+
+@mcp.tool()
+def create_note(
+    note_type_name: str,
+    fields_json: str,
+    deck_name: str,
+    tags: str = "",
+) -> str:
+    """Propose la création d'une nouvelle note via un StagedPatch (Two-Phase Commit). Rejette strictement les paquets inexistants."""
+    try:
+        from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        nt, deck, sanitized_fields, warnings = _validate_note_creation_data(
+            note_type_name=note_type_name,
+            deck_name=deck_name,
+            fields_input=fields_json,
+        )
+
+        tags_list = split_tag_tokens(tags)
+
+        first_field_name = next(iter(sanitized_fields.keys()), "Front")
+        first_val = sanitized_fields.get(first_field_name, "")
+
+        diff_payload = {
+            "type": "note_create",
+            "note_type_name": nt.name,
+            "note_type_id": nt.id,
+            "deck_name": deck.name,
+            "deck_id": deck.id,
+            "fields": sanitized_fields,
+            "tags": tags_list,
+            "warnings": warnings,
+            "modified": {
+                "Front": first_val,
+                "fields": sanitized_fields,
+                "deck": deck.name,
+                "note_type": nt.name,
+                "tags": tags_list,
+                "warnings": warnings,
+            },
+            "title": f"Création de Note dans '{deck.name}' ({nt.name})",
+            "explanation": f"Proposition de création d'une note dans le paquet '{deck.name}' avec le type de note '{nt.name}'.",
+        }
+
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="note_create",
+            diff_payload=diff_payload,
+        )
+
+        return json.dumps(
+            {
+                "status": "staged",
+                "patch_id": patch.patch_id,
+                "note_type": nt.name,
+                "deck": deck.name,
+                "fields": sanitized_fields,
+                "warnings": warnings,
+                "message": f"Proposition de création de note enregistrée sous le patch {patch.patch_id}. En attente de validation humaine.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    except Exception as e:
+        logger.error("Erreur create_note : %s", e)
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def create_notes_batch(
+    notes_json: str,
+    default_deck: str = "",
+    default_note_type: str = "",
+    default_tags: str = "",
+) -> str:
+    """Propose la création d'un lot de notes via un StagedPatch groupé atomique (Two-Phase Commit, validation Tout-ou-Rien).
+
+    Plafond dur de sécurité : maximum 100 notes et 32 000 caractères par appel (bornes cumulatives).
+    Recommandation : fractionner en sous-lots de 5 à 8 notes (≈ 8 000 caractères) sur un Staged Bundle ouvert.
+    """
+    try:
+        from ankidraft.services.ai.mcp_batch_safeguard import MCPBatchSafeguard
+        from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+
+        notes_raw, err_json = MCPBatchSafeguard.validate_batch_payload("create_notes_batch", notes_json)
+        if err_json is not None or notes_raw is None:
+            return err_json or json.dumps({"status": "error", "message": "Échec de validation du lot."}, ensure_ascii=False)
+
+        if not notes_raw:
+            return json.dumps(
+                {"status": "error", "message": "notes_json doit être une liste JSON non vide de notes."},
+                ensure_ascii=False,
+            )
+
+        def_tags_list = split_tag_tokens(default_tags)
+
+        validated_notes: list[dict[str, Any]] = []
+        all_warnings: list[str] = []
+
+        # Validation Tout-ou-Rien
+        for idx, item in enumerate(notes_raw, 1):
+            if not isinstance(item, dict):
+                return json.dumps({"status": "error", "message": f"Note #{idx} invalide : chaque élément doit être un objet JSON."}, ensure_ascii=False)
+
+            nt_name = str(item.get("note_type") or item.get("note_type_name") or default_note_type).strip()
+            dk_name = str(item.get("deck") or item.get("deck_name") or default_deck).strip()
+            fields_val = item.get("fields") or item.get("content_dict") or {}
+
+            try:
+                nt_obj, dk_obj, sanitized_fields, warnings = _validate_note_creation_data(
+                    note_type_name=nt_name,
+                    deck_name=dk_name,
+                    fields_input=fields_val,
+                )
+            except ValueError as err:
+                return json.dumps({"status": "error", "message": f"Note #{idx} invalide : {err}"}, ensure_ascii=False)
+
+            item_tags = item.get("tags")
+            combined_tags = list(def_tags_list) if item_tags is None else list(dict.fromkeys(def_tags_list + split_tag_tokens(item_tags)))
+
+            validated_notes.append(
+                {
+                    "note_type": nt_obj.name,
+                    "deck": dk_obj.name,
+                    "fields": sanitized_fields,
+                    "tags": combined_tags,
+                    "warnings": warnings,
+                }
+            )
+            if warnings:
+                all_warnings.extend([f"Note #{idx} : {w}" for w in warnings])
+
+        diff_payload = {
+            "type": "batch_note_create",
+            "notes": validated_notes,
+            "count": len(validated_notes),
+            "default_deck": default_deck,
+            "default_note_type": default_note_type,
+            "default_tags": def_tags_list,
+            "warnings": all_warnings,
+            "modified": {
+                "notes": validated_notes,
+                "count": len(validated_notes),
+                "warnings": all_warnings,
+            },
+            "title": f"Création par lot de {len(validated_notes)} note(s)",
+            "explanation": f"Proposition de création groupée de {len(validated_notes)} notes via Two-Phase Commit atomique.",
+        }
+
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="batch_note_create",
+            diff_payload=diff_payload,
+        )
+
+        return json.dumps(
+            {
+                "status": "staged",
+                "patch_id": patch.patch_id,
+                "count": len(validated_notes),
+                "warnings": all_warnings,
+                "message": f"Proposition de création de {len(validated_notes)} note(s) enregistrée sous le patch {patch.patch_id}. En attente de validation humaine.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+
+    except Exception as e:
+        logger.error("Erreur create_notes_batch : %s", e)
+        return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+
+
+@mcp.tool()
+def create_note_type(
+    name: str,
+    fields_json: str,
+    templates_json: str,
+    css: str = "",
+    description: str = "",
+    on_conflict: str = "error",
+) -> str:
+    """Propose la création d'un type de note complet via un StagedPatch (Two-Phase Commit). Rien n'est écrit directement en BDD."""
+    try:
+        from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+        from ankidraft.services.cards.note_type_service import NoteTypeService
+
+        name_clean = name.strip()
+        if not name_clean:
+            return json.dumps({"status": "error", "message": "Le nom du type de note ne peut pas être vide."}, ensure_ascii=False)
+
+        try:
+            fields = json.loads(fields_json) if isinstance(fields_json, str) else fields_json
+            if not isinstance(fields, list):
+                return json.dumps({"status": "error", "message": "fields_json doit être une liste JSON de noms de champs."}, ensure_ascii=False)
+        except Exception as e:
+            return json.dumps({"status": "error", "message": f"fields_json invalide : {e}"}, ensure_ascii=False)
+
+        try:
+            templates = json.loads(templates_json) if isinstance(templates_json, str) else templates_json
+            if not isinstance(templates, list):
+                return json.dumps({"status": "error", "message": "templates_json doit être une liste JSON de gabarits."}, ensure_ascii=False)
+        except Exception as e:
+            return json.dumps({"status": "error", "message": f"templates_json invalide : {e}"}, ensure_ascii=False)
+
+        model_dict = {
+            "name": name_clean,
+            "fields_schema": fields,
+            "templates": templates,
+            "css_style": css,
+            "description": description,
+            "on_conflict": on_conflict,
+        }
+
+        is_valid, errors = NoteTypeService.validate_structure(model_dict)
+        if not is_valid:
+            return json.dumps({"status": "error", "message": f"Validation échouée : {'; '.join(errors)}", "errors": errors}, ensure_ascii=False)
+
+        if on_conflict == "error" and NoteTypeModel.get_or_none(NoteTypeModel.name == name_clean):
+            return json.dumps({"status": "error", "message": f"Un type de note portant le nom '{name_clean}' existe déjà."}, ensure_ascii=False)
+
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="note_type_create",
+            diff_payload={
+                "type": "note_type_create",
+                "name": name_clean,
+                "fields_schema": fields,
+                "templates": templates,
+                "css_style": css,
+                "description": description,
+                "on_conflict": on_conflict,
+                "title": f"Proposition de Création de Type de Note — '{name_clean}'",
+                "explanation": f"Création du type de note '{name_clean}' avec {len(fields)} champs et {len(templates)} gabarits.",
+            },
+        )
+
+        return json.dumps(
+            {
+                "status": "staged_diff",
+                "patch_id": patch.patch_id,
+                "type": "note_type_create",
+                "name": name_clean,
+                "fields_schema": fields,
+                "templates_count": len(templates),
+                "message": f"Proposition de création du type de note '{name_clean}' enregistrée sous le patch {patch.patch_id}. En attente de validation humaine.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+
+    except Exception as e:
+        logger.error("Erreur create_note_type : %s", e)
+        return json.dumps({"status": "error", "message": f"Erreur lors de la préparation de création du type de note : {e}"}, ensure_ascii=False)
+
+
+@mcp.tool()
+def change_note_type(
+    note_ids: list[int] | str = "",
+    target_model: str = "",
+    mapping_champs: dict[str, str | None] | str = "",
+    template_mapping: dict[str, Any] | str = "",
+    clean_cloze: bool = True,
+    note_ids_json: str = "",
+    mapping_champs_json: str = "",
+) -> str:
+    """Propose la migration d'un lot de notes vers un autre type de note via un StagedPatch (Two-Phase Commit)."""
+    try:
+        from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+        from ankidraft.services.cards.bulk_hygiene_service import parse_id_list
+        from ankidraft.services.cards.note_type_service import NoteTypeService
+
+        # 1. Résolution polymorphe des note_ids
+        raw_ids = note_ids if note_ids != "" else note_ids_json
+        parsed_ids = parse_id_list(raw_ids)
+
+        if not parsed_ids:
+            return json.dumps({"status": "error", "message": "Aucun identifiant de note valide fourni."}, ensure_ascii=False)
+
+        # 2. Résolution du modèle cible
+        if not target_model:
+            return json.dumps({"status": "error", "message": "Modèle cible non spécifié."}, ensure_ascii=False)
+
+        try:
+            target_nt = NoteTypeService.resolve_target_model(target_model)
+        except Exception as e:
+            return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+
+        # Extraction des champs cibles
+        target_fields: list[str] = ["Front", "Back"]
+        if target_nt.fields_schema:
+            try:
+                loaded_fields = json.loads(str(target_nt.fields_schema))
+                if isinstance(loaded_fields, list) and loaded_fields:
+                    target_fields = [str(f) for f in loaded_fields]
+            except Exception:
+                target_fields = ["Front", "Back"]
+
+        # Extraction des gabarits cibles
+        target_tmpls: list[dict[str, Any]] = []
+        if target_nt.templates:
+            try:
+                t_loaded = json.loads(str(target_nt.templates))
+                if isinstance(t_loaded, list):
+                    target_tmpls = [t for t in t_loaded if isinstance(t, dict)]
+            except Exception:
+                target_tmpls = []
+        target_tmpls_count = len(target_tmpls)
+
+        # 3. Résolution de mapping_champs
+        raw_mapping = mapping_champs if mapping_champs != "" else mapping_champs_json
+        parsed_mapping: dict[str, str] | None = None
+        if raw_mapping:
+            if isinstance(raw_mapping, dict):
+                parsed_mapping = {str(k): (str(v).strip() if v is not None else "") for k, v in raw_mapping.items()}
+            elif isinstance(raw_mapping, str) and raw_mapping.strip():
+                try:
+                    loaded_m = json.loads(raw_mapping)
+                    if isinstance(loaded_m, dict):
+                        parsed_mapping = {str(k): (str(v).strip() if v is not None else "") for k, v in loaded_m.items()}
+                    else:
+                        return json.dumps({"status": "error", "message": "mapping_champs doit être un dictionnaire de correspondances."}, ensure_ascii=False)
+                except Exception as e:
+                    return json.dumps({"status": "error", "message": f"mapping_champs invalide : {e}"}, ensure_ascii=False)
+
+        # 4. Résolution de template_mapping
+        parsed_tmpl_mapping: dict[str, Any] | None = None
+        if template_mapping:
+            if isinstance(template_mapping, dict):
+                parsed_tmpl_mapping = template_mapping
+            elif isinstance(template_mapping, str) and template_mapping.strip():
+                try:
+                    loaded_tm = json.loads(template_mapping)
+                    if isinstance(loaded_tm, dict):
+                        parsed_tmpl_mapping = loaded_tm
+                    else:
+                        return json.dumps({"status": "error", "message": "template_mapping doit être un dictionnaire de correspondances."}, ensure_ascii=False)
+                except Exception as e:
+                    return json.dumps({"status": "error", "message": f"template_mapping invalide : {e}"}, ensure_ascii=False)
+
+        # 5. Chargement et contrôle des notes
+        notes: list[NoteModel] = []
+        source_fields: list[str] = []
+        warnings: list[str] = []
+        warned_sources: set[int] = set()
+
+        for nid in parsed_ids:
+            n = NoteModel.get_or_none(NoteModel.id == nid)
+            if not n:
+                return json.dumps({"status": "error", "message": f"Note #{nid} introuvable en base."}, ensure_ascii=False)
+            notes.append(n)
+            if n.note_type and n.note_type.id not in warned_sources:
+                warned_sources.add(n.note_type.id)
+                s_tmpls_count = 0
+                if n.note_type.templates:
+                    try:
+                        tmpls_list = json.loads(str(n.note_type.templates))
+                        if isinstance(tmpls_list, list):
+                            s_tmpls_count = len(tmpls_list)
+                    except Exception:
+                        pass
+                if s_tmpls_count != target_tmpls_count:
+                    warnings.append(f"Le modèle source '{n.note_type.name}' possède {s_tmpls_count} gabarit(s) vs {target_tmpls_count} pour '{target_nt.name}'.")
+            if n.note_type and n.note_type.fields_schema:
+                try:
+                    f_list = json.loads(str(n.note_type.fields_schema))
+                    if isinstance(f_list, list):
+                        for f in f_list:
+                            f_str = str(f)
+                            if f_str not in source_fields:
+                                source_fields.append(f_str)
+                except Exception:
+                    pass
+
+        # 6. Validation pré-vol fail-fast guidée
+        is_valid, err_msg, suggested_mapping = NoteTypeService.validate_field_mapping(
+            source_fields=source_fields,
+            target_fields=target_fields,
+            mapping_champs=parsed_mapping,
+            sample_notes=notes,
+        )
+        if not is_valid:
+            return json.dumps(
+                {
+                    "status": "error",
+                    "error_code": "FIELD_MAPPING_REQUIRED",
+                    "message": err_msg,
+                    "available_target_fields": target_fields,
+                    "active_source_fields": source_fields,
+                    "suggested_mapping": suggested_mapping,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+
+        # 7. Échantillonnage d'une note témoin pour le diff
+        effective_mapping = dict(suggested_mapping)
+        if parsed_mapping is not None:
+            effective_mapping.update(parsed_mapping)
+        sample_note = notes[0]
+        active_v = sample_note.versions.where(NoteVersionModel.is_active == True).first()  # noqa: E712
+        sample_before: dict[str, Any] = {}
+        if active_v and active_v.content:
+            try:
+                parsed_c = json.loads(active_v.content)
+                if isinstance(parsed_c, dict):
+                    sample_before = parsed_c
+            except Exception:
+                sample_before = {"Front": active_v.content}
+        sample_after = NoteTypeService.remap_fields(sample_before, target_fields, mapping_champs=effective_mapping)
+        if clean_cloze and not NoteTypeService.is_cloze_model(target_nt) and sample_note.note_type and NoteTypeService.is_cloze_model(sample_note.note_type):
+            sample_after = {k: NoteTypeService.clean_cloze_markers(str(v)) if isinstance(v, str) else v for k, v in sample_after.items()}
+        sample_diff = {
+            "note_id": sample_note.id,
+            "before": sample_before,
+            "after": sample_after,
+        }
+
+        # 8. Calcul prévisionnel des cartes physiques
+        cards_preserved = sum(min(len(n.cards), target_tmpls_count) for n in notes)
+        cards_created = sum(max(0, target_tmpls_count - len(n.cards)) for n in notes)
+        cards_deleted = sum(max(0, len(n.cards) - target_tmpls_count) for n in notes)
+        card_metrics = {
+            "preserved": cards_preserved,
+            "created": cards_created,
+            "deleted": cards_deleted,
+        }
+
+        patch = StagedPatchRegistry.create_patch(
+            patch_type="note_type_change",
+            diff_payload={
+                "type": "note_type_change",
+                "note_ids": parsed_ids,
+                "target_model": target_nt.name,
+                "target_model_id": target_nt.id,
+                "mapping_champs": effective_mapping,
+                "template_mapping": parsed_tmpl_mapping,
+                "clean_cloze": clean_cloze,
+                "sample_diff": sample_diff,
+                "card_metrics": card_metrics,
+                "warnings": warnings,
+                "title": f"Proposition de Migration de {len(parsed_ids)} note(s) vers '{target_nt.name}'",
+                "explanation": f"Migration atomique de {len(parsed_ids)} note(s) vers le type de note '{target_nt.name}'.",
+            },
+        )
+
+        return json.dumps(
+            {
+                "status": "staged_diff",
+                "patch_id": patch.patch_id,
+                "type": "note_type_change",
+                "count": len(parsed_ids),
+                "target_model": target_nt.name,
+                "sample_diff": sample_diff,
+                "card_metrics": card_metrics,
+                "warnings": warnings,
+                "message": f"Proposition de migration de {len(parsed_ids)} note(s) vers '{target_nt.name}' enregistrée sous le patch {patch.patch_id}. En attente de validation humaine.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+
+    except Exception as e:
+        logger.error("Erreur change_note_type : %s", e)
+        return json.dumps({"status": "error", "message": f"Erreur lors de la préparation de migration : {e}"}, ensure_ascii=False)
+
+
+@mcp.tool()
+def audit_note_type_conformity(
+    note_type_name: str,
+    regles: str = "",
+    limit: int = 50,
+    offset: int = 0,
+) -> str:
+    """Audite la conformité structurelle d'un type de note (champs vides, HTML inline, son hors audio, doublons, gabarits) de manière 100% déterministe."""
+    try:
+        from ankidraft.services.cards.note_type_service import NoteTypeService
+
+        res = NoteTypeService.audit_conformity(
+            note_type_name=note_type_name,
+            regles=regles,
+            limit=limit,
+            offset=offset,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error("Erreur audit_note_type_conformity : %s", e)
+        return json.dumps({"status": "error", "message": f"Erreur lors de l'audit de conformité : {e}"}, ensure_ascii=False)
+
+
+@mcp.tool()
+def preview_card_render(
+    note_id: int,
+    fields_json: str = "",
+    template_index: int | None = None,
+    is_dark_mode: bool = False,
+) -> str:
+    """Génère le rendu HTML officiel (recto/verso et CSS) d'une note existante avec support des surcharges pour prévisualiser un état proposé."""
+    try:
+        from ankidraft.services.cards.note_type_service import NoteTypeService
+
+        res = NoteTypeService.preview_card_render(
+            note_id=note_id,
+            fields_json=fields_json,
+            template_index=template_index,
+            is_dark_mode=is_dark_mode,
+        )
+        return json.dumps(res, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error("Erreur preview_card_render : %s", e)
+        return json.dumps({"status": "error", "message": f"Erreur lors du rendu de la carte : {e}"}, ensure_ascii=False)
+
+
+@mcp.tool()
+def find_cards_by_content(query: str, deck_name: str = "", limit: int = 10, offset: int = 0) -> str:
+    """Recherche des cartes par mot-clé dans leur question/réponse pour retrouver facilement leur note_id avec pagination."""
+    return MCPToolRegistry.find_cards_by_content(query, deck_name, limit=limit, offset=offset)
+
+
+@mcp.tool()
+def list_note_types() -> str:
+    """Liste tous les modèles de cartes (Note Types) disponibles dans la collection."""
+    return MCPToolRegistry.list_note_types()
+
+
+@mcp.tool()
+def get_note_type_details(note_type_name: str) -> str:
+    """Consulte les détails complets d'un modèle de carte (champs requis, templates HTML Recto/Verso, CSS)."""
+    return MCPToolRegistry.get_note_type_details(note_type_name)
+
+
+@mcp.tool()
+def propose_note_type_refactor(
+    note_type_name: str,
+    new_fields_schema_json: str = "",
+    new_css: str = "",
+    new_templates_json: str = "",
+    new_description: str = "",
+    explanation: str = "",
+) -> str:
+    """Propose une modification structurelle d'un modèle de carte avec Garde-Fou."""
+    return MCPToolRegistry.propose_note_type_refactor(note_type_name, new_fields_schema_json, new_css, new_templates_json, new_description, explanation)
+
+
+@mcp.tool()
+def search_document(query: str, document_id: int) -> str:
+    """Recherche une information précise dans un document spécifique via FAISS."""
+    logger.info("Recherche dans le document %d avec la requête : %s", document_id, query)
+
+    llm_config = LLMConfigModel.select().first()
+    if not llm_config:
+        return "Erreur : Aucun moteur IA configuré. Impossible d'effectuer la recherche vectorielle."
+
+    try:
+        rag = RAGService(llm_config)
+        results = rag.search(str(document_id), query, top_k=3)
+
+        snippets = []
+        for r in results:
+            content = getattr(r, "page_content", getattr(r, "text", str(r)))
+            snippets.append(content)
+
+        if not snippets:
+            return "Aucun passage pertinent trouvé dans ce document pour cette requête."
+
+        return "Passages pertinents extraits :\n\n" + "\n---\n".join(snippets)
+
+    except Exception as e:
+        logger.error("Erreur lors de la recherche RAG dans le serveur MCP : %s", e)
+        return "Erreur lors de la recherche vectorielle : impossible de traiter la requête."
+
+
+# =====================================================================
+# OUTILS D'HYGIÈNE EN MASSE DES NOTES ET CARTES
+# =====================================================================
+
+
+@mcp.tool()
+def sanitize_fields_html(
+    note_ids: list[int] | str,
+    strip_tags: list[str] | str = "",
+    strip_all_html: bool = False,
+    force_apply: bool = False,
+    stage_threshold: int = 5,
+) -> str:
+    """Garde-fou : Nettoie le HTML inline des champs d'un lot de notes sous Two-Phase Commit systématique (StagedPatch bulk_html_sanitize)."""
+    return MCPToolRegistry.sanitize_fields_html(
+        note_ids=note_ids,
+        strip_tags=strip_tags,
+        strip_all_html=strip_all_html,
+        force_apply=force_apply,
+        stage_threshold=stage_threshold,
+    )
+
+
+@mcp.tool()
+def set_tags_bulk(
+    note_ids: list[int] | str,
+    tags: list[str] | str,
+    mode: str = "add",
+    allow_remove_provenance_tags: bool = False,
+) -> str:
+    """Pose, retire ou remplace des tags sur un lot de notes via l'écrivain canonique JSON."""
+    return MCPToolRegistry.set_tags_bulk(
+        note_ids=note_ids,
+        tags=tags,
+        mode=mode,
+        allow_remove_provenance_tags=allow_remove_provenance_tags,
+    )
+
+
+@mcp.tool()
+def audit_tag_hygiene(
+    note_ids: list[int] | str = "",
+    deck_id: int | str = "",
+    include_levenshtein: bool = True,
+) -> str:
+    """Analyse la collection pour détecter les grappes de tags sensibles à la casse ou proches selon Levenshtein."""
+    return MCPToolRegistry.audit_tag_hygiene(
+        note_ids=note_ids or None,
+        deck_id=deck_id or None,
+        include_levenshtein=include_levenshtein,
+    )
+
+
+@mcp.tool()
+def merge_tag_clusters(
+    merges: list[dict[str, Any]] | str,
+    note_ids: list[int] | str = "",
+    deck_id: int | str = "",
+) -> str:
+    """Applique des fusions de tags planifiées ({tags_to_merge: [...], target_tag: '...'}) sous transaction atomique."""
+    return MCPToolRegistry.merge_tag_clusters(
+        merges=merges,
+        note_ids=note_ids or None,
+        deck_id=deck_id or None,
+    )
+
+
+@mcp.tool()
+def delete_unused_note_type(
+    name: str,
+    confirm: bool = False,
+) -> str:
+    """Supprime un type de note uniquement si 0 note y sont rattachées (garde-fou référentiel). Si name='all_unused', supprime tous les modèles orphelins."""
+    return MCPToolRegistry.delete_unused_note_type(name=name, confirm=confirm)
+
+
+@mcp.tool()
+def move_cards_to_deck(
+    card_ids: list[int] | str,
+    deck: str,
+) -> str:
+    """Déplace un lot de cartes physiques vers un paquet ou sous-paquet hiérarchique ('Parent::Enfant')."""
+    return MCPToolRegistry.move_cards_to_deck(card_ids=card_ids, deck=deck)
+
+
+@mcp.tool()
+def list_empty_cards(
+    deck_name: str = "",
+    limit: int = 100,
+    offset: int = 0,
+) -> str:
+    """Détecte les cartes physiques dont le recto (question) est vide après substitution du gabarit."""
+    return MCPToolRegistry.list_empty_cards(deck_name=deck_name, limit=limit, offset=offset)
+
+
+@mcp.tool()
+def delete_empty_cards(
+    card_ids: list[int] | str = "",
+    deck_name: str = "",
+    confirm: bool = False,
+) -> str:
+    """Garde-fou : Propose la suppression des cartes à front vide sous Two-Phase Commit (StagedPatch empty_cards_delete)."""
+    return MCPToolRegistry.delete_empty_cards(card_ids=card_ids, deck_name=deck_name, confirm=confirm)
+
+
+# =====================================================================
+# OUTILS DE FORMATAGE ET STRUCTURATION MARKDOWN
+# =====================================================================
+
+
+@mcp.tool()
+def format_markdown_document(
+    document_id: int = 0,
+    content: str = "",
+    dehyphenate_ocr: bool = True,
+    normalize_katex: bool = True,
+    align_tables: bool = True,
+    normalize_headings: bool = True,
+    clean_whitespace: bool = True,
+) -> str:
+    """Nettoie, normalise et formate un document Markdown (césures OCR, KaTeX, tables GFM, titres ATX)."""
+    return MCPToolRegistry.format_markdown_document(
+        document_id=document_id,
+        content=content,
+        dehyphenate_ocr=dehyphenate_ocr,
+        normalize_katex=normalize_katex,
+        align_tables=align_tables,
+        normalize_headings=normalize_headings,
+        clean_whitespace=clean_whitespace,
+    )
+
+
+@mcp.tool()
+def render_anki_html(
+    content: str = "",
+    document_id: int = 0,
+    wrap_mathjax: bool = False,
+) -> str:
+    """Convertit une source Markdown (formules LaTeX/KaTeX préservées) en HTML prêt à être injecté dans une carte Anki."""
+    return MCPToolRegistry.render_anki_html(
+        content=content,
+        document_id=document_id,
+        wrap_mathjax=wrap_mathjax,
+    )
+
+
+@mcp.tool()
+def get_document_outline(document_id: int = 0, content: str = "") -> str:
+    """Extrait l'arborescence hiérarchique des titres (Outline) d'un document Markdown."""
+    return MCPToolRegistry.get_document_outline(document_id=document_id, content=content)
+
+
+@mcp.tool()
+def structure_document_sections(document_id: int = 0, content: str = "", max_tokens: int = 800) -> str:
+    """Découpe un document Markdown en sections sémantiques enrichies avec breadcrumbs et statistiques pour le RAG."""
+    return MCPToolRegistry.structure_document_sections(
+        document_id=document_id,
+        content=content,
+        max_tokens=max_tokens,
+    )
+
+
+@mcp.tool()
+def structure_transcript_for_ai(
+    document_id: int = 0,
+    content: str = "",
+    profile: str = "didactic",
+    target_language: str = "fr",
+    preserve_timestamps: bool = True,
+    normalize_latex: bool = True,
+    add_summary: bool = True,
+    add_key_takeaways: bool = True,
+) -> str:
+    """Restructure un texte brut ou une retranscription (YouTube, cours, audio) en Markdown pédagogique structuré."""
+    return MCPToolRegistry.structure_transcript_for_ai(
+        document_id=document_id,
+        content=content,
+        profile=profile,
+        target_language=target_language,
+        preserve_timestamps=preserve_timestamps,
+        normalize_latex=normalize_latex,
+        add_summary=add_summary,
+        add_key_takeaways=add_key_takeaways,
+    )
+
+
+@mcp.tool()
+def exclude_document_region(
+    document_id: int,
+    region_address: str,
+    reason: str = "",
+) -> str:
+    """Écarte une région du document (titre, fil d'Ariane ou page) du dénominateur de couverture et du RAG sans destruction physique (ADR 0010)."""
+    return MCPToolRegistry.exclude_document_region(
+        document_id=document_id,
+        region_address=region_address,
+        reason=reason,
+    )
+
+
+@mcp.tool()
+def neutralize_document_region(
+    document_id: int,
+    region_address: str,
+    neutralized: bool = True,
+) -> str:
+    """Neutralise une région pour la retirer du dénominateur de couverture sans l'écarter du document ni des générations (ADR 0010)."""
+    return MCPToolRegistry.neutralize_document_region(
+        document_id=document_id,
+        region_address=region_address,
+        neutralized=neutralized,
+    )
+
+
+@mcp.tool()
+def update_document_content(
+    document_id: int,
+    content: str,
+    reason: str = "",
+) -> str:
+    """Pérennise en base le contenu Markdown mis à jour d'un document existant et resynchronise différentiellement ses fragments (ADR 0010, ADR 0043)."""
+    return MCPToolRegistry.update_document_content(
+        document_id=document_id,
+        content=content,
+        reason=reason,
+    )
+
+
+@mcp.tool()
+def reindex_document(
+    document_id: int,
+    chunk_size: int = 500,
+    overlap: int = 50,
+) -> str:
+    """Re-découpe un document selon chunk_size et overlap et reconstruit son index vectoriel FAISS et BM25 (ADR 0043)."""
+    return MCPToolRegistry.reindex_document(
+        document_id=document_id,
+        chunk_size=chunk_size,
+        overlap=overlap,
+    )
+
+
+# =====================================================================
+# OUTILS DE DOCUMENTATION & BASE DE CONNAISSANCES INTERNE (ZENSICAL)
+# =====================================================================
+
+
+@mcp.tool()
+def search_app_documentation(query: str, category: str = "", limit: int = 5) -> str:
+    """Recherche des explications, guides et références d'architecture dans la documentation officielle d'AnkiForge via SQLite FTS5 BM25."""
+    return MCPToolRegistry.search_app_documentation(query, category, limit)
+
+
+@mcp.tool()
+def read_app_doc_page(doc_path: str, section_anchor: str = "") -> str:
+    """Consulte le contenu intégral ou une section d'une page de documentation officielle d'AnkiForge (ex: 'features/consultant_mcp.md')."""
+    return MCPToolRegistry.read_app_doc_page(doc_path, section_anchor)
+
+
+@mcp.tool()
+def list_app_doc_topics(category: str = "") -> str:
+    """Consulte le sommaire exhaustif de la documentation officielle d'AnkiForge classé par thématiques."""
+    return MCPToolRegistry.list_app_doc_topics(category)
+
+
+@mcp.tool()
+def get_feature_quick_help(feature_name: str) -> str:
+    """Obtient une synthèse immédiate d'une fonctionnalité clé (Ollama, KaTeX, DAG, RAG, Wozniak, Nuitka, Smart Merge, MCP)."""
+    return MCPToolRegistry.get_feature_quick_help(feature_name)
+
+
+# =====================================================================
+# RESSOURCES MCP (EXPLORATION DIRECTE DE LA DOCUMENTATION)
+# =====================================================================
+
+
+@mcp.resource("docs://topics")
+def get_docs_topics_resource() -> str:
+    """Retourne la liste hiérarchique complète des chapitres et pages de la documentation officielle."""
+    return MCPToolRegistry.list_app_doc_topics()
+
+
+@mcp.resource("docs://page/{doc_path}")
+def get_doc_page_resource(doc_path: str) -> str:
+    """Fournit le contenu brut Markdown d'une page de documentation officielle."""
+    return MCPToolRegistry.read_app_doc_page(doc_path)
+
+
+@mcp.resource("ankidraft://schema/{table_name}")
+def get_table_schema_resource(table_name: str) -> str:
+    """Fournit le schéma complet d'une table métier (colonnes, index, FK, contraintes) au format JSON.
+
+    Cette resource MCP expose l'introspection de schéma de manière sécurisée (application-driven),
+    sans autoriser l'accès direct à sqlite_master ni aux tables système/sensibles.
+    """
+    import json
+
+    try:
+        schema_data = MCPToolRegistry._get_table_schema_data(table_name)
+        return json.dumps(schema_data, ensure_ascii=False, indent=2)
+    except PermissionError as e:
+        return json.dumps({"status": "error", "error_code": "FORBIDDEN", "message": str(e)}, ensure_ascii=False)
+    except ValueError as e:
+        return json.dumps({"status": "error", "error_code": "NOT_FOUND", "message": str(e)}, ensure_ascii=False)
+    except Exception as e:
+        logger.error("Erreur get_table_schema_resource pour '%s' : %s", table_name, e)
+        return json.dumps({"status": "error", "error_code": "INTERNAL_ERROR", "message": f"Erreur interne : {e}"}, ensure_ascii=False)
+
+
+@mcp.resource("artifact://{filename}")
+def get_artifact_resource(filename: str) -> str:
+    """Fournit le contenu brut d'un artefact d'échange agent via une ressource MCP standardisée."""
+    return MCPToolRegistry.read_mcp_artifact(filename)
+
+
+# =====================================================================
+# PROMPTS MCP (MODÈLES DE GUIDAGE IA)
+# =====================================================================
+
+
+@mcp.prompt("explain_ankiforge_feature")
+def prompt_explain_feature(feature_name: str) -> str:
+    """Prompt guidé pour expliquer pas à pas une fonctionnalité d'AnkiForge avec extraits officiels."""
+    doc_summary = MCPToolRegistry.get_feature_quick_help(feature_name)
+    return _PROMPT_ENV.from_string(
+        "Tu es un expert d'AnkiForge. Explique la fonctionnalité '{{ feature_name }}' en t'appuyant sur la documentation officielle ci-dessous :\n\n"
+        "<<< CONTENU UTILISATEUR (FONCTIONNALITÉ) >>>\n{{ feature_name }}\n<<< FIN >>>\n\n"
+        "<<< CONTENU DOCUMENTATION OFFICIELLE >>>\n{{ doc_summary }}\n<<< FIN >>>\n\n"
+        "Donne des exemples concrets d'utilisation et les bonnes pratiques recommandées."
+    ).render(feature_name=feature_name, doc_summary=doc_summary)
+
+
+@mcp.prompt("audit_architecture_compliance")
+def prompt_audit_architecture(target_code_or_rule: str) -> str:
+    """Prompt guidé pour vérifier la conformité d'un code ou d'une conception avec les 9 dossiers d'architecture AnkiForge."""
+    arch_doc = MCPToolRegistry.read_app_doc_page("Dossier_architecture/02_architecture_technique.md")
+    return _PROMPT_ENV.from_string(
+        "Tu es l'architecte en chef d'AnkiForge. Vérifie que le code ou la proposition suivante respecte les principes architecturaux "
+        "décrits dans la documentation :\n\n"
+        "<<< CONTENU DOCUMENTATION ARCHITECTURE >>>\n{{ arch_doc }}...\n<<< FIN >>>\n\n"
+        "Élément à auditer :\n<<< CONTENU UTILISATEUR >>>\n{{ target_code_or_rule }}\n<<< FIN >>>"
+    ).render(arch_doc=arch_doc[:2500], target_code_or_rule=target_code_or_rule)
+
+
+# =====================================================================
+# OUTILS D'ACCÈS AUX ALBUMS D'IMAGES ET PLANCHES
+# =====================================================================
+
+
+@mcp.tool()
+def list_albums(limit: int = 50, offset: int = 0, folder_name: str = "") -> str:
+    """Liste les albums d'images et livres scannés enregistrés dans la collection (titre, nombre de planches, dossier, statut d'analyse)."""
+    return MCPToolRegistry.list_albums(limit=limit, offset=offset, folder_name=folder_name)
+
+
+@mcp.tool()
+def get_album_plates(
+    album_id: int = 0,
+    album_title: str = "",
+    limit: int = 50,
+    offset: int = 0,
+    include_ocr_text: bool = True,
+) -> str:
+    """Consulte la liste ordonnée des planches / pages d'un album avec leurs métadonnées (numéro, rotation, recadrage, statut, texte OCR, fichier média)."""
+    return MCPToolRegistry.get_album_plates(
+        album_id=album_id,
+        album_title=album_title,
+        limit=limit,
+        offset=offset,
+        include_ocr_text=include_ocr_text,
+    )
+
+
+# =====================================================================
+# OUTILS DE GESTION DES PIPELINES DAG
+# =====================================================================
+
+
+@mcp.tool()
+def list_pipelines(limit: int = 50, offset: int = 0) -> str:
+    """Liste les pipelines DAG configurés dans AnkiForge (id, nom, description, étapes ordonnées, branchements, statut du dernier run)."""
+    return MCPToolRegistry.list_pipelines(limit=limit, offset=offset)
+
+
+@mcp.tool()
+def get_pipeline_run(run_id: int = 0, pipeline_id: int = 0) -> str:
+    """Consulte l'état détaillé d'une exécution de pipeline DAG (statut, étape courante, tokens consommés, erreurs, variables de sortie)."""
+    return MCPToolRegistry.get_pipeline_run(run_id=run_id, pipeline_id=pipeline_id)
+
+
+@mcp.tool()
+def trigger_pipeline_run(
+    pipeline_id: int,
+    deck_name: str = "",
+    cards_json: str = "",
+    note_type_name: str = "",
+    document_id: int | None = None,
+    variables_json: str = "{}",
+    execution_mode: str = "local",
+    timeout_per_step_seconds: int = 300,
+) -> str:
+    """Déclenche l'exécution asynchrone d'un pipeline DAG (voie locale inchangée ou déléguée à un agent externe MCP)."""
+    return MCPToolRegistry.trigger_pipeline_run(
+        pipeline_id=pipeline_id,
+        deck_name=deck_name,
+        cards_json=cards_json,
+        note_type_name=note_type_name,
+        document_id=document_id,
+        variables_json=variables_json,
+        execution_mode=execution_mode,
+        timeout_per_step_seconds=timeout_per_step_seconds,
+    )
+
+
+@mcp.tool()
+def provide_pipeline_step_content(
+    run_id: int,
+    step_order: int,
+    generated_content: str = "",
+    status: str = "completed",
+    error_message: str = "",
+) -> str:
+    """Délivre le contenu généré par l'agent externe pour une étape de pipeline déléguée en attente."""
+    return MCPToolRegistry.provide_pipeline_step_content(
+        run_id=run_id,
+        step_order=step_order,
+        generated_content=generated_content,
+        status=status,
+        error_message=error_message,
+    )
+
+
+@mcp.tool()
+def abort_pipeline_run(run_id: int, reason: str = "") -> str:
+    """Annule une exécution de pipeline DAG en cours (mode délégué ou local)."""
+    return MCPToolRegistry.abort_pipeline_run(run_id=run_id, reason=reason)
+
+
+# =====================================================================
+# GESTION DES AGENTS DÉDIÉS AU SERVEUR MCP
+# =====================================================================
+
+
+@mcp.tool()
+def list_mcp_agents(scope: str = "mcp") -> str:
+    """Liste tous les agents dédiés enregistrés (Auditeur Wozniak, Architecte CSS, Analyste SRS...) avec leurs outils."""
+    return MCPToolRegistry.list_mcp_agents(scope)
+
+
+@mcp.tool()
+def get_mcp_agent_details(agent_name: str) -> str:
+    """Consulte la configuration détaillée d'un agent dédié (prompt système Jinja2, modèle assigné, liste des outils)."""
+    return MCPToolRegistry.get_mcp_agent_details(agent_name)
+
+
+@mcp.tool()
+def invoke_mcp_agent(agent_name: str, message: str, conversation_history_json: str = "[]") -> str:
+    """Délègue une tâche ou une question à un agent dédié spécifique selon ses autorisations d'outils et son prompt."""
+    return MCPToolRegistry.invoke_mcp_agent(agent_name, message, conversation_history_json)
+
+
+@mcp.tool()
+def create_or_update_mcp_agent(
+    name: str,
+    description: str,
+    system_prompt: str,
+    allowed_tools_json: str = "[]",
+    persona_type: str = "mcp",
+) -> str:
+    """Crée ou met à jour la configuration d'un agent dédié dans la collection."""
+    from ankidraft.database.models import PersonaModel
+
+    # Garde-fou anti-escalade : ce tool est exposé au client MCP (donc atteignable
+    # par une chaîne d'agents LLM). On refuse l'accès universel ('*'/'all') et
+    # l'outil d'exécution Python arbitraire, qui couplés à un system_prompt libre
+    # permettraient une exécution persistante non maîtrisée via invoke_mcp_agent.
+    try:
+        requested_tools = json.loads(allowed_tools_json.strip() or "[]")
+    except json.JSONDecodeError:
+        return "Erreur : allowed_tools_json doit être une liste JSON valide."
+    if not isinstance(requested_tools, list) or not all(isinstance(t, str) for t in requested_tools):
+        return "Erreur : allowed_tools_json doit être une liste JSON de noms d'outils."
+    if any(t in {"*", "all"} for t in requested_tools) or "execute_python_tool" in requested_tools:
+        logger.warning(
+            "Refus d'accorder des autorisations dangereuses via create_or_update_mcp_agent : %s",
+            requested_tools,
+        )
+        return "Erreur : l'accès universel ('*') ou l'outil 'execute_python_tool' ne peuvent pas être accordés via MCP."
+
+    allowed_tools = json.dumps(sorted(set(requested_tools)))
+    try:
+        agent, created = PersonaModel.get_or_create(
+            name=name.strip(),
+            defaults={
+                "description": description.strip(),
+                "system_prompt": system_prompt.strip(),
+                "allowed_tools": allowed_tools,
+                "persona_type": persona_type.strip(),
+            },
+        )
+        if not created:
+            agent.description = description.strip()
+            agent.system_prompt = system_prompt.strip()
+            agent.allowed_tools = allowed_tools
+            agent.persona_type = persona_type.strip()
+            agent.save()
+            action_str = "mis à jour"
+        else:
+            action_str = "créé"
+
+        return f"Succès : L'agent dédié '{agent.name}' a été {action_str} avec succès (portée: {agent.persona_type})."
+    except Exception as e:
+        logger.error("Erreur create_or_update_mcp_agent : %s", e)
+        return "Erreur lors de l'enregistrement de l'agent : échec du traitement des paramètres."
+
+
+@mcp.resource("agents://list")
+def get_agents_list_resource() -> str:
+    """Retourne la liste hiérarchique de tous les agents dédiés au format texte/JSON."""
+    return MCPToolRegistry.list_mcp_agents(scope="all")
+
+
+@mcp.resource("agents://{agent_name}")
+def get_agent_profile_resource(agent_name: str) -> str:
+    """Fournit le profil et la consigne système d'un agent dédié spécifique."""
+    return MCPToolRegistry.get_mcp_agent_details(agent_name)
+
+
+@mcp.prompt("run_with_agent")
+def prompt_run_with_agent(agent_name: str, task: str) -> str:
+    """Prompt guidé pour exécuter une tâche en adoptant la posture et les outils d'un agent dédié."""
+    agent_info = MCPToolRegistry.get_mcp_agent_details(agent_name)
+    return _PROMPT_ENV.from_string(
+        "Tu incarnes l'agent spécialisé '{{ agent_name }}'. Voici ton profil et tes consignes strictes :\n\n"
+        "<<< CONTENU BDD (PROFIL AGENT) >>>\n{{ agent_info }}\n<<< FIN >>>\n\n"
+        "### Mission à accomplir :\n<<< CONTENU UTILISATEUR >>>\n{{ task }}\n<<< FIN >>>\n\n"
+        "Respecte strictement tes compétences et ton périmètre d'action."
+    ).render(agent_name=agent_name, agent_info=agent_info, task=task)
+
+
+def _normalise_agent_type(agent_type: str) -> str:
+    value = (agent_type or "generic").strip().lower()
+    if value == "agy":
+        return "gemini"
+    return value if value in _GUIDE_AGENT_FILENAMES else "generic"
+
+
+def _build_tool_catalogue() -> str:
+    """Construit le catalogue catégorisé des outils MCP à partir de l'introspection du serveur."""
+    try:
+        tools = mcp._tool_manager.list_tools()
+    except Exception as e:
+        logger.warning("Impossible d'introspecter les outils MCP : %s", e)
+        return "Catalogue non disponible."
+    lines: list[str] = []
+    for tool in sorted(tools, key=lambda t: t.name):
+        desc = (tool.description or "").strip().replace("\n", " ")
+        lines.append(f"- **{tool.name}** : {desc}")
+    return "\n".join(lines)
+
+
+def _build_agents_list() -> str:
+    """Renvoie la liste textuelle des agents MCP configurés par l'utilisateur."""
+    try:
+        return MCPToolRegistry.list_mcp_agents(scope="all")
+    except Exception as e:
+        logger.warning("Impossible de lister les agents MCP : %s", e)
+        return "Aucun agent configuré (erreur de lecture)."
+
+
+def _render_guide(agent_type: str, include_catalogue: bool) -> str:
+    name = _normalise_agent_type(agent_type)
+    template_name = f"mcp_init_guide_{name}.md.j2"
+    catalogue = _build_tool_catalogue() if include_catalogue else "(catalogue désactivé)"
+    agents = _build_agents_list()
+    template = _GUIDE_ENV.get_template(template_name)
+    return template.render(
+        version_hash=_GUIDE_VERSION_HASH,
+        include_catalogue=include_catalogue,
+        catalogue=catalogue,
+        agents=agents,
+    )
+
+
+@mcp.tool()
+def init_agent_workspace(
+    agent_type: str = "generic",
+    workspace_path: str = "",
+    include_catalogue: bool = True,
+) -> str:
+    """Génère un guide méthodologique adapté au type d'agent, dans son répertoire de travail. Si `workspace_path` est vide, renvoie le contenu sans écriture."""
+    try:
+        content = _render_guide(agent_type, include_catalogue)
+    except Exception as e:
+        logger.error("Erreur rendu guide d'amorçage : %s", e)
+        return f"Erreur lors de la génération du guide : {e}"
+
+    name = _normalise_agent_type(agent_type)
+    filename = _GUIDE_AGENT_FILENAMES[name]
+
+    if workspace_path and workspace_path.strip():
+        target_dir = Path(workspace_path).expanduser()
+        try:
+            target_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            logger.error("Impossible de créer le répertoire %s : %s", target_dir, e)
+            return f"Erreur : répertoire inaccessible ({e}). Contenu non écrit.\n\n{content}"
+        target_file = target_dir / filename
+        try:
+            target_file.write_text(content, encoding="utf-8")
+        except OSError as e:
+            logger.error("Impossible d'écrire %s : %s", target_file, e)
+            return f"Erreur : écriture impossible ({e}). Contenu non écrit.\n\n{content}"
+        logger.info("Guide d'amorçage généré : %s", target_file)
+
+    return content
+
+
+@mcp.tool()
+def export_deck_apkg(
+    deck_name: str,
+    output_path: str = "",
+    include_media: bool = True,
+) -> str:
+    """Exporte un paquet de cartes au format Anki .apkg autonome à IDs stables (préservant flags et suspension)."""
+    return MCPToolRegistry.export_deck_apkg(
+        deck_name=deck_name,
+        output_path=output_path,
+        include_media=include_media,
+    )
+
+
+@mcp.tool()
+def set_card_flag(
+    note_id: int,
+    flag: str,
+) -> str:
+    """Assigne un drapeau de couleur Anki (red, orange, green, blue, pink, turquoise, purple, none) à toutes les cartes d'une note."""
+    return MCPToolRegistry.set_card_flag(note_id=note_id, flag=flag)
+
+
+@mcp.tool()
+def get_flagged_cards(
+    deck_name: str | None = None,
+    flag: int | str | None = None,
+    limit: int = 50,
+) -> str:
+    """Récupère les cartes de la collection portant un drapeau Anki.
+
+    Les sous-paquets du paquet cible sont inclus de façon récursive. Quand
+    ``flag`` est omis, toutes les cartes pourvues d'un drapeau sont renvoyées.
+
+    Args:
+        deck_name: Filtrer par paquet (sous-paquets inclus via ``nom::%``).
+        flag: Numéro du drapeau (0 à 7) ou libellé/nom de couleur
+            ('rouge', 'red', …). Omis pour toutes les cartes drapeautées.
+        limit: Nombre maximal de cartes à renvoyer (défaut: 50).
+
+    Returns:
+        JSON listant pour chaque carte : card_id, note_id, deck_name,
+        flag_number, flag_label, flag_color, model_name, fields et tags.
+    """
+    return NoteManager.get_flagged_cards(deck_name=deck_name, flag=flag, limit=limit)
+
+
+@mcp.tool()
+def suspend_card(card_id: int) -> str:
+    """Suspend une carte physique dans l'ordonnanceur SRS (queue == -1 dans Anki)."""
+    return MCPToolRegistry.suspend_card(card_id=card_id)
+
+
+@mcp.tool()
+def unsuspend_card(card_id: int) -> str:
+    """Réactive une carte suspendue dans l'ordonnanceur SRS pour reprendre les révisions."""
+    return MCPToolRegistry.unsuspend_card(card_id=card_id)
+
+
+@mcp.tool()
+def correct_plate_ocr(
+    plate_id: int,
+    corrected_text: str,
+) -> str:
+    """Corrige la couche textuelle OCR d'une planche d'album visuel sans altérer le fichier image sous-jacent."""
+    return MCPToolRegistry.correct_plate_ocr(
+        plate_id=plate_id,
+        corrected_text=corrected_text,
+    )
+
+
+@mcp.tool()
+def get_album_ocr_context(
+    document_id: int,
+    page_ids: list[int] | None = None,
+    confirm_vision: bool = False,
+) -> str:
+    """Expose le contexte OCR par planche d'un album pour transcription par un agent externe.
+
+    Garde-fou Vision : l'outil est rejeté si confirm_vision est faux, car l'agent
+    externe doit déclarer explicitement disposer d'une capacité VLM/Vision.
+    Le document cible doit impérativement être de type album.
+    """
+    return MCPToolRegistry.get_album_ocr_context(
+        document_id=document_id,
+        page_ids=page_ids,
+        confirm_vision=confirm_vision,
+    )
+
+
+@mcp.tool()
+def set_album_page_ocr(
+    page_id: int,
+    corrected_text: str,
+    agent_external: bool = False,
+) -> str:
+    """Enregistre le texte transcrit d'une planche d'album et émet une mutation MCP tracée."""
+    return MCPToolRegistry.set_album_page_ocr(
+        page_id=page_id,
+        corrected_text=corrected_text,
+        agent_external=agent_external,
+    )
+
+
+@mcp.tool()
+def trigger_manual_backup(reason: str = "") -> str:
+    """Déclenche un instantané de sécurité atomique SQLite horodaté de la collection dans le profil actif."""
+    return MCPToolRegistry.trigger_manual_backup(reason=reason)
+
+
+@mcp.tool()
+def check_guide_version(
+    workspace_path: str = "",
+    file_path: str = "",
+    guide_path: str = "",
+    path: str = "",
+    agent_type: str = "generic",
+) -> str:
+    """Compare le hash de version d'un guide sur disque avec la version courante du serveur."""
+    import re
+
+    normalised = _normalise_agent_type(agent_type)
+    filename = _GUIDE_AGENT_FILENAMES[normalised]
+
+    candidate = ""
+    for raw in (file_path, guide_path, path):
+        if raw and raw.strip():
+            candidate = raw.strip()
+            break
+
+    if candidate:
+        target = Path(candidate).expanduser()
+        # Si un répertoire est fourni, on y cherche le fichier adapté.
+        if target.is_dir():
+            target = target / filename
+    elif workspace_path and workspace_path.strip():
+        target = Path(workspace_path).expanduser() / filename
+    else:
+        return json.dumps(
+            {"current_hash": _GUIDE_VERSION_HASH, "stale": False, "file_path": None},
+            ensure_ascii=False,
+        )
+
+    stale = True
+    found_hash: str | None = None
+    try:
+        if target.exists():
+            text = target.read_text(encoding="utf-8")
+            match = re.search(r"ankidraft-guide-version:\s*sha256:([0-9a-fA-F]+)", text)
+            if match:
+                found_hash = match.group(1).lower()
+                stale = found_hash != _GUIDE_VERSION_HASH
+    except OSError:
+        stale = True
+
+    payload = {
+        "current_hash": _GUIDE_VERSION_HASH,
+        "stale": stale,
+        "file_path": str(target),
+    }
+    if found_hash is not None:
+        payload["file_hash"] = found_hash
+    return json.dumps(payload, ensure_ascii=False)
+
+
+_DEFAULT_WORKSPACE_PATH = str(Path.home() / "ankiforge_agentique")
+
+
+@mcp.tool()
+def audit_workspace_drift(workspace_path: str = "") -> str:
+    """Audite le dérive d'un workspace agentique et retourne le rapport JSON complet.
+
+    Permet à un agent externe (Antigravity, Claude Code) de s'auto-auditer au démarrage.
+    L'audit est en lecture seule : aucun fichier n'est altéré.
+    """
+    from ankidraft.services.ai.workspace_sync_service import WorkspaceSyncService
+
+    path = workspace_path.strip() if workspace_path else _DEFAULT_WORKSPACE_PATH
+    service = WorkspaceSyncService()
+    report = service.audit_workspace(path)
+    return report.to_json()
+
+
+@mcp.tool()
+def sync_agent_workspace(workspace_path: str = "", align_active_profile: bool = True) -> str:
+    """Resynchronise un workspace agentique selon la politique 3-Way non destructive.
+
+    Met à jour exclusivement les fichiers système en dérive (OUTDATED, DESYNC) et
+    préserve 100% des fichiers utilisateur (profils, modèles partagés, symlinks).
+    """
+    from ankidraft.services.ai.workspace_sync_service import WorkspaceSyncService
+
+    path = workspace_path.strip() if workspace_path else _DEFAULT_WORKSPACE_PATH
+    service = WorkspaceSyncService()
+    report = service.sync_workspace(path, align_active_profile=align_active_profile)
+    return report.to_json()
+
+
+@mcp.tool()
+def generate_card_audio(
+    note_id: int,
+    source_field: str = "Japonais",
+    target_field: str = "Audio",
+    voice: str | None = None,
+    engine: str | None = None,
+) -> str:
+    """Génère la prononciation audio du texte d'un champ et l'injecte dans la note.
+
+    - Extrait le texte épuré du champ ``source_field``.
+    - Invoque le fournisseur TTS configuré (ou spécifié).
+    - Sauvegarde le MP3 dans le dossier média du profil actif.
+    - Enregistre le média dans MediaModel.
+    - Propose ou applique la mise à jour du champ ``target_field`` avec [sound:audio_xxx.mp3].
+    """
+    return MCPToolRegistry.generate_card_audio(
+        note_id=note_id,
+        source_field=source_field,
+        target_field=target_field,
+        voice=voice,
+        engine=engine,
+    )
+
+
+@mcp.tool()
+def generate_cards_batch_audio(
+    note_ids: list[int],
+    source_field: str = "Japonais",
+    target_field: str = "Audio",
+) -> str:
+    """Génère l'audio pour un lot de notes et met à jour le champ cible de chaque note.
+
+    Retourne un rapport détaillé avec succès et échecs par note.
+    """
+    return MCPToolRegistry.generate_cards_batch_audio(
+        note_ids=note_ids,
+        source_field=source_field,
+        target_field=target_field,
+    )
+
+
+@mcp.tool()
+def diagnose_domain_knowledge_gaps(
+    subject: str,
+    target_deck: str = "",
+    reference_document_id: int | None = None,
+    blueprint_json: str = "",
+    include_suspended: bool = False,
+) -> str:
+    """Diagnostique les lacunes de connaissances sur un domaine à l'échelle de toute la collection.
+
+    Décloisonne l'analyse en inspectant 100% des cartes du profil pour éliminer les faux manques.
+    Évalue les 3 pathologies cognitives : concepts absents (Type 1), défauts d'atomicité du bloc principal (Type 2),
+    et manque de liant/nuances fines bilingues FR/EN (Type 3). Calcule les scores d'avancement DomainMetrics.
+    """
+    return MCPToolRegistry.diagnose_domain_knowledge_gaps(
+        subject=subject,
+        target_deck=target_deck,
+        reference_document_id=reference_document_id,
+        blueprint_json=blueprint_json,
+        include_suspended=include_suspended,
+    )
+
+
+@mcp.tool()
+def ingest_authority_source(
+    transport_mode: str,
+    locator: str = "",
+    title: str = "",
+    inline_content: str = "",
+    authority_metadata_json: str = "{}",
+    force_update: bool = False,
+) -> str:
+    """Importe une source documentaire de référence avec certification d'autorité épistémique.
+
+    Modes de transport :
+    - `url` : téléchargement via WebImporter avec contrôle anti-SSRF complet
+      (blocage IP privées, DNS Rebinding, schémas http/https uniquement).
+    - `file_staging` : fichier lourd déposé dans le dossier `staging/` du profil
+      actif. Extraction multi-format (PDF, DOCX, EPUB, etc.) via
+      DocumentParser. Si PDF, archivage du média original. Confinement strict
+      (rejet chemins absolus, traversées `../`, symlinks).
+    - `inline_markdown` : contenu Markdown direct injecté (plafond strict
+      32 000 caractères).
+
+    Args:
+        transport_mode: Mode de transport ('url', 'file_staging',
+          'inline_markdown').
+        locator: URL complète (mode `url`) ou chemin relatif dans `staging/`
+          (mode `file_staging`).
+        title: Titre optionnel. Si absent : extrait du HTML (`url`), nom de
+          fichier sans extension (`file_staging`), ou premier H1
+          (`inline_markdown`). Repli : "Source d'Autorité".
+        inline_content: Contenu Markdown brut (mode `inline_markdown` uniquement).
+        authority_metadata_json: Certificat d'autorité JSON (ex:
+          `{"authority_score": 95.0, "authority_type": "RFC", "issuer": "IETF"}`).
+          `authority_score` normalisé 0.0-100.0.
+        force_update: Si `true`, met à jour un document existant détecté par
+          `source_url` ou `source_sha256` identique (idempotence). Sinon
+          renvoie `already_exists`.
+
+    Returns:
+        JSON string avec status (`created` | `updated` | `already_exists` |
+        `error` | `payload_too_large`), `document_id`, `title`,
+        `authority_score`, `authority_type`, `source_sha256`, `index_status`.
+    """
+    return MCPToolRegistry.ingest_authority_source(
+        transport_mode=transport_mode,
+        locator=locator,
+        title=title,
+        inline_content=inline_content,
+        authority_metadata_json=authority_metadata_json,
+        force_update=force_update,
+    )
+
+
+@mcp.tool()
+def write_mcp_artifact(filename: str, content: str, mime_type: str = "text/plain") -> str:
+    """Écrit un artefact d'échange agent et retourne une référence vérifiée (file_path, file_uri, sha256, taille)."""
+    return MCPToolRegistry.write_mcp_artifact(filename, content, mime_type)
+
+
+@mcp.tool()
+def read_mcp_artifact(filename: str, max_bytes: int = 100_000) -> str:
+    """Lit de manière sécurisée un artefact d'échange agent avec plafonnement de la taille lue."""
+    return MCPToolRegistry.read_mcp_artifact(filename, max_bytes)
+
+
+@mcp.resource("workspace://agent-guide")
+def get_workspace_agent_guide_resource() -> str:
+    """Sert le contenu du guide d'amorçage (version generic) en lecture temps réel."""
+    return _render_guide("generic", True)
+
+
+def run_server(transport: Literal["stdio", "sse", "streamable-http"] = "streamable-http") -> None:
+    """Démarre le serveur FastMCP en mode asynchrone sécurisé (transport par défaut: streamable-http)."""
+    logger.info("Démarrage du serveur MCP AnkiForge (transport: %s)...", transport)
+    if db.is_closed():
+        db.connect()
+
+    try:
+        if transport == "streamable-http":
+            mcp.run(transport="streamable-http")
+        elif transport == "sse":
+            mcp.run(transport="sse")
+        else:
+            mcp.run(transport="stdio")
+    except KeyboardInterrupt:
+        logger.info("Arrêt du serveur MCP AnkiForge.")
+    finally:
+        if not db.is_closed():
+            db.close()
+
+
+if __name__ == "__main__":
+    run_server()

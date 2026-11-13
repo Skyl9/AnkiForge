@@ -1,0 +1,4100 @@
+import html
+import json
+import logging
+import re
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any, Literal
+
+import markdown
+from peewee import fn
+from PIL import UnidentifiedImageError
+from PySide6.QtCore import QPointF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPixmap, QTextCursor
+from PySide6.QtWidgets import (
+    QButtonGroup,
+    QCheckBox,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSlider,
+    QSpinBox,
+    QSplitter,
+    QStackedWidget,
+    QTextBrowser,
+    QTextEdit,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
+from ankidraft.utils.i18n import tr
+
+try:
+    from PySide6.QtPdf import QPdfDocument
+    from PySide6.QtPdfWidgets import QPdfView
+
+    HAVE_QTPDF = True
+except ImportError:
+    HAVE_QTPDF = False
+
+from ankidraft.database.models import DocumentChunkModel, DocumentModel, DocumentPageModel, NoteChunkLinkModel
+from ankidraft.repositories.document_repository import DocumentRepository
+from ankidraft.services.audit.coverage_alignment_service import CoverageAlignmentService
+from ankidraft.services.markdown.structurer import MarkdownStructurer
+from ankidraft.services.parsing.chunking_service import ChunkingService, HeadingTreeNode
+from ankidraft.services.settings_service import SettingsService
+from ankidraft.ui.components import FlowLayout, PrimaryButton, SecondaryButton
+from ankidraft.ui.components.inputs import StyledComboBox
+from ankidraft.ui.dialogs.scope_mode_exclusivity import (
+    CheckableButton,
+    PageSubMode,
+    ScopeMode,
+    ScopeModeExclusivityMixin,
+    sync_chapter_cards_from_range,
+)
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.ui.views.creation_view.utils import format_page_ranges, parse_page_ranges
+from ankidraft.ui.widgets.toast import show_toast
+from ankidraft.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
+from ankidraft.utils.paths import get_resource_path, resolve_media_path
+from ankidraft.utils.region_address import (
+    RegionAddress,
+    RegionScope,
+    covers_region,
+    parse_region_address,
+    render_region_addresses,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def has_structured_heading_nodes(nodes: list[HeadingTreeNode]) -> bool:
+    """Retourne vrai si l'arbre contient des titres Markdown plutôt que des pages synthétiques."""
+    return any(node.children or node.level > 1 or not node.title.casefold().startswith(("page ", "planche ")) for node in nodes)
+
+
+def has_substantive_content(chunk: dict[str, Any] | None) -> bool:
+    """Vérifie si un chunk possède du texte de corps substantiel au-delà d'un simple titre Markdown."""
+    if not isinstance(chunk, dict):
+        return False
+    content = str(chunk.get("content", "")).strip()
+    if not content:
+        return False
+    body_lines = [line.strip() for line in content.splitlines() if not re.match(r"^#{1,6}\s+", line.strip()) and line.strip()]
+    return len(body_lines) > 0
+
+
+class SectionTreeWidgetItem(QTreeWidgetItem):
+    """Élément d'arborescence pour QTreeWidget offrant une compatibilité API totale avec QListWidgetItem."""
+
+    def __init__(self, parent: Any = None) -> None:
+        super().__init__(parent)
+        self._tree_ref: DocumentStructureTreeWidget | None = None
+        self._updating_check_state: bool = False
+
+    def checkState(self, column: int = 0) -> Qt.CheckState:
+        return super().checkState(column)
+
+    def setCheckState(self, *args: Any) -> None:
+        if self._updating_check_state:
+            return
+        self._updating_check_state = True
+        try:
+            if len(args) == 1:
+                state = args[0]
+                super().setCheckState(0, state)
+            elif len(args) >= 2:
+                state = args[1]
+                super().setCheckState(args[0], state)
+            else:
+                return
+
+            if self._tree_ref is not None:
+                w = self._tree_ref.itemWidget(self, 0)
+                if hasattr(w, "set_check_state"):
+                    w.set_check_state(state)
+        finally:
+            self._updating_check_state = False
+
+    def data(self, *args: Any) -> Any:
+        if len(args) == 1:
+            return super().data(0, args[0])
+        return super().data(args[0], args[1])
+
+    def setData(self, *args: Any) -> None:
+        if len(args) == 2:
+            super().setData(0, args[0], args[1])
+        elif len(args) >= 3:
+            super().setData(args[0], args[1], args[2])
+
+    def setSizeHint(self, *args: Any) -> None:
+        if len(args) == 1:
+            super().setSizeHint(0, args[0])
+        elif len(args) >= 2:
+            super().setSizeHint(args[0], args[1])
+
+
+class DocumentStructureTreeWidget(QTreeWidget):
+    """QTreeWidget hiérarchique avec support des chevrons de repli et compatibilité rétrograde drop-in pour QListWidget."""
+
+    itemClicked = Signal(object)
+    currentRowChanged = Signal(int)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setHeaderHidden(True)
+        self.setIndentation(20)
+        self.setAnimated(True)
+        self.currentItemChanged.connect(self._on_current_item_changed)
+
+    def _on_current_item_changed(self, current: QTreeWidgetItem | None, previous: QTreeWidgetItem | None) -> None:
+        if current is not None:
+            self.currentRowChanged.emit(self.row(current))
+        else:
+            self.currentRowChanged.emit(-1)
+
+    def all_items(self) -> list[QTreeWidgetItem]:
+        res: list[QTreeWidgetItem] = []
+
+        def _walk(it: QTreeWidgetItem) -> None:
+            res.append(it)
+            for i in range(it.childCount()):
+                _walk(it.child(i))
+
+        for i in range(self.topLevelItemCount()):
+            _walk(self.topLevelItem(i))
+        return res
+
+    def count(self) -> int:
+        return len(self.all_items())
+
+    def item(self, index: int) -> QTreeWidgetItem | None:
+        items = self.all_items()
+        if 0 <= index < len(items):
+            return items[index]
+        return None
+
+    def row(self, item: QTreeWidgetItem) -> int:
+        items = self.all_items()
+        try:
+            return items.index(item)
+        except ValueError:
+            return -1
+
+    def addItem(self, item: QTreeWidgetItem) -> None:
+        self.addTopLevelItem(item)
+
+    def itemWidget(self, item: QTreeWidgetItem, column: int = 0) -> QWidget:
+        widget = super().itemWidget(item, column)
+        if widget is None:
+            raise RuntimeError("itemWidget returned None — item not registered in this tree")
+        return widget
+
+    def setItemWidget(self, item: QTreeWidgetItem, column_or_widget: Any, widget: QWidget | None = None) -> None:
+        if isinstance(item, SectionTreeWidgetItem):
+            item._tree_ref = self
+        if widget is None:
+            super().setItemWidget(item, 0, column_or_widget)
+        else:
+            super().setItemWidget(item, column_or_widget, widget)
+
+    def currentRow(self) -> int:
+        cur = self.currentItem()
+        return self.row(cur) if cur else -1
+
+    def setCurrentRow(self, row_idx: int) -> None:
+        it = self.item(row_idx)
+        if it:
+            self.setCurrentItem(it)
+
+
+class TristateTreeCheckBox(QCheckBox):
+    """Case à cocher pour arbre hiérarchique .
+
+    L'utilisateur ne cycle qu'entre Checked et Unchecked au clic.
+    L'état PartiallyChecked n'est défini que par programme."""
+
+    def nextCheckState(self) -> None:
+        if self.checkState() == Qt.CheckState.Checked:
+            self.setCheckState(Qt.CheckState.Unchecked)
+        else:
+            self.setCheckState(Qt.CheckState.Checked)
+
+
+class SectionRowWidget(QWidget):
+    """Widget de ligne personnalisée pour afficher et basculer individuellement une section avec son diagnostic."""
+
+    checked_changed = Signal(bool)
+    state_changed = Signal(Qt.CheckState)
+
+    def __init__(
+        self,
+        item: QTreeWidgetItem,
+        tree_widget: QTreeWidget | None = None,
+        title: str = "",
+        is_checked: bool = True,
+        page_number: int | None = None,
+        end_page: int | None = None,
+        level: int = 1,
+        word_count: int = 0,
+        cards_count: int = 0,
+        is_noise: bool = False,
+        is_leaf: bool = True,
+        show_page: bool = True,
+        exclusion_scope: RegionScope | None = None,
+        list_widget: Any = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._item = item
+        self._tree_widget = tree_widget or list_widget
+        self.setFixedHeight(36)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setAccessibleName(f"Sélectionner la section {title}")
+        self.setStyleSheet(
+            f"""
+            SectionRowWidget {{
+                background-color: transparent;
+                border: 1px solid transparent;
+                border-radius: 5px;
+            }}
+            SectionRowWidget:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+            SectionRowWidget:focus {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+            SectionRowWidget[selectionState="checked"] {{
+                background-color: {DesignTokens.BG_ACTIVE};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+            SectionRowWidget[selectionState="partial"] {{
+                background-color: {DesignTokens.ACCENT_BG};
+                border-color: {DesignTokens.ACCENT_BORDER};
+            }}
+            """
+        )
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(4, 2, 8, 2)
+        layout.setSpacing(8)
+
+        # Checkbox explicite et interactive avec support tristate
+        self.checkbox = TristateTreeCheckBox()
+        self.checkbox.setTristate(True)
+        self.checkbox.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.checkbox.setAccessibleName(f"Sélectionner la section {title}")
+        self.checkbox.setChecked(is_checked)
+        self.checkbox.checkStateChanged.connect(self._on_check_state_changed)
+        layout.addWidget(self.checkbox)
+
+        # Badge de niveau de titre sémantique (H1, H2, H3)
+        if level == 1:
+            h_badge = QLabel(self.tr("H1"))
+            h_badge.setStyleSheet(
+                f"background-color: {DesignTokens.ACCENT_BG}; color: {DesignTokens.COLOR_PURPLE_TEXT}; border: 1px solid {DesignTokens.ACCENT_BORDER};"
+                f" border-radius: 4px; padding: 1px 5px; font-weight: bold; font-size: 10px;"
+            )
+            layout.addWidget(h_badge)
+        elif level == 2:
+            h_badge = QLabel(self.tr("H2"))
+            h_badge.setStyleSheet(
+                f"background-color: {DesignTokens.COLOR_BLUE_BG}; color: {DesignTokens.COLOR_BLUE_TEXT}; border: 1px solid {DesignTokens.COLOR_BLUE_BORDER};"
+                f" border-radius: 4px; padding: 1px 5px; font-weight: bold; font-size: 10px;"
+            )
+            layout.addWidget(h_badge)
+        elif level >= 3:
+            h_badge = QLabel(tr("H%1", level))
+            h_badge.setStyleSheet(
+                f"background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_SECONDARY}; border: 1px solid {DesignTokens.BORDER_COLOR};"
+                f" border-radius: 4px; padding: 1px 5px; font-size: 10px;"
+            )
+            layout.addWidget(h_badge)
+
+        # Titre avec plage de pages facultative (uniquement pour documents paginés)
+        if show_page and page_number is not None:
+            p_span = f"p. {page_number}–{end_page}" if end_page is not None and end_page > page_number else f"p. {page_number}"
+            page_suffix = f" <span style='color: {DesignTokens.TEXT_MUTED}; font-size: 11px;'>({p_span})</span>"
+            full_tooltip = f"{title} ({p_span})"
+        else:
+            page_suffix = ""
+            full_tooltip = title
+
+        title_lbl = QLabel(tr("%1%2", html.escape(title), page_suffix))
+        title_lbl.setTextFormat(Qt.TextFormat.RichText)
+        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500; border: none; background: transparent;")
+        title_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        title_lbl.setMinimumWidth(80)
+        title_lbl.setToolTip(full_tooltip)
+        layout.addWidget(title_lbl, 1)
+
+        # Badge Volume de mots (compact) — avertissement jaune uniquement pour les feuilles
+        if word_count < 25 and not is_noise and is_leaf:
+            word_badge = QLabel(tr("%1 mots", word_count))
+            word_badge.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 10px; font-weight: 500; border: none; background: transparent;")
+        else:
+            word_badge = QLabel(tr("%1 mots", word_count))
+            word_badge.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
+        layout.addWidget(word_badge)
+
+        # Badge Cartes existantes — UNIQUEMENT si cartes > 0 (évite d'encombrer chaque ligne avec "0 carte")
+        if cards_count > 0:
+            card_badge = QLabel(tr("%1 carte%2", cards_count, "s" if cards_count > 1 else ""))
+            card_badge.setStyleSheet(
+                f"background-color: {DesignTokens.BG_ACTIVE}; color: {DesignTokens.ACCENT_PRIMARY}; "
+                f"border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px; padding: 1px 5px; "
+                "font-weight: bold; font-size: 10px;"
+            )
+            layout.addWidget(card_badge)
+
+        # Badge Diagnostic / Recommandation — UNIQUEMENT pour les alertes réelles (Quasi vide, Exclu, Utile)
+        if exclusion_scope is RegionScope.NODE:
+            diag_badge = QLabel(self.tr("Titre seul exclu"))
+            diag_badge.setStyleSheet(
+                f"background-color: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW_TEXT}; border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER};"
+                f" border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: bold;"
+            )
+            diag_badge.setToolTip(self.tr("Hors périmètre (titre seul) : le conteneur est écarté, mais ses sous-sections restent actives."))
+            layout.addWidget(diag_badge)
+        elif exclusion_scope is RegionScope.HEADING or (not is_checked and is_noise):
+            diag_badge = QLabel(self.tr("Exclu"))
+            diag_badge.setStyleSheet(
+                f"background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED_TEXT}; border: 1px solid {DesignTokens.COLOR_RED_BORDER};"
+                f" border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: bold;"
+            )
+            diag_badge.setToolTip(self.tr("Hors périmètre : cette section et ses sous-sections sont écartées de la couverture."))
+            layout.addWidget(diag_badge)
+        elif cards_count > 0:
+            diag_badge = QLabel(self.tr("Utile (Cartes)"))
+            diag_badge.setStyleSheet(
+                f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN_TEXT}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};"
+                f" border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: bold;"
+            )
+            layout.addWidget(diag_badge)
+        elif word_count < 25 and is_leaf:
+            diag_badge = QLabel(self.tr("Quasi vide"))
+            diag_badge.setStyleSheet(
+                f"background-color: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW_TEXT};"
+                f" border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER}; border-radius: 4px; padding: 1px 5px; font-size: 10px;"
+            )
+            layout.addWidget(diag_badge)
+
+        self.set_check_state(Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked)
+
+    def _on_check_state_changed(self, state: Qt.CheckState) -> None:
+        self._tree_widget.setCurrentItem(self._item)
+        self._item.setCheckState(0, state)
+        self._apply_selection_state(state)
+        self.state_changed.emit(state)
+        self.checked_changed.emit(state == Qt.CheckState.Checked)
+
+    def is_checked(self) -> bool:
+        return self.checkbox.checkState() == Qt.CheckState.Checked
+
+    def check_state(self) -> Qt.CheckState:
+        return self.checkbox.checkState()
+
+    def set_check_state(self, state: Qt.CheckState) -> None:
+        self.checkbox.blockSignals(True)
+        self.checkbox.setCheckState(state)
+        QTreeWidgetItem.setCheckState(self._item, 0, state)
+        self.checkbox.blockSignals(False)
+        self._apply_selection_state(state)
+
+    def set_checked(self, checked: bool) -> None:
+        self.set_check_state(Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
+
+    def _apply_selection_state(self, state: Qt.CheckState) -> None:
+        state_name = {
+            Qt.CheckState.Checked: "checked",
+            Qt.CheckState.PartiallyChecked: "partial",
+            Qt.CheckState.Unchecked: "unchecked",
+        }[state]
+        self.setProperty("selectionState", state_name)
+        state_label = {
+            "checked": "sélectionné",
+            "partial": "partiellement sélectionné",
+            "unchecked": "non sélectionné",
+        }[state_name]
+        self.setAccessibleDescription(f"État : {state_label}")
+        self.checkbox.setAccessibleDescription(f"État : {state_label}")
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.update()
+
+    def mousePressEvent(self, event: Any) -> None:
+        self._tree_widget.setCurrentItem(self._item)
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.setFocus()
+            next_state = Qt.CheckState.Unchecked if self.check_state() == Qt.CheckState.Checked else Qt.CheckState.Checked
+            self.checkbox.setCheckState(next_state)
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def keyPressEvent(self, event: Any) -> None:
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
+            next_state = Qt.CheckState.Unchecked if self.check_state() == Qt.CheckState.Checked else Qt.CheckState.Checked
+            self.checkbox.setCheckState(next_state)
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
+class ChapterCardWidget(QFrame):
+    """Carte interactive pour la sélection d'un chapitre dans le mode Par Chapitres."""
+
+    toggled = Signal(int, bool)
+
+    def __init__(
+        self,
+        chapter_index: int,
+        title: str,
+        start_page: int | None = None,
+        end_page: int | None = None,
+        subsections_count: int = 0,
+        word_count: int = 0,
+        is_checked: bool = True,
+        is_paginated: bool = False,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.chapter_index = chapter_index
+        self.setObjectName(f"chapterCard_{chapter_index}")
+        self.setStyleSheet(f"""
+            QFrame#{self.objectName()} {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius:  {DesignTokens.RADIUS_MD}px;
+            }}
+            QFrame#{self.objectName()}:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(10)
+
+        self.checkbox = QCheckBox()
+        self.checkbox.setChecked(is_checked)
+        self.checkbox.stateChanged.connect(lambda s: self.toggled.emit(self.chapter_index, s == Qt.CheckState.Checked.value))
+        layout.addWidget(self.checkbox)
+
+        badge_h1 = QLabel(tr("Ch. %1", chapter_index + 1))
+        badge_h1.setStyleSheet(
+            f"background-color: {DesignTokens.ACCENT_BG}; color: {DesignTokens.COLOR_PURPLE_TEXT}; border: 1px solid {DesignTokens.ACCENT_BORDER};"
+            f" border-radius: 4px; padding: 2px 6px; font-weight: bold; font-size: 10px;"
+        )
+        layout.addWidget(badge_h1)
+
+        info_col = QVBoxLayout()
+        info_col.setSpacing(2)
+
+        title_lbl = QLabel(title)
+        title_lbl.setTextFormat(Qt.TextFormat.PlainText)
+        title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 600; border: none; background: transparent;")
+        title_lbl.setWordWrap(True)
+        info_col.addWidget(title_lbl)
+
+        meta_parts: list[str] = []
+        if is_paginated and start_page is not None:
+            p_span = f"Pages {start_page}–{end_page}" if end_page and end_page > start_page else f"Page {start_page}"
+            meta_parts.append(p_span)
+        if subsections_count > 0:
+            meta_parts.append(f"{subsections_count} sous-section{'s' if subsections_count > 1 else ''}")
+        meta_parts.append(f"~{word_count} mots")
+        meta_str = " • ".join(meta_parts)
+
+        meta_lbl = QLabel(meta_str)
+        meta_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+        info_col.addWidget(meta_lbl)
+
+        layout.addLayout(info_col, 1)
+
+    def set_checked(self, checked: bool) -> None:
+        self.checkbox.blockSignals(True)
+        self.checkbox.setChecked(checked)
+        self.checkbox.blockSignals(False)
+
+    def is_checked(self) -> bool:
+        return self.checkbox.isChecked()
+
+
+class ScopeRangeBarWidget(QWidget):
+    """Barre visuelle interactive représentant l'étendue du document et les segments utiles demandés."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedHeight(24)
+        self._start = 1
+        self._end = 1
+        self._total = 1
+        self._selected_pages: set[int] = set()
+
+    def set_range(self, start: int, end: int, total: int) -> None:
+        start_p = max(1, start)
+        end_p = max(start_p, min(end, total))
+        self.set_selected_pages(set(range(start_p, end_p + 1)), total)
+
+    def set_selected_pages(self, pages: set[int], total: int) -> None:
+        self._total = max(1, total)
+        self._selected_pages = {p for p in pages if 1 <= p <= self._total}
+        if not self._selected_pages:
+            self._start = 1
+            self._end = 1
+        else:
+            self._start = min(self._selected_pages)
+            self._end = max(self._selected_pages)
+        self.update()
+
+    def paintEvent(self, event: Any) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        w = self.width()
+        h = self.height()
+        r = 4
+
+        # Track fond (pages non sélectionnées)
+        painter.setBrush(QBrush(QColor(DesignTokens.BG_INPUT)))
+        painter.setPen(QPen(QColor(DesignTokens.BORDER_COLOR), 1))
+        painter.drawRoundedRect(0, 2, w, h - 4, r, r)
+
+        # Segments actifs (plages continues avec trous transparents pour les pages exclues)
+        total = max(1, self._total)
+        painter.setBrush(QBrush(QColor(DesignTokens.ACCENT_PRIMARY)))
+        painter.setPen(Qt.PenStyle.NoPen)
+
+        sorted_p = sorted(self._selected_pages)
+        intervals: list[tuple[int, int]] = []
+        if sorted_p:
+            cur_start = sorted_p[0]
+            cur_end = sorted_p[0]
+            for p in sorted_p[1:]:
+                if p == cur_end + 1:
+                    cur_end = p
+                else:
+                    intervals.append((cur_start, cur_end))
+                    cur_start = p
+                    cur_end = p
+            intervals.append((cur_start, cur_end))
+
+        for s, e in intervals:
+            start_ratio = (s - 1) / total
+            end_ratio = e / total
+            x_start = int(start_ratio * w)
+            x_end = int(end_ratio * w)
+            active_w = max(4, x_end - x_start)
+            painter.drawRoundedRect(x_start, 2, active_w, h - 4, r, r)
+
+        # Texte centré
+        painter.setPen(QPen(QColor(DesignTokens.TEXT_ON_ACCENT)))
+        font = QFont(DesignTokens.FONT_MAIN, 9)
+        font.setBold(True)
+        painter.setFont(font)
+        compact_str = format_page_ranges(self._selected_pages)
+        text = f"Portée : {compact_str} ({len(self._selected_pages)} / {self._total} pages)" if compact_str else "Aucune page sélectionnée"
+        painter.drawText(0, 0, w, h, Qt.AlignmentFlag.AlignCenter, text)
+        painter.end()
+
+
+class SlideSelectorBarWidget(QWidget):
+    """Ruban / Grille de pastilles de slides interactives cliquables (1 à N)."""
+
+    page_toggled = Signal(int)
+    all_selected = Signal()
+    none_selected = Signal()
+    inverted = Signal()
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._selected_pages: set[int] = set()
+        self._total_pages: int = 1
+        self._buttons: dict[int, QPushButton] = {}
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        # En-tête : Titre, compteur et boutons d'action rapide
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(6)
+
+        self.lbl_title = QLabel(self.tr("Slides / Pages :"))
+        self.lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
+        header_layout.addWidget(self.lbl_title)
+
+        self.lbl_count = QLabel("")
+        self.lbl_count.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none;")
+        header_layout.addWidget(self.lbl_count)
+        header_layout.addStretch()
+
+        btn_action_style = f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_SECONDARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 3px;
+                padding: 1px 6px;
+                font-size: 10px;
+                font-weight: 500;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """
+        self.btn_all = QPushButton(self.tr("Tout"))
+        self.btn_all.setStyleSheet(btn_action_style)
+        self.btn_all.setToolTip(self.tr("Inclure toutes les slides"))
+        self.btn_all.clicked.connect(self.all_selected.emit)
+        header_layout.addWidget(self.btn_all)
+
+        self.btn_none = QPushButton(self.tr("Aucun"))
+        self.btn_none.setStyleSheet(btn_action_style)
+        self.btn_none.setToolTip(self.tr("Exclure toutes les slides (conserve la première)"))
+        self.btn_none.clicked.connect(self.none_selected.emit)
+        header_layout.addWidget(self.btn_none)
+
+        self.btn_invert = QPushButton(self.tr("Inverser"))
+        self.btn_invert.setStyleSheet(btn_action_style)
+        self.btn_invert.setToolTip(self.tr("Inverser la sélection des slides"))
+        self.btn_invert.clicked.connect(self.inverted.emit)
+        header_layout.addWidget(self.btn_invert)
+
+        layout.addLayout(header_layout)
+
+        # Ruban de pastilles avec défilement horizontal
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setFixedHeight(34)
+        self.scroll_area.setStyleSheet("background: transparent; border: none;")
+
+        self.pills_container = QWidget()
+        self.pills_container.setStyleSheet("background: transparent;")
+        self.pills_layout = QHBoxLayout(self.pills_container)
+        self.pills_layout.setContentsMargins(0, 0, 0, 0)
+        self.pills_layout.setSpacing(4)
+        self.scroll_area.setWidget(self.pills_container)
+
+        layout.addWidget(self.scroll_area)
+
+    def set_pages(self, selected_pages: set[int], total_pages: int) -> None:
+        total_pages = max(1, total_pages)
+        self._total_pages = total_pages
+        self._selected_pages = {p for p in selected_pages if 1 <= p <= total_pages}
+
+        # Reconstruire les pastilles si le total a changé
+        if set(self._buttons.keys()) != set(range(1, total_pages + 1)):
+            while self.pills_layout.count():
+                item = self.pills_layout.takeAt(0)
+                w = item.widget()
+                if w:
+                    w.deleteLater()
+            self._buttons.clear()
+
+            for p in range(1, total_pages + 1):
+                btn = QPushButton(str(p))
+                btn.setFixedSize(28, 24)
+                btn.setToolTip(tr("Slide %1 : Cliquer pour basculer la sélection", p))
+                btn.clicked.connect(lambda _, page=p: self.page_toggled.emit(page))
+                self.pills_layout.addWidget(btn)
+                self._buttons[p] = btn
+            self.pills_layout.addStretch()
+
+        included_style = f"""
+            QPushButton {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                color: white;
+                font-weight: bold;
+                border: 1px solid {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 4px;
+                font-size: 10px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_ACTIVE};
+                border-color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """
+        excluded_style = f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_MUTED};
+                border: 1px dashed {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                font-size: 10px;
+            }}
+            QPushButton:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """
+        for p, btn in self._buttons.items():
+            if p in self._selected_pages:
+                btn.setStyleSheet(included_style)
+            else:
+                btn.setStyleSheet(excluded_style)
+
+        sel_count = len(self._selected_pages)
+        excl_count = total_pages - sel_count
+        if excl_count > 0:
+            self.lbl_count.setText(tr("(%1 / %2 — %3 exclue%4)", sel_count, total_pages, excl_count, "s" if excl_count > 1 else ""))
+        else:
+            self.lbl_count.setText(tr("(%1 / %2 — toutes incluses)", sel_count, total_pages))
+
+
+class RangeSegmentsWidget(QWidget):
+    """Liste visuelle de segments de plages cumulables avec suppression 1-clic et ajout inline."""
+
+    segment_removed = Signal(int, int)
+    range_added = Signal(int, int)
+
+    def __init__(self, max_page: int = 1, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._max_page = max(1, max_page)
+        self._selected_pages: set[int] = set()
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        top_layout = QHBoxLayout()
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(6)
+
+        lbl_title = QLabel(self.tr("Plages :"))
+        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
+        top_layout.addWidget(lbl_title)
+
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setFixedHeight(30)
+        self.scroll_area.setStyleSheet("background: transparent; border: none;")
+
+        self.chips_container = QWidget()
+        self.chips_container.setStyleSheet("background: transparent;")
+        self.chips_layout = QHBoxLayout(self.chips_container)
+        self.chips_layout.setContentsMargins(0, 0, 0, 0)
+        self.chips_layout.setSpacing(6)
+        self.scroll_area.setWidget(self.chips_container)
+
+        top_layout.addWidget(self.scroll_area, 1)
+
+        self.btn_add_range = QPushButton(self.tr("+ Plage"))
+        self.btn_add_range.setFixedHeight(24)
+        self.btn_add_range.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignTokens.ACCENT_PRIMARY};
+                border: 1px dashed {DesignTokens.ACCENT_PRIMARY};
+                border-radius: 4px;
+                padding: 2px 8px;
+                font-size: 10px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_ACTIVE};
+                border-style: solid;
+            }}
+        """)
+        self.btn_add_range.setToolTip(self.tr("Ajouter un segment de pages à la sélection"))
+        self.btn_add_range.clicked.connect(self._toggle_builder)
+        top_layout.addWidget(self.btn_add_range)
+
+        layout.addLayout(top_layout)
+
+        self.builder_widget = QFrame()
+        self.builder_widget.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                padding: 2px;
+            }}
+        """)
+        builder_layout = QHBoxLayout(self.builder_widget)
+        builder_layout.setContentsMargins(6, 3, 6, 3)
+        builder_layout.setSpacing(6)
+
+        lbl_de = QLabel(self.tr("Ajouter plage : de"))
+        lbl_de.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
+        builder_layout.addWidget(lbl_de)
+
+        self.spin_add_start = QSpinBox()
+        self.spin_add_start.setRange(1, self._max_page)
+        self.spin_add_start.setFixedWidth(50)
+        self.spin_add_start.setStyleSheet(f"""
+            QSpinBox {{
+                background-color: {DesignTokens.BG_MAIN};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 3px;
+                padding: 1px 4px;
+                font-size: 11px;
+            }}
+        """)
+        builder_layout.addWidget(self.spin_add_start)
+
+        lbl_a = QLabel(self.tr("à"))
+        lbl_a.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
+        builder_layout.addWidget(lbl_a)
+
+        self.spin_add_end = QSpinBox()
+        self.spin_add_end.setRange(1, self._max_page)
+        self.spin_add_end.setFixedWidth(50)
+        self.spin_add_end.setStyleSheet(f"""
+            QSpinBox {{
+                background-color: {DesignTokens.BG_MAIN};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 3px;
+                padding: 1px 4px;
+                font-size: 11px;
+            }}
+        """)
+        builder_layout.addWidget(self.spin_add_end)
+
+        self.btn_confirm_add = QPushButton(self.tr("✓ Ajouter"))
+        self.btn_confirm_add.setFixedHeight(22)
+        self.btn_confirm_add.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                color: white;
+                border: none;
+                border-radius: 3px;
+                padding: 2px 8px;
+                font-size: 10px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_ACTIVE};
+            }}
+        """)
+        self.btn_confirm_add.clicked.connect(self._on_confirm_add)
+        builder_layout.addWidget(self.btn_confirm_add)
+
+        self.btn_cancel_add = QPushButton(self.tr("✕"))
+        self.btn_cancel_add.setFixedSize(22, 22)
+        self.btn_cancel_add.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignTokens.TEXT_MUTED};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 3px;
+                font-size: 10px;
+            }}
+            QPushButton:hover {{
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
+        self.btn_cancel_add.clicked.connect(self.builder_widget.hide)
+        builder_layout.addWidget(self.btn_cancel_add)
+        builder_layout.addStretch()
+
+        self.builder_widget.hide()
+        layout.addWidget(self.builder_widget)
+
+    def _toggle_builder(self) -> None:
+        if self.builder_widget.isVisible():
+            self.builder_widget.hide()
+        else:
+            missing = [p for p in range(1, self._max_page + 1) if p not in self._selected_pages]
+            s_val = missing[0] if missing else 1
+            e_val = missing[0] if missing else self._max_page
+            self.spin_add_start.setValue(s_val)
+            self.spin_add_end.setValue(e_val)
+            self.builder_widget.show()
+
+    def _on_confirm_add(self) -> None:
+        s = self.spin_add_start.value()
+        e = self.spin_add_end.value()
+        if s > e:
+            s, e = e, s
+        self.range_added.emit(s, e)
+        self.builder_widget.hide()
+
+    def set_selected_pages(self, selected_pages: set[int], max_page: int) -> None:
+        self._max_page = max(1, max_page)
+        self.spin_add_start.setRange(1, self._max_page)
+        self.spin_add_end.setRange(1, self._max_page)
+        self._selected_pages = {p for p in selected_pages if 1 <= p <= self._max_page}
+
+        while self.chips_layout.count():
+            item = self.chips_layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+
+        sorted_p = sorted(self._selected_pages)
+        intervals: list[tuple[int, int]] = []
+        if sorted_p:
+            cur_s = sorted_p[0]
+            cur_e = sorted_p[0]
+            for p in sorted_p[1:]:
+                if p == cur_e + 1:
+                    cur_e = p
+                else:
+                    intervals.append((cur_s, cur_e))
+                    cur_s = p
+                    cur_e = p
+            intervals.append((cur_s, cur_e))
+
+        for s, e in intervals:
+            chip = QFrame()
+            chip.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: 4px;
+                    padding: 1px 4px;
+                }}
+            """)
+            c_layout = QHBoxLayout(chip)
+            c_layout.setContentsMargins(4, 1, 4, 1)
+            c_layout.setSpacing(4)
+
+            lbl_txt = f"p. {s}-{e}" if s != e else f"p. {s}"
+            lbl = QLabel(lbl_txt)
+            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: bold; border: none;")
+            c_layout.addWidget(lbl)
+
+            btn_del = QPushButton(self.tr("✕"))
+            btn_del.setFixedSize(16, 16)
+            btn_del.setToolTip(tr("Exclure la plage %1", lbl_txt))
+            btn_del.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent;
+                    color: {DesignTokens.TEXT_MUTED};
+                    border: none;
+                    font-size: 10px;
+                    font-weight: bold;
+                    padding: 0;
+                }}
+                QPushButton:hover {{
+                    color: {DesignTokens.COLOR_RED};
+                }}
+            """)
+            btn_del.clicked.connect(lambda _, start=s, end=e: self.segment_removed.emit(start, end))
+            c_layout.addWidget(btn_del)
+
+            self.chips_layout.addWidget(chip)
+
+        self.chips_layout.addStretch()
+
+
+class DocumentPreviewWidget(QWidget):
+    """Visionneuse de document intégrée et synchronisée .
+
+    Affiche directement le document tel que lisible en dehors de l'application :
+    - PDF natif multipages avec navigation et zoom (via QPdfView)
+    - Markdown enrichi et stylisé (via QTextBrowser avec feuille de style sombre et ancres de pagination)
+    - Planches haute résolution pour les albums et documents d'images.
+    """
+
+    page_scope_toggled = Signal(int, bool)
+
+    #: Plafond de décodage de l'aperçu. Un album de 200 planches en pleine résolution
+    #: coûterait des secondes de gel pour un cadre de 700 px : le rendu est borné.
+    ALBUM_PREVIEW_PX = 1400
+    ALBUM_PREVIEW_W_PX = 700
+
+    def __init__(self, doc: DocumentModel, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.doc = doc
+        file_type = (getattr(self.doc, "file_type", "") or "").lower()
+        if not file_type and getattr(self.doc, "title", "").lower().endswith(".pdf"):
+            file_type = "pdf"
+        self._is_paginated = file_type in ("pdf", "album", "pptx") or (getattr(doc, "total_pages", None) is not None and doc.total_pages > 1)
+        self._current_page = 1
+        self._total_pages = int(doc.total_pages or 1)
+        self._current_mode = "markdown"
+        self._scope_start: int = 1
+        self._scope_end: int = self._total_pages
+        self._included_pages: set[int] = set(range(1, self._total_pages + 1))
+        self._heading_highlight_timer = QTimer(self)
+        self._heading_highlight_timer.setSingleShot(True)
+        self._heading_highlight_timer.timeout.connect(self._clear_heading_highlight)
+
+        self._setup_ui()
+        self._load_document()
+
+    def _setup_ui(self) -> None:
+        card_layout = QVBoxLayout(self)
+        card_layout.setContentsMargins(0, 0, 0, 0)
+        card_layout.setSpacing(0)
+
+        # Conteneur Carte
+        self.card = QFrame()
+        self.card.setObjectName("previewCard")
+        self.card.setStyleSheet(f"""
+            QFrame#previewCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius:  {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        inner_layout = QVBoxLayout(self.card)
+        inner_layout.setContentsMargins(0, 0, 0, 0)
+        inner_layout.setSpacing(0)
+
+        # --- Barre d'outils / En-tête ---
+        self.header_frame = QFrame()
+        self.header_frame.setObjectName("previewHeader")
+        self.header_frame.setStyleSheet(f"""
+            QFrame#previewHeader {{
+                background-color: {DesignTokens.BG_INPUT};
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                border-top-left-radius: {DesignTokens.RADIUS_MD}px;
+                border-top-right-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        self.header_flow = FlowLayout(self.header_frame, margin=8, h_spacing=10, v_spacing=6)
+
+        # 1. Cluster Identité & Mode
+        self.title_cluster = QWidget()
+        self.title_cluster.setStyleSheet("background: transparent; border: none;")
+        t_layout = QHBoxLayout(self.title_cluster)
+        t_layout.setContentsMargins(0, 0, 0, 0)
+        t_layout.setSpacing(6)
+
+        # Titre et badge type
+        self.lbl_title = QLabel(self.tr("Aperçu"))
+        self.lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-weight: bold; font-size: 12px; border: none; background: transparent;")
+        t_layout.addWidget(self.lbl_title)
+
+        self.badge_type = QLabel(self.tr("PDF"))
+        self.badge_type.setStyleSheet(
+            f"background-color: {DesignTokens.BG_ACTIVE}; color: {DesignTokens.ACCENT_PRIMARY}; "
+            f"border: 1px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 4px; padding: 2px 6px; "
+            "font-weight: bold; font-size: 10px;"
+        )
+        t_layout.addWidget(self.badge_type)
+
+        # Toggle Vue (si PDF et Markdown tous deux disponibles)
+        self.toggle_group = QButtonGroup(self)
+        self.btn_toggle_pdf = QPushButton(self.tr("Vue PDF"))
+        self.btn_toggle_pdf.setCheckable(True)
+        self.btn_toggle_pdf.setFixedHeight(26)
+        self.btn_toggle_pdf.setAccessibleName("Afficher la vue PDF native")
+        self.btn_toggle_pdf.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignTokens.TEXT_MUTED};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                padding: 2px 8px;
+                font-size: 11px;
+            }}
+            QPushButton:checked {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                color: white;
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+                font-weight: bold;
+            }}
+        """)
+        self.btn_toggle_md = QPushButton(self.tr("Vue Markdown"))
+        self.btn_toggle_md.setCheckable(True)
+        self.btn_toggle_md.setFixedHeight(26)
+        self.btn_toggle_md.setAccessibleName("Afficher la vue texte Markdown")
+        self.btn_toggle_md.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignTokens.TEXT_MUTED};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                padding: 2px 8px;
+                font-size: 11px;
+            }}
+            QPushButton:checked {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                color: white;
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+                font-weight: bold;
+            }}
+        """)
+        self.toggle_group.addButton(self.btn_toggle_pdf)
+        self.toggle_group.addButton(self.btn_toggle_md)
+        self.btn_toggle_pdf.clicked.connect(lambda: self._set_mode("pdf"))
+        self.btn_toggle_md.clicked.connect(lambda: self._set_mode("markdown"))
+
+        t_layout.addWidget(self.btn_toggle_pdf)
+        t_layout.addWidget(self.btn_toggle_md)
+        self.header_flow.addWidget(self.title_cluster)
+
+        # 2. Cluster Portée de page (statut + bouton d'exclusion/inclusion)
+        self.scope_cluster = QWidget()
+        self.scope_cluster.setStyleSheet("background: transparent; border: none;")
+        s_layout = QHBoxLayout(self.scope_cluster)
+        s_layout.setContentsMargins(0, 0, 0, 0)
+        s_layout.setSpacing(6)
+
+        # Indicateur visuel d'inclusion dans la portée
+        self.lbl_scope_status = QLabel("")
+        self.lbl_scope_status.hide()
+        s_layout.addWidget(self.lbl_scope_status)
+
+        # Bouton 1-clic pour exclure/inclure la diapositive ou page courante
+        self.btn_toggle_page_scope = QPushButton(self.tr("Exclure cette page"))
+        self.btn_toggle_page_scope.setFixedHeight(24)
+        self.btn_toggle_page_scope.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_toggle_page_scope.setAccessibleName("Inclure ou exclure la page courante de la sélection")
+        self.btn_toggle_page_scope.clicked.connect(self._on_toggle_page_scope_clicked)
+        self.btn_toggle_page_scope.hide()
+        s_layout.addWidget(self.btn_toggle_page_scope)
+        self.scope_cluster.hide()
+        self.header_flow.addWidget(self.scope_cluster)
+
+        # 3. Cluster Contrôles (Navigation + Zoom)
+        self.controls_cluster = QWidget()
+        self.controls_cluster.setStyleSheet("background: transparent; border: none;")
+        c_layout = QHBoxLayout(self.controls_cluster)
+        c_layout.setContentsMargins(0, 0, 0, 0)
+        c_layout.setSpacing(6)
+
+        # Sous-groupe Navigation
+        self.nav_box = QWidget()
+        self.nav_box.setStyleSheet("background: transparent; border: none;")
+        nav_layout = QHBoxLayout(self.nav_box)
+        nav_layout.setContentsMargins(0, 0, 0, 0)
+        nav_layout.setSpacing(4)
+
+        self.btn_prev_page = QPushButton()
+        self.btn_prev_page.setIcon(load_phosphor_icon("ph.caret-left", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_prev_page.setFixedSize(26, 26)
+        self.btn_prev_page.setToolTip(self.tr("Page précédente"))
+        self.btn_prev_page.setAccessibleName("Page précédente")
+        self.btn_prev_page.clicked.connect(self._on_prev_page)
+        self.btn_prev_page.setStyleSheet(f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; background: {DesignTokens.BG_INPUT};")
+
+        self.spin_page = QSpinBox()
+        self.spin_page.setRange(1, max(1, self._total_pages))
+        self.spin_page.setValue(self._current_page)
+        self.spin_page.setToolTip(self.tr("Aller directement à la page"))
+        self.spin_page.setAccessibleName("Numéro de page")
+        self.spin_page.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.spin_page.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
+        self.spin_page.setFixedHeight(26)
+        self.spin_page.setMinimumWidth(44)
+        self.spin_page.setStyleSheet(f"""
+            QSpinBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 2px 4px;
+                font-size: {DesignTokens.FONT_SIZE_SM}px;
+                font-weight: 600;
+            }}
+            QSpinBox:focus {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        self.spin_page.valueChanged.connect(self._on_spin_page_changed)
+
+        self.lbl_page = QLabel(tr("/ %1", self._total_pages))
+        self.lbl_page.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: {DesignTokens.FONT_SIZE_SM}px; font-weight: 500; border: none; background: transparent;")
+
+        self.btn_next_page = QPushButton()
+        self.btn_next_page.setIcon(load_phosphor_icon("ph.caret-right", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_next_page.setFixedSize(26, 26)
+        self.btn_next_page.setToolTip(self.tr("Page suivante"))
+        self.btn_next_page.setAccessibleName("Page suivante")
+        self.btn_next_page.clicked.connect(self._on_next_page)
+        self.btn_next_page.setStyleSheet(f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; background: {DesignTokens.BG_INPUT};")
+
+        nav_layout.addWidget(self.btn_prev_page)
+        nav_layout.addWidget(self.spin_page)
+        nav_layout.addWidget(self.lbl_page)
+        nav_layout.addWidget(self.btn_next_page)
+        c_layout.addWidget(self.nav_box)
+
+        # Sous-groupe Zoom
+        self.zoom_box = QWidget()
+        self.zoom_box.setStyleSheet("background: transparent; border: none;")
+        zoom_layout = QHBoxLayout(self.zoom_box)
+        zoom_layout.setContentsMargins(0, 0, 0, 0)
+        zoom_layout.setSpacing(4)
+
+        self.btn_zoom_out = QPushButton()
+        self.btn_zoom_out.setIcon(load_phosphor_icon("ph.magnifying-glass-minus", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_zoom_out.setFixedSize(26, 26)
+        self.btn_zoom_out.setToolTip(self.tr("Zoom arrière"))
+        self.btn_zoom_out.setAccessibleName("Zoom arrière")
+        self.btn_zoom_out.clicked.connect(self._zoom_out)
+        self.btn_zoom_out.setStyleSheet(f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; background: {DesignTokens.BG_INPUT};")
+
+        self.btn_zoom_fit = QPushButton(self.tr("Ajuster"))
+        self.btn_zoom_fit.setFixedHeight(26)
+        self.btn_zoom_fit.setToolTip(self.tr("Ajuster à la largeur"))
+        self.btn_zoom_fit.setAccessibleName("Ajuster le document à la largeur")
+        self.btn_zoom_fit.clicked.connect(self._zoom_fit)
+        self.btn_zoom_fit.setStyleSheet(
+            f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; padding: 2px 8px; font-size: 10px; background: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY};"
+        )
+
+        self.btn_zoom_in = QPushButton()
+        self.btn_zoom_in.setIcon(load_phosphor_icon("ph.magnifying-glass-plus", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_zoom_in.setFixedSize(26, 26)
+        self.btn_zoom_in.setToolTip(self.tr("Zoom avant"))
+        self.btn_zoom_in.setAccessibleName("Zoom avant")
+        self.btn_zoom_in.clicked.connect(self._zoom_in)
+        self.btn_zoom_in.setStyleSheet(f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; background: {DesignTokens.BG_INPUT};")
+
+        zoom_layout.addWidget(self.btn_zoom_out)
+        zoom_layout.addWidget(self.btn_zoom_fit)
+        zoom_layout.addWidget(self.btn_zoom_in)
+        c_layout.addWidget(self.zoom_box)
+
+        self.header_flow.addWidget(self.controls_cluster)
+
+        inner_layout.addWidget(self.header_frame)
+
+        # --- Stack de visualisation ---
+        self.view_stack = QStackedWidget()
+
+        # 1. Vue PDF
+        if HAVE_QTPDF:
+            self.pdf_document = QPdfDocument(self)
+            self.pdf_document.statusChanged.connect(self._on_pdf_status_changed)
+            self.pdf_viewer = QPdfView()
+            self.pdf_viewer.setDocument(self.pdf_document)
+            self.pdf_viewer.setPageMode(QPdfView.PageMode.MultiPage)
+            self.pdf_viewer.setZoomMode(QPdfView.ZoomMode.FitToWidth)
+            self.pdf_viewer.setStyleSheet(f"border: none; background-color: {DesignTokens.BG_MAIN};")
+            self.pdf_viewer.pageNavigator().currentPageChanged.connect(self._on_pdf_page_changed)
+            self.view_stack.addWidget(self.pdf_viewer)
+        else:
+            self.pdf_viewer = None
+            lbl_no_pdf = QLabel(self.tr("Module PDF non disponible."))
+            lbl_no_pdf.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.view_stack.addWidget(lbl_no_pdf)
+
+        # 2. Vue Markdown stylisé
+        self.markdown_viewer = QTextBrowser()
+        self.markdown_viewer.setOpenExternalLinks(True)
+        self.markdown_viewer.setStyleSheet(f"""
+            QTextBrowser {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: none;
+                padding: 16px 20px;
+                font-family: '{DesignTokens.FONT_MAIN}', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                font-size: 13px;
+                line-height: 1.6;
+            }}
+        """)
+        self.view_stack.addWidget(self.markdown_viewer)
+
+        # 3. Vue Image / Planches (Album)
+        self.image_scroll = QScrollArea()
+        self.image_scroll.setWidgetResizable(True)
+        self.image_scroll.setStyleSheet(f"border: none; background-color: {DesignTokens.BG_MAIN};")
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_scroll.setWidget(self.image_label)
+        self.view_stack.addWidget(self.image_scroll)
+
+        inner_layout.addWidget(self.view_stack, 1)
+        card_layout.addWidget(self.card)
+
+    def _load_document(self) -> None:
+        file_type = (getattr(self.doc, "file_type", "") or "").lower()
+        has_pdf = False
+        pdf_path: Path | None = None
+
+        if getattr(self.doc, "original_media", None):
+            try:
+                cand_path = resolve_media_path(self.doc.original_media.filename)
+                if cand_path.exists():
+                    pdf_path = cand_path
+            except Exception as e:
+                logger.debug("Resolution media path error: %s", e)
+
+        if not pdf_path and getattr(self.doc, "source_url", None):
+            try:
+                cand_path = Path(self.doc.source_url)
+                if cand_path.exists():
+                    pdf_path = cand_path
+            except Exception as err:
+                logger.debug("Résolution du chemin source_url ignorée : %s", err)
+
+        if not pdf_path and getattr(self.doc, "file_path", None):
+            try:
+                cand_path = Path(self.doc.file_path)
+                if cand_path.exists():
+                    pdf_path = cand_path
+            except Exception as err:
+                logger.debug("Résolution du chemin file_path ignorée : %s", err)
+
+        if file_type == "pdf" and pdf_path and HAVE_QTPDF and self.pdf_viewer:
+            try:
+                self.pdf_document.load(str(pdf_path))
+                status = getattr(self.pdf_document, "status", None)
+                if status is not None and hasattr(QPdfDocument, "Status") and status() == QPdfDocument.Status.Error:
+                    logger.warning("Erreur lors du chargement du fichier PDF : %s", pdf_path)
+                    has_pdf = False
+                else:
+                    self._total_pages = max(1, self.pdf_document.pageCount())
+                    has_pdf = True
+            except Exception as e:
+                logger.warning("Failed to load PDF file: %s", e)
+                has_pdf = False
+
+        # Rendu du Markdown stylisé
+        raw_md = getattr(self.doc, "content", "") or ""
+        if not raw_md.strip():
+            raw_md = "*Aucun contenu texte disponible pour ce document.*"
+        html_content = self._render_stylized_markdown(raw_md)
+        self.markdown_viewer.setHtml(html_content)
+
+        # Détermination du mode initial
+        if file_type == "album":
+            self.badge_type.setText(self.tr("Album"))
+            self.btn_toggle_pdf.hide()
+            self.btn_toggle_md.hide()
+            self._set_mode("album")
+        elif has_pdf:
+            self.badge_type.setText(self.tr("PDF"))
+            self.btn_toggle_pdf.show()
+            self.btn_toggle_md.show()
+            self.btn_toggle_pdf.setChecked(True)
+            self._set_mode("pdf")
+        else:
+            self.badge_type.setText("Markdown" if file_type in ("md", "markdown") else file_type.upper() or "Texte")
+            self.btn_toggle_pdf.hide()
+            self.btn_toggle_md.hide()
+            self._set_mode("markdown")
+
+        self._update_page_label()
+
+    def _render_stylized_markdown(self, raw_md: str) -> str:
+        def _replace_page_tag(match: re.Match[str]) -> str:
+            p_num = match.group(1)
+            return (
+                f'<div id="page-{p_num}" style="margin: 28px 0 14px 0; border-top: 2px dashed {DesignTokens.BORDER_COLOR}; padding-top: 6px;">'
+                f'<a name="page-{p_num}"></a>'
+                f'<span style="background-color: {DesignTokens.ACCENT_BG}; color: {DesignTokens.COLOR_PURPLE_TEXT}; font-size: 11px; font-weight: bold; '
+                f'padding: 3px 10px; border-radius: 12px; border: 1px solid {DesignTokens.ACCENT_BORDER};">Page {p_num}</span>'
+                f"</div>"
+            )
+
+        processed_md = re.sub(r"<!--\s*PAGE:\s*(\d+)\s*-->", _replace_page_tag, raw_md)
+        body_html = markdown.markdown(processed_md, extensions=["fenced_code", "tables"])
+
+        return f"""
+        <html>
+        <head>
+        <style>
+            body {{
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                font-size: 13px;
+                line-height: 1.6;
+                padding: 12px;
+            }}
+            h1, h2, h3, h4 {{
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-weight: 600;
+                margin-top: 18px;
+                margin-bottom: 8px;
+            }}
+            h1 {{
+                font-size: 18px;
+                color: {DesignTokens.COLOR_PURPLE_TEXT};
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                padding-bottom: 4px;
+            }}
+            h2 {{
+                font-size: 15px;
+                color: {DesignTokens.COLOR_BLUE_TEXT};
+                border-bottom: 1px solid {DesignTokens.BORDER_LIGHT};
+                padding-bottom: 3px;
+            }}
+            h3 {{
+                font-size: 13px;
+                color: {DesignTokens.TEXT_SECONDARY};
+            }}
+            p {{
+                margin-bottom: 10px;
+            }}
+            code {{
+                background-color: {DesignTokens.BG_PANEL};
+                color: {DesignTokens.COLOR_PURPLE_TEXT};
+                padding: 2px 4px;
+                border-radius: 4px;
+                font-family: Menlo, Monaco, monospace;
+                font-size: 12px;
+            }}
+            pre {{
+                background-color: {DesignTokens.BG_PANEL};
+                padding: 10px;
+                border-radius: 6px;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+            }}
+            blockquote {{
+                border-left: 3px solid {DesignTokens.ACCENT_PRIMARY};
+                margin: 10px 0;
+                padding-left: 10px;
+                color: {DesignTokens.TEXT_MUTED};
+                background-color: {DesignTokens.ACCENT_BG};
+            }}
+            table {{
+                border-collapse: collapse;
+                width: 100%;
+                margin: 12px 0;
+            }}
+            th, td {{
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                padding: 6px 8px;
+                text-align: left;
+            }}
+            th {{
+                background-color: {DesignTokens.BG_PANEL};
+                font-weight: 600;
+            }}
+        </style>
+        </head>
+        <body>
+        {body_html}
+        </body>
+        </html>
+        """
+
+    def _set_mode(self, mode: str) -> None:
+        self._current_mode = mode
+        if mode == "pdf" and HAVE_QTPDF and self.pdf_viewer:
+            self.view_stack.setCurrentIndex(0)
+            self.btn_zoom_out.show()
+            self.btn_zoom_fit.show()
+            self.btn_zoom_in.show()
+            if hasattr(self, "zoom_box"):
+                self.zoom_box.show()
+        elif mode == "album":
+            self.view_stack.setCurrentIndex(2)
+            self.btn_zoom_out.show()
+            self.btn_zoom_fit.show()
+            self.btn_zoom_in.show()
+            if hasattr(self, "zoom_box"):
+                self.zoom_box.show()
+            self._load_album_page(self._current_page)
+        else:
+            self.view_stack.setCurrentIndex(1)
+            self.btn_zoom_out.show()
+            self.btn_zoom_fit.show()
+            self.btn_zoom_in.show()
+            if hasattr(self, "zoom_box"):
+                self.zoom_box.show()
+        self._update_page_label()
+
+    @property
+    def current_page(self) -> int:
+        return self._current_page
+
+    def jump_to_page(self, page_number: int) -> None:
+        """Navigue directement vers la page demandée."""
+        old_page = self._current_page
+        target_page = max(1, min(page_number, self._total_pages))
+        self._current_page = target_page
+
+        try:
+            if self._current_mode == "pdf" and HAVE_QTPDF and self.pdf_viewer:
+                self.pdf_viewer.pageNavigator().jump(self._current_page - 1, QPointF(0, 0), self.pdf_viewer.zoomFactor())
+            elif self._current_mode == "album":
+                self._load_album_page(self._current_page)
+            elif self._current_mode == "markdown":
+                self.markdown_viewer.scrollToAnchor(f"page-{self._current_page}")
+            self._update_page_label()
+        except Exception as e:
+            logger.warning("Erreur lors de la navigation vers la page %s : %s", target_page, e)
+            self._current_page = old_page
+            self._update_page_label()
+            self._show_status_badge(f"Page {target_page} (erreur de rendu)", badge_type="error")
+
+    def _show_status_badge(self, text: str, badge_type: Literal["error", "loading", "default"] = "default") -> None:
+        """Affiche un badge de statut stylisé selon les tokens de design."""
+        if not hasattr(self, "lbl_scope_status"):
+            return
+        if badge_type == "error":
+            bg_col = DesignTokens.COLOR_RED_BG
+            text_col = DesignTokens.COLOR_RED_TEXT
+            border_col = DesignTokens.COLOR_RED_BORDER
+            weight = "bold"
+        elif badge_type == "loading":
+            bg_col = DesignTokens.BG_INPUT
+            text_col = DesignTokens.TEXT_MUTED
+            border_col = DesignTokens.BORDER_COLOR
+            weight = "normal"
+        else:
+            bg_col = DesignTokens.BG_INPUT
+            text_col = DesignTokens.TEXT_PRIMARY
+            border_col = DesignTokens.BORDER_COLOR
+            weight = "normal"
+
+        self.lbl_scope_status.setText(text)
+        self.lbl_scope_status.setStyleSheet(
+            f"background-color: {bg_col}; color: {text_col}; border: 1px solid {border_col};"
+            f" border-radius: {DesignTokens.RADIUS_SM}px; padding: 2px 6px; font-size: {DesignTokens.FONT_SIZE_XS}px; font-weight: {weight};"
+        )
+        self.lbl_scope_status.show()
+        if hasattr(self, "scope_cluster"):
+            self.scope_cluster.show()
+
+    def jump_to_heading(self, heading_text: str, page_number: int | None = None, heading_path: str = "") -> None:
+        """Navigue vers un titre ou sa page associée."""
+        if self._is_paginated and page_number is not None:
+            self.jump_to_page(page_number)
+
+        if self._current_mode == "markdown":
+            if self._is_paginated and page_number is not None:
+                self.markdown_viewer.scrollToAnchor(f"page-{page_number}")
+            if heading_text:
+                self._highlight_heading(heading_text, page_number, heading_path)
+
+    def _highlight_heading(self, heading_text: str, page_number: int | None = None, heading_path: str = "") -> None:
+        """Surligne temporairement le titre ciblé dans l'aperçu Markdown.
+
+        Le sommaire annonce les mêmes titres que le corps de cours : l'occurrence
+        visée est celle que le structurateur désigne comme corps réel, et non la
+        première — l'entrée d'index — que `QTextDocument.find` retiendrait.
+        """
+        block_number = self._resolve_heading_block_number(heading_text, page_number, heading_path)
+        if block_number is None:
+            return
+        block = self.markdown_viewer.document().findBlockByNumber(block_number)
+        if not block.isValid():
+            return
+        cursor = QTextCursor(block)
+        cursor.select(QTextCursor.SelectionType.LineUnderCursor)
+        selection = QTextEdit.ExtraSelection()
+        selection.cursor = cursor
+        selection.format.setBackground(QColor(DesignTokens.BG_ACTIVE))
+        selection.format.setForeground(QColor(DesignTokens.TEXT_PRIMARY))
+        self.markdown_viewer.setExtraSelections([selection])
+        self.markdown_viewer.setTextCursor(cursor)
+        self._heading_highlight_timer.start(2000)
+
+    def _resolve_heading_block_number(self, heading_text: str, page_number: int | None, heading_path: str) -> int | None:
+        """Repère le bloc rendu qui porte le corps réel du titre, pas son annonce d'index.
+
+        `resolve_heading_line_number` désigne la ligne du corps réel en écartant le
+        bloc Table des Matières et en départageant les homonymes (page d'origine, puis
+        volume de corps de cours). Il est nourri du fil d'Ariane complet quand la
+        section sélectionnée en fournit un : la correspondance est alors exacte, là où
+        le seul titre feuille ne distingue pas deux sections homonymes distinctes. Cette
+        ligne est traduite en rang d'occurrence parmi les titres de même slug, rapport à
+        l'outline complet sommaire inclus.
+
+        Le rang est ensuite appliqué au document **rendu**, dont les blocs candidats
+        sont les mêmes titres normalisés par le même `slugify`. Les deux rendus
+        provenant d'analyseurs différents (markdown-it pour l'outline, python-markdown
+        pour l'aperçu), ils peuvent diverger sur un HTML brut ou un bloc de code : le
+        nombre de candidats doit alors correspondre au nombre d'homonymes de l'outline,
+        faute de quoi le rang ne désigne plus rien de fiable et l'on s'abstient —
+        surligner l'entrée du sommaire serait précisément le défaut que l'on corrige.
+        """
+        raw_md = getattr(self.doc, "content", "") or ""
+        if not raw_md or not heading_text:
+            return None
+        target_slug = MarkdownStructurer.slugify(heading_text)
+        line_page_map = ChunkingService.build_line_to_page_map(raw_md) if page_number else {}
+        target_line = MarkdownStructurer.resolve_heading_line_number(raw_md, heading_path or heading_text, page_number, line_page_map=line_page_map)
+        if target_line is None:
+            return None
+
+        homonyms = [item for item in MarkdownStructurer.get_outline(raw_md, skip_toc=False) if item.slug == target_slug]
+        document = self.markdown_viewer.document()
+        rendered = [index for index in range(document.blockCount()) if MarkdownStructurer.slugify(document.findBlockByNumber(index).text()) == target_slug]
+        if len(rendered) != len(homonyms):
+            return None
+        for rank, item in enumerate(homonyms):
+            if item.line_number == target_line:
+                return rendered[rank]
+        return None
+
+    def _clear_heading_highlight(self) -> None:
+        self.markdown_viewer.setExtraSelections([])
+
+    def _on_pdf_status_changed(self, status: Any) -> None:
+        """Réagit aux changements de statut du document PDF."""
+        if not HAVE_QTPDF:
+            return
+
+        if status == QPdfDocument.Status.Loading:
+            self._show_status_badge("Chargement du PDF...", badge_type="loading")
+        elif status == QPdfDocument.Status.Ready:
+            if hasattr(self, "pdf_document"):
+                self._total_pages = max(1, self.pdf_document.pageCount())
+            self._update_page_label()
+        elif status == QPdfDocument.Status.Error:
+            logger.warning("Erreur signalée par QPdfDocument lors du rendu du PDF.")
+            self.btn_toggle_pdf.hide()
+            self.btn_toggle_md.hide()
+            self.badge_type.setText(self.tr("Texte (repli)"))
+            self._set_mode("markdown")
+            self._show_status_badge("Erreur de lecture du PDF", badge_type="error")
+
+    def _on_pdf_page_changed(self, page_idx: int) -> None:
+        self._current_page = page_idx + 1
+        self._update_page_label()
+
+    def _on_spin_page_changed(self, value: int) -> None:
+        if value != self._current_page:
+            self.jump_to_page(value)
+
+    def _on_prev_page(self) -> None:
+        if self._current_page > 1:
+            self.jump_to_page(self._current_page - 1)
+
+    def _on_next_page(self) -> None:
+        if self._current_page < self._total_pages:
+            self.jump_to_page(self._current_page + 1)
+
+    def _zoom_in(self) -> None:
+        if self._current_mode == "pdf" and HAVE_QTPDF and self.pdf_viewer:
+            self.pdf_viewer.setZoomFactor(self.pdf_viewer.zoomFactor() * 1.2)
+        elif self._current_mode == "markdown":
+            self.markdown_viewer.zoomIn(1)
+
+    def _zoom_out(self) -> None:
+        if self._current_mode == "pdf" and HAVE_QTPDF and self.pdf_viewer:
+            self.pdf_viewer.setZoomFactor(max(0.2, self.pdf_viewer.zoomFactor() / 1.2))
+        elif self._current_mode == "markdown":
+            self.markdown_viewer.zoomOut(1)
+
+    def _zoom_fit(self) -> None:
+        if self._current_mode == "pdf" and HAVE_QTPDF and self.pdf_viewer:
+            self.pdf_viewer.setZoomMode(QPdfView.ZoomMode.FitToWidth)
+        elif self._current_mode == "markdown":
+            font = self.markdown_viewer.font()
+            font.setPointSize(DesignTokens.FONT_SIZE_BASE)
+            self.markdown_viewer.setFont(font)
+
+    def set_scope_range(self, start_page: int, end_page: int, included_pages: set[int] | None = None) -> None:
+        """Définit les bornes de la portée demandée et les pages incluses pour mettre à jour l'indicateur visuel."""
+        self._scope_start = max(1, start_page)
+        self._scope_end = max(self._scope_start, end_page)
+        if included_pages is not None:
+            self._included_pages = set(included_pages)
+        else:
+            self._included_pages = set(range(self._scope_start, self._scope_end + 1))
+        self._update_scope_badge()
+
+    def set_active_scope(self, start_page: int, end_page: int, included_pages: set[int] | None = None) -> None:
+        """Alias pour set_scope_range avec support explicite des pages incluses."""
+        self.set_scope_range(start_page, end_page, included_pages=included_pages)
+
+    def _on_toggle_page_scope_clicked(self) -> None:
+        is_included = (self._current_page in self._included_pages) if self._included_pages else (self._scope_start <= self._current_page <= self._scope_end)
+        self.page_scope_toggled.emit(self._current_page, not is_included)
+
+    def _update_scope_badge(self) -> None:
+        if not hasattr(self, "lbl_scope_status"):
+            return
+        if not self._is_paginated:
+            self.lbl_scope_status.hide()
+            if hasattr(self, "btn_toggle_page_scope"):
+                self.btn_toggle_page_scope.hide()
+            if hasattr(self, "scope_cluster"):
+                self.scope_cluster.hide()
+            return
+        scope_str = format_page_ranges(self._included_pages) if self._included_pages else f"{self._scope_start}–{self._scope_end}"
+        is_included = (self._current_page in self._included_pages) if self._included_pages else (self._scope_start <= self._current_page <= self._scope_end)
+        if is_included:
+            self.lbl_scope_status.setText(tr("Page %1 INCLUSE (portée %2)", self._current_page, scope_str))
+            self.lbl_scope_status.setStyleSheet(
+                f"background-color: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN_TEXT}; border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};"
+                f" border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
+            )
+            if hasattr(self, "btn_toggle_page_scope"):
+                self.btn_toggle_page_scope.setText(self.tr("🚫 Exclure cette page"))
+                self.btn_toggle_page_scope.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: transparent;
+                        color: {DesignTokens.COLOR_RED_TEXT};
+                        border: 1px solid {DesignTokens.COLOR_RED_BORDER};
+                        border-radius: 4px;
+                        padding: 2px 8px;
+                        font-size: 10px;
+                        font-weight: 500;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {DesignTokens.COLOR_RED_BG};
+                    }}
+                """)
+                self.btn_toggle_page_scope.show()
+        else:
+            self.lbl_scope_status.setText(tr("Page %1 EXCLUE (portée %2)", self._current_page, scope_str))
+            self.lbl_scope_status.setStyleSheet(
+                f"background-color: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED_TEXT}; border: 1px solid {DesignTokens.COLOR_RED_BORDER};"
+                f" border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: bold;"
+            )
+            if hasattr(self, "btn_toggle_page_scope"):
+                self.btn_toggle_page_scope.setText(self.tr("✅ Inclure cette page"))
+                self.btn_toggle_page_scope.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: transparent;
+                        color: {DesignTokens.COLOR_GREEN_TEXT};
+                        border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};
+                        border-radius: 4px;
+                        padding: 2px 8px;
+                        font-size: 10px;
+                        font-weight: 500;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {DesignTokens.COLOR_GREEN_BG};
+                    }}
+                """)
+                self.btn_toggle_page_scope.show()
+        self.lbl_scope_status.show()
+        if hasattr(self, "scope_cluster"):
+            self.scope_cluster.show()
+
+    def _update_page_label(self) -> None:
+        if self._is_paginated:
+            self.lbl_page.show()
+            if hasattr(self, "spin_page"):
+                self.spin_page.show()
+                self.spin_page.blockSignals(True)
+                self.spin_page.setRange(1, max(1, self._total_pages))
+                self.spin_page.setValue(self._current_page)
+                self.spin_page.blockSignals(False)
+            self.btn_prev_page.show()
+            self.btn_next_page.show()
+            if hasattr(self, "nav_box"):
+                self.nav_box.show()
+            if hasattr(self, "controls_cluster"):
+                self.controls_cluster.show()
+            self.lbl_page.setText(tr("/ %1", self._total_pages))
+            self.btn_prev_page.setEnabled(self._current_page > 1)
+            self.btn_next_page.setEnabled(self._current_page < self._total_pages)
+            self._update_scope_badge()
+        else:
+            self.lbl_page.hide()
+            if hasattr(self, "spin_page"):
+                self.spin_page.hide()
+            self.btn_prev_page.hide()
+            self.btn_next_page.hide()
+            if hasattr(self, "nav_box"):
+                self.nav_box.hide()
+            if hasattr(self, "lbl_scope_status"):
+                self.lbl_scope_status.hide()
+            if hasattr(self, "btn_toggle_page_scope"):
+                self.btn_toggle_page_scope.hide()
+            if hasattr(self, "scope_cluster"):
+                self.scope_cluster.hide()
+            if hasattr(self, "controls_cluster"):
+                has_zoom = hasattr(self, "zoom_box") and self.zoom_box.isVisible()
+                self.controls_cluster.setVisible(has_zoom)
+
+    def _load_album_page(self, page_num: int) -> None:
+        page_rec = (
+            DocumentPageModel.select()
+            .where(
+                DocumentPageModel.document == self.doc,
+                DocumentPageModel.page_number == page_num,
+            )
+            .first()
+        )
+        if page_rec:
+            # La délimitation doit montrer la planche telle qu'elle sera compilée : la
+            # borne choisie sur une image couchée vaut sur une image dressée (ADR 0011).
+            from ankidraft.services.cards.album_service import AlbumService
+
+            try:
+                image = AlbumService().render_page_qimage(page_rec, max_size=self.ALBUM_PREVIEW_PX)
+            except FileNotFoundError:
+                logger.debug("Planche %d sans image : aperçu ignoré", page_num)
+            except UnidentifiedImageError:
+                logger.warning("Planche %d : image illisible, aperçu ignoré", page_num)
+            else:
+                self.image_label.setPixmap(QPixmap.fromImage(image).scaledToWidth(self.ALBUM_PREVIEW_W_PX, Qt.TransformationMode.SmoothTransformation))
+
+
+class DocumentDelimitationDialog(ScopeModeExclusivityMixin, QDialog):
+    """Dialogue interactif de délimitation de documents .
+
+    Permet de sélectionner des plages de pages utiles, de filtrer les sections
+    et d'exclure les parties non pédagogiques (sommaires, remerciements, bibliographies).
+    Sauvegarde durablement les bornes et exclut le bruit de la couverture et du RAG.
+    """
+
+    def __init__(self, doc: DocumentModel, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        if getattr(doc, "id", None):
+            try:
+                doc = DocumentModel.get_by_id(doc.id)
+            except Exception as err:
+                logger.debug("Rechargement du document de délimitation ignoré : %s", err)
+        self.doc = doc
+        self._chunk_cards: dict[int, int] = {}
+        self._page_cards: dict[int, int] = {}
+        self._hash_cards: dict[str, int] = {}
+        self._heading_page_cards: dict[tuple[str | None, int | None], int] = {}
+        self._section_meta: dict[int, dict[str, Any]] = {}
+        self._syncing_selection: bool = False
+
+        self._manual_exclusions: set[str] = set()
+        raw_excl = getattr(self.doc, "excluded_headings", None)
+        if raw_excl:
+            try:
+                parsed = json.loads(raw_excl)
+                if isinstance(parsed, list):
+                    # La casse d'affichage est conservée telle qu'elle a été persistée : c'est
+                    # l'identité de l'adresse (son `key` replié) qui sert aux comparaisons, jamais
+                    # la chaîne brute. Lowercaser ici retirait la moitié des réintégrations —
+                    # la case cochée, puis « discard » d'une clé qu'on ne retrouvait pas.
+                    self._manual_exclusions = {str(x).strip() for x in parsed if str(x).strip()}
+            except Exception:
+                self._manual_exclusions = set()
+
+        self._load_document_stats()
+
+        # 1. Extraction universelle des fragments et calcul du nombre total de pages
+        pages_query = list(DocumentPageModel.select().where(DocumentPageModel.document == doc).order_by(DocumentPageModel.page_number))
+        if doc.file_type == "album" or pages_query:
+            self._all_chunks = [
+                {
+                    "index": p.page_number - 1,
+                    "page_number": p.page_number,
+                    "heading_path": f"Planche {p.page_number}",
+                    "content": p.ocr_text or f"Planche {p.page_number}",
+                    "content_hash": ChunkingService.hash_content(p.ocr_text or f"Planche {p.page_number}"),
+                }
+                for p in pages_query
+            ]
+            self._max_page = max([int(p.page_number) for p in pages_query], default=int(doc.total_pages or 1))
+        else:
+            self._all_chunks = ChunkingService.extract_chunks(doc.content or "", file_type=doc.file_type or "md", strategy=ChunkingService.preferred_strategy(doc.file_type))
+            if not self._all_chunks and getattr(doc, "id", None):
+                existing_recs = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
+                self._all_chunks = [
+                    {
+                        "index": c.chunk_index,
+                        "heading_path": c.heading_path,
+                        "page_number": c.page_number,
+                        "content": c.content,
+                        "content_hash": c.content_hash,
+                    }
+                    for c in existing_recs
+                ]
+            page_numbers = [int(p) for p in (chunk.get("page_number") for chunk in self._all_chunks) if p is not None and isinstance(p, int | float | str)]
+            self._max_page = max(page_numbers, default=int(doc.total_pages or 1))
+            if doc.total_pages and doc.total_pages > self._max_page:
+                self._max_page = int(doc.total_pages)
+
+        # Détection de pagination : PDF, Album, PPTX, ou documents avec chunks paginés
+        file_type = (getattr(self.doc, "file_type", "") or "").lower()
+        if not file_type and getattr(self.doc, "title", "").lower().endswith(".pdf"):
+            file_type = "pdf"
+        has_page_chunks = any(c.get("page_number") is not None for c in self._all_chunks)
+        self.is_paginated = file_type in ("pdf", "album", "pptx") or has_page_chunks or (getattr(doc, "total_pages", None) is not None and doc.total_pages > 1)
+        self.selection_mode = "pages" if self.is_paginated else "chapters"
+        self._page_sub_mode: PageSubMode = "all"
+        self._activating_scope_mode: bool = False
+        self._restoring_scope_mode: bool = False
+
+        start_val = doc.start_page if (doc.start_page and doc.start_page > 0) else 1
+        end_val = doc.end_page if (doc.end_page and doc.end_page >= start_val) else self._max_page
+        all_pages_in_span = set(range(start_val, end_val + 1))
+        for p in list(all_pages_in_span):
+            if self._is_page_hole(p):
+                all_pages_in_span.discard(p)
+        self._selected_pages: set[int] = all_pages_in_span or set(range(start_val, end_val + 1))
+
+        self._chapter_cards: list[ChapterCardWidget] = []
+        self._tree_nodes: list[HeadingTreeNode] = []
+
+        win_title = f"Délimitation & Assainissement global — {doc.title}"
+        self.setWindowTitle(win_title)
+        self.resize(1280, 780)
+        self.setMinimumSize(960, 600)
+        check_icon_path = str(get_resource_path("src", "ressources", "icons", "check_white.svg")).replace("\\", "/")
+        dash_icon_path = str(get_resource_path("src", "ressources", "icons", "dash_white.svg")).replace("\\", "/")
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {DesignTokens.BG_MAIN};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QFrame#headerCard, QFrame#pagesCard, QFrame#sectionsCard, QFrame#allCard, QFrame#chaptersCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius:  {DesignTokens.RADIUS_MD}px;
+            }}
+            QSplitter::handle:horizontal {{
+                background-color: {DesignTokens.BORDER_COLOR};
+                width: 3px;
+                border-radius:  1px;
+            }}
+            QSplitter::handle:horizontal:hover {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+            QLabel {{
+                border: none;
+                background: transparent;
+            }}
+            QCheckBox {{
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-size: 11px;
+                spacing: 8px;
+                border: none;
+                background: transparent;
+            }}
+            QCheckBox::indicator {{
+                width: 16px;
+                height: 16px;
+                border: 1px solid {DesignTokens.TEXT_MUTED};
+                border-radius: 4px;
+                background-color: {DesignTokens.BG_INPUT};
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+                image: url({check_icon_path});
+            }}
+            QCheckBox::indicator:indeterminate {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+                image: url({dash_icon_path});
+            }}
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
+
+        # Panneau gauche : configuration de la délimitation
+        left_container = QWidget()
+        left_layout = QVBoxLayout(left_container)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(8)
+
+        # 1. En-tête descriptif
+        header_card = QFrame()
+        header_card.setObjectName("headerCard")
+        h_layout = QVBoxLayout(header_card)
+        h_layout.setContentsMargins(10, 8, 10, 8)
+        h_layout.setSpacing(4)
+
+        header_top = QHBoxLayout()
+        header_top.setSpacing(8)
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(load_phosphor_icon("ph.scissors", color=DesignTokens.COLOR_YELLOW).pixmap(20, 20))
+        title_lbl = QLabel(tr("Délimitation globale : <b>%1</b>", doc.title))
+        title_lbl.setTextFormat(Qt.TextFormat.RichText)
+        title_lbl.setWordWrap(True)
+        title_lbl.setStyleSheet(f"font-size: 14px; color: {DesignTokens.TEXT_PRIMARY}; border: none;")
+        header_top.addWidget(icon_lbl)
+        header_top.addWidget(title_lbl, 1)
+
+        badge_global = QLabel(self.tr("DÉLIMITATION GLOBALE (STRUCTURE DU DOCUMENT)"))
+        badge_global.setStyleSheet(
+            f"background-color: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW_TEXT}; border: 1px solid {DesignTokens.COLOR_YELLOW_BORDER};"
+            f" border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: bold;"
+        )
+        header_top.addWidget(badge_global)
+        header_top.addStretch()
+        h_layout.addLayout(header_top)
+
+        desc_lbl = QLabel(
+            self.tr(
+                "Éliminez définitivement les parties non pertinentes (pages blanches, répétitions, "
+                "sommaires, préfaces). Cette délimitation assainit durablement la structure du document "
+                "dans la bibliothèque et réindexe le moteur de recherche IA (RAG)."
+            )
+        )
+        desc_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
+        desc_lbl.setWordWrap(True)
+        h_layout.addWidget(desc_lbl)
+        left_layout.addWidget(header_card)
+
+        self.left_layout = left_layout
+
+        # Sélecteur de mode de portée (persistant en haut du panneau gauche)
+        mode_row = QHBoxLayout()
+        mode_row.setContentsMargins(0, 0, 0, 0)
+        mode_row.setSpacing(6)
+        mode_btn_style = f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_SECONDARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 11px;
+                font-weight: 500;
+            }}
+            QPushButton:checked {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                color: white;
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+                font-weight: bold;
+            }}
+            QPushButton:hover:!checked {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """
+        self.btn_scope_mode_all = QPushButton(self.tr("Tout le document"))
+        self.btn_scope_mode_all.setIcon(load_phosphor_icon("ph.files", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_scope_mode_all.setCheckable(True)
+        self.btn_scope_mode_all.setStyleSheet(mode_btn_style)
+
+        self.btn_scope_mode_range = QPushButton(self.tr("Plage de pages"))
+        self.btn_scope_mode_range.setIcon(load_phosphor_icon("ph.frame-corners", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_scope_mode_range.setCheckable(True)
+        self.btn_scope_mode_range.setStyleSheet(mode_btn_style)
+
+        self.btn_scope_mode_structure = QPushButton(self.tr("Par Chapitres"))
+        self.btn_scope_mode_structure.setIcon(load_phosphor_icon("ph.tree-structure", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_scope_mode_structure.setCheckable(True)
+        self.btn_scope_mode_structure.setStyleSheet(mode_btn_style)
+
+        self.btn_scope_mode_sections = QPushButton(self.tr("Par Sections"))
+        self.btn_scope_mode_sections.setIcon(load_phosphor_icon("ph.list-dashes", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_scope_mode_sections.setCheckable(True)
+        self.btn_scope_mode_sections.setStyleSheet(mode_btn_style)
+
+        self.scope_mode_group = QButtonGroup(self)
+        self.scope_mode_group.addButton(self.btn_scope_mode_all)
+        self.scope_mode_group.addButton(self.btn_scope_mode_range)
+        self.scope_mode_group.addButton(self.btn_scope_mode_structure)
+        self.scope_mode_group.addButton(self.btn_scope_mode_sections)
+        self.btn_scope_mode_all.clicked.connect(self._on_mode_all_clicked)
+        self.btn_scope_mode_range.clicked.connect(self._on_mode_range_clicked)
+        self.btn_scope_mode_structure.clicked.connect(self._on_mode_structure_clicked)
+        self.btn_scope_mode_sections.clicked.connect(self._on_mode_sections_clicked)
+
+        mode_row.addWidget(self.btn_scope_mode_all)
+        mode_row.addWidget(self.btn_scope_mode_range)
+        mode_row.addWidget(self.btn_scope_mode_structure)
+        mode_row.addWidget(self.btn_scope_mode_sections)
+        lbl_max_info = QLabel(tr("(Total : %1 pages)", self._max_page))
+        lbl_max_info.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
+        mode_row.addWidget(lbl_max_info)
+        mode_row.addStretch()
+
+        self.mode_card = QFrame()
+        self.mode_card.setObjectName("pagesCard")
+        mode_card_layout = QVBoxLayout(self.mode_card)
+        mode_card_layout.setContentsMargins(10, 8, 10, 8)
+        mode_card_layout.setSpacing(0)
+        mode_card_layout.addLayout(mode_row)
+        left_layout.addWidget(self.mode_card)
+
+        # 2. Carte Mode Pages (Plage de pages & barre visuelle)
+        self.pages_card = QFrame()
+        self.pages_card.setObjectName("pagesCard")
+        pages_card_layout = QVBoxLayout(self.pages_card)
+        pages_card_layout.setContentsMargins(12, 10, 12, 10)
+        pages_card_layout.setSpacing(8)
+
+        lbl_sec1 = QLabel(self.tr("1. BORNES DE PAGINATION UTILE"))
+        lbl_sec1.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
+        pages_card_layout.addWidget(lbl_sec1)
+
+        self.range_bar = ScopeRangeBarWidget(self)
+        pages_card_layout.addWidget(self.range_bar)
+
+        # Ruban de pastilles de slides cliquables (1 à N)
+        self.slide_selector_bar = SlideSelectorBarWidget(self)
+        self.slide_selector_bar.page_toggled.connect(self._on_page_pill_toggled)
+        self.slide_selector_bar.all_selected.connect(self._on_select_all_pages)
+        self.slide_selector_bar.none_selected.connect(self._on_deselect_all_pages)
+        self.slide_selector_bar.inverted.connect(self._on_invert_pages)
+        pages_card_layout.addWidget(self.slide_selector_bar)
+
+        # Liste visuelle de segments de plages cumulables
+        self.range_segments_widget = RangeSegmentsWidget(self._max_page, self)
+        self.range_segments_widget.segment_removed.connect(self._on_segment_removed)
+        self.range_segments_widget.range_added.connect(self._on_segment_added)
+        pages_card_layout.addWidget(self.range_segments_widget)
+
+        # Conteneur des curseurs (slider) et spinboxes — Visible UNIQUEMENT en mode Plage de pages
+        self.slider_scope_container = QWidget()
+        slider_scope_layout = QVBoxLayout(self.slider_scope_container)
+        slider_scope_layout.setContentsMargins(0, 4, 0, 0)
+        slider_scope_layout.setSpacing(6)
+
+        start_val = doc.start_page if (doc.start_page and doc.start_page > 0) else 1
+        end_val = doc.end_page if (doc.end_page and doc.end_page >= start_val) else self._max_page
+
+        # Ligne début : SpinBox + Slider début
+        start_row = QHBoxLayout()
+        start_row.setContentsMargins(0, 0, 0, 0)
+        start_row.setSpacing(8)
+        lbl_p_start = QLabel(self.tr("Début :"))
+        lbl_p_start.setFixedWidth(44)
+        lbl_p_start.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
+        self.spin_p_start = QSpinBox()
+        self.spin_p_start.setRange(1, self._max_page)
+        self.spin_p_start.setValue(min(start_val, self._max_page))
+        self.spin_p_start.setStyleSheet(f"""
+            QSpinBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                padding: 2px 4px;
+                min-width: 50px;
+                font-size: 11px;
+            }}
+        """)
+        self.slider_p_start = QSlider(Qt.Orientation.Horizontal)
+        self.slider_p_start.setRange(1, self._max_page)
+        self.slider_p_start.setValue(self.spin_p_start.value())
+        self.slider_p_start.valueChanged.connect(self._on_slider_start_changed)
+
+        start_row.addWidget(lbl_p_start)
+        start_row.addWidget(self.spin_p_start)
+        start_row.addWidget(self.slider_p_start, 1)
+        slider_scope_layout.addLayout(start_row)
+
+        # Ligne fin : SpinBox + Slider fin
+        end_row = QHBoxLayout()
+        end_row.setContentsMargins(0, 0, 0, 0)
+        end_row.setSpacing(8)
+        lbl_p_end = QLabel(self.tr("Fin :"))
+        lbl_p_end.setFixedWidth(44)
+        lbl_p_end.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
+        self.spin_p_end = QSpinBox()
+        self.spin_p_end.setRange(1, self._max_page)
+        self.spin_p_end.setValue(min(end_val, self._max_page))
+        self.spin_p_end.setStyleSheet(f"""
+            QSpinBox {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                padding: 2px 4px;
+                min-width: 50px;
+                font-size: 11px;
+            }}
+        """)
+        self.slider_p_end = QSlider(Qt.Orientation.Horizontal)
+        self.slider_p_end.setRange(1, self._max_page)
+        self.slider_p_end.setValue(self.spin_p_end.value())
+        self.slider_p_end.valueChanged.connect(self._on_slider_end_changed)
+
+        end_row.addWidget(lbl_p_end)
+        end_row.addWidget(self.spin_p_end)
+        end_row.addWidget(self.slider_p_end, 1)
+        slider_scope_layout.addLayout(end_row)
+
+        # Ligne de saisie personnalisée (plages discontinues : ex. "1-5, 8, 11-14")
+        custom_row = QHBoxLayout()
+        custom_row.setContentsMargins(0, 2, 0, 0)
+        custom_row.setSpacing(8)
+        lbl_custom = QLabel(self.tr("Saisie :"))
+        lbl_custom.setFixedWidth(44)
+        lbl_custom.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
+        self.input_custom_pages = QLineEdit()
+        self.input_custom_pages.setPlaceholderText(self.tr("ex: 1-5, 8, 11-14"))
+        self.input_custom_pages.setToolTip(self.tr("Saisissez des numéros ou plages de pages séparés par des virgules pour exclure des diapositives inutiles."))
+        self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
+        self.input_custom_pages.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                padding: 3px 6px;
+                font-size: 11px;
+            }}
+            QLineEdit:focus {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        self.input_custom_pages.textChanged.connect(self._on_custom_pages_text_changed)
+        custom_row.addWidget(lbl_custom)
+        custom_row.addWidget(self.input_custom_pages, 1)
+        slider_scope_layout.addLayout(custom_row)
+
+        pages_card_layout.addWidget(self.slider_scope_container)
+
+        # Préréglages rapides de pagination
+        self.range_presets_container = QWidget()
+        presets_layout = QHBoxLayout(self.range_presets_container)
+        presets_layout.setContentsMargins(0, 2, 0, 2)
+        presets_layout.setSpacing(6)
+        lbl_presets = QLabel(self.tr("Préréglages :"))
+        lbl_presets.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
+        presets_layout.addWidget(lbl_presets)
+
+        preset_btn_style = f"""
+            QPushButton {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_SECONDARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                padding: 3px 8px;
+                font-size: 10px;
+                font-weight: 500;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+                color: {DesignTokens.TEXT_PRIMARY};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """
+        btn_preset_all = QPushButton(self.tr("100% (Tout)"))
+        btn_preset_all.setStyleSheet(preset_btn_style)
+        btn_preset_all.clicked.connect(lambda: self._apply_page_preset(1, self._max_page))
+        btn_preset_h1 = QPushButton(self.tr("1ère moitié"))
+        btn_preset_h1.setStyleSheet(preset_btn_style)
+        btn_preset_h1.clicked.connect(lambda: self._apply_page_preset(1, max(1, self._max_page // 2)))
+        btn_preset_h2 = QPushButton(self.tr("2ème moitié"))
+        btn_preset_h2.setStyleSheet(preset_btn_style)
+        btn_preset_h2.clicked.connect(lambda: self._apply_page_preset(min(self._max_page, self._max_page // 2 + 1), self._max_page))
+        btn_preset_10 = QPushButton(self.tr("10 premières p."))
+        btn_preset_10.setStyleSheet(preset_btn_style)
+        btn_preset_10.clicked.connect(lambda: self._apply_page_preset(1, min(10, self._max_page)))
+
+        presets_layout.addWidget(btn_preset_all)
+        presets_layout.addWidget(btn_preset_h1)
+        presets_layout.addWidget(btn_preset_h2)
+        presets_layout.addWidget(btn_preset_10)
+        presets_layout.addStretch()
+        pages_card_layout.addWidget(self.range_presets_container)
+
+        # Récapitulatif d'impact et de couverture de pagination
+        self.range_info_card = QFrame()
+        self.range_info_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius:  {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        ric_layout = QVBoxLayout(self.range_info_card)
+        ric_layout.setContentsMargins(10, 8, 10, 8)
+        ric_layout.setSpacing(4)
+        lbl_ric_title = QLabel(self.tr("RÉCAPITULATIF DE LA PLAGE SÉLECTIONNÉE"))
+        lbl_ric_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
+        ric_layout.addWidget(lbl_ric_title)
+        self.lbl_range_coverage_kpi = QLabel("")
+        self.lbl_range_coverage_kpi.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: bold; border: none;")
+        ric_layout.addWidget(self.lbl_range_coverage_kpi)
+        self.lbl_range_words_kpi = QLabel("")
+        self.lbl_range_words_kpi.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none;")
+        ric_layout.addWidget(self.lbl_range_words_kpi)
+        self.lbl_range_chapters_kpi = QLabel("")
+        self.lbl_range_chapters_kpi.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 11px; border: none;")
+        self.lbl_range_chapters_kpi.setWordWrap(True)
+        ric_layout.addWidget(self.lbl_range_chapters_kpi)
+        pages_card_layout.addWidget(self.range_info_card)
+        self.range_bar.set_selected_pages(self._selected_pages, self._max_page)
+        self.slide_selector_bar.set_pages(self._selected_pages, self._max_page)
+        self.range_segments_widget.set_selected_pages(self._selected_pages, self._max_page)
+        self.lbl_page_impact = QLabel()
+        self.lbl_page_impact.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+        pages_card_layout.addWidget(self.lbl_page_impact)
+
+        # 3. Mode All: Carte récapitulative complète
+        self.all_card = QFrame()
+        self.all_card.setObjectName("allCard")
+        all_layout = QVBoxLayout(self.all_card)
+        all_layout.setContentsMargins(14, 14, 14, 14)
+        all_layout.setSpacing(12)
+
+        hero_banner = QFrame()
+        hero_banner.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignTokens.COLOR_GREEN_BG};
+                border: 1px solid {DesignTokens.COLOR_GREEN_BORDER};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        hero_layout = QHBoxLayout(hero_banner)
+        hero_layout.setContentsMargins(10, 8, 10, 8)
+        hero_layout.setSpacing(10)
+        hero_icon = QLabel()
+        hero_icon.setPixmap(load_phosphor_icon("ph.check-circle", color=DesignTokens.COLOR_GREEN).pixmap(24, 24))
+        hero_layout.addWidget(hero_icon)
+        hero_text_col = QVBoxLayout()
+        hero_text_col.setSpacing(2)
+        hero_title = QLabel(self.tr("Document intégralement sélectionné"))
+        hero_title.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        hero_subtitle = QLabel(self.tr("Toutes les pages utiles et sections du document sont actives pour l'analyse et la génération."))
+        hero_subtitle.setStyleSheet(f"font-size: 11px; color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        hero_text_col.addWidget(hero_title)
+        hero_text_col.addWidget(hero_subtitle)
+        hero_layout.addLayout(hero_text_col, 1)
+        all_layout.addWidget(hero_banner)
+
+        kpi_grid = QHBoxLayout()
+        kpi_grid.setSpacing(8)
+
+        def _make_kpi_box(title: str, default_val: str, subtitle: str) -> tuple[QFrame, QLabel]:
+            box = QFrame()
+            box.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius:  {DesignTokens.RADIUS_SM}px;
+                }}
+            """)
+            b_layout = QVBoxLayout(box)
+            b_layout.setContentsMargins(8, 6, 8, 6)
+            b_layout.setSpacing(2)
+            lbl_t = QLabel(title)
+            lbl_t.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: 600; text-transform: uppercase; border: none;")
+            lbl_v = QLabel(default_val)
+            lbl_v.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 14px; font-weight: bold; border: none;")
+            lbl_s = QLabel(subtitle)
+            lbl_s.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none;")
+            b_layout.addWidget(lbl_t)
+            b_layout.addWidget(lbl_v)
+            b_layout.addWidget(lbl_s)
+            return box, lbl_v
+
+        box_pages, self.lbl_all_kpi_pages = _make_kpi_box("Pages utiles", f"{self._max_page} p.", "100% actif")
+        box_chapters, self.lbl_all_kpi_chapters = _make_kpi_box("Chapitres", "—", "Structure globale")
+        box_sections, self.lbl_all_kpi_sections = _make_kpi_box("Sections", "—", "Titres détectés")
+        box_words, self.lbl_all_kpi_words = _make_kpi_box("Volume texte", "—", "Estimation mots")
+        kpi_grid.addWidget(box_pages)
+        kpi_grid.addWidget(box_chapters)
+        kpi_grid.addWidget(box_sections)
+        kpi_grid.addWidget(box_words)
+        all_layout.addLayout(kpi_grid)
+
+        lbl_outline_title = QLabel(self.tr("SOMMAIRE DU CONTENU INCLUS"))
+        lbl_outline_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
+        all_layout.addWidget(lbl_outline_title)
+
+        self.all_outline_scroll = QScrollArea()
+        self.all_outline_scroll.setWidgetResizable(True)
+        self.all_outline_scroll.setStyleSheet(f"""
+            QScrollArea {{
+                background-color: transparent;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius:  {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        self.all_outline_container = QWidget()
+        self.all_outline_container.setStyleSheet("background: transparent;")
+        self.all_outline_layout = QVBoxLayout(self.all_outline_container)
+        self.all_outline_layout.setContentsMargins(6, 6, 6, 6)
+        self.all_outline_layout.setSpacing(4)
+        self.all_outline_scroll.setWidget(self.all_outline_container)
+        all_layout.addWidget(self.all_outline_scroll, 1)
+
+        # 4. Mode Chapters: Carte de sélection par chapitres
+        self.chapters_card = QFrame()
+        self.chapters_card.setObjectName("chaptersCard")
+        chapters_layout = QVBoxLayout(self.chapters_card)
+        chapters_layout.setContentsMargins(14, 12, 14, 12)
+        chapters_layout.setSpacing(10)
+
+        ch_header = QHBoxLayout()
+        lbl_ch_title = QLabel(self.tr("SÉLECTION PAR CHAPITRES"))
+        lbl_ch_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
+        ch_header.addWidget(lbl_ch_title)
+        ch_header.addStretch()
+
+        self.lbl_chapters_kpi = QLabel("")
+        self.lbl_chapters_kpi.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 11px; font-weight: bold; border: none;")
+        ch_header.addWidget(self.lbl_chapters_kpi)
+        chapters_layout.addLayout(ch_header)
+
+        # Toolbar : Sélecteur de plage de chapitres + Boutons rapides
+        ch_toolbar = QHBoxLayout()
+        ch_toolbar.setContentsMargins(0, 0, 0, 0)
+        ch_toolbar.setSpacing(8)
+
+        self.structure_scope_container = QWidget()
+        struct_scope_layout = QHBoxLayout(self.structure_scope_container)
+        struct_scope_layout.setContentsMargins(0, 0, 0, 0)
+        struct_scope_layout.setSpacing(6)
+
+        lbl_c_start = QLabel(self.tr("De :"))
+        lbl_c_start.setFixedWidth(24)
+        lbl_c_start.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
+        self.combo_c_start = StyledComboBox(density="compact")
+        lbl_c_end = QLabel(self.tr("À :"))
+        lbl_c_end.setFixedWidth(16)
+        lbl_c_end.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; border: none;")
+        self.combo_c_end = StyledComboBox(density="compact")
+        self.combo_c_start.currentIndexChanged.connect(self._on_chapter_range_changed)
+        self.combo_c_end.currentIndexChanged.connect(self._on_chapter_range_changed)
+        struct_scope_layout.addWidget(lbl_c_start)
+        struct_scope_layout.addWidget(self.combo_c_start, 1)
+        struct_scope_layout.addWidget(lbl_c_end)
+        struct_scope_layout.addWidget(self.combo_c_end, 1)
+        ch_toolbar.addWidget(self.structure_scope_container, 1)
+
+        btn_ch_all = SecondaryButton("Tout cocher")
+        btn_ch_all.setFixedHeight(28)
+        btn_ch_all.setStyleSheet(f"font-size: 11px; padding: 4px 10px; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px;")
+        btn_ch_all.clicked.connect(self._on_check_all_chapters)
+
+        btn_ch_none = SecondaryButton("Tout décocher")
+        btn_ch_none.setFixedHeight(28)
+        btn_ch_none.setStyleSheet(f"font-size: 11px; padding: 4px 10px; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px;")
+        btn_ch_none.clicked.connect(self._on_uncheck_all_chapters)
+
+        ch_toolbar.addWidget(btn_ch_all)
+        ch_toolbar.addWidget(btn_ch_none)
+        chapters_layout.addLayout(ch_toolbar)
+
+        self.chapters_scroll = QScrollArea()
+        self.chapters_scroll.setWidgetResizable(True)
+        self.chapters_scroll.setStyleSheet(f"""
+            QScrollArea {{
+                background-color: transparent;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius:  {DesignTokens.RADIUS_SM}px;
+            }}
+        """)
+        self.chapters_list_container = QWidget()
+        self.chapters_list_container.setStyleSheet("background: transparent;")
+        self.chapters_list_layout = QVBoxLayout(self.chapters_list_container)
+        self.chapters_list_layout.setContentsMargins(6, 6, 6, 6)
+        self.chapters_list_layout.setSpacing(6)
+        self.chapters_scroll.setWidget(self.chapters_list_container)
+        chapters_layout.addWidget(self.chapters_scroll, 1)
+
+        self.lbl_chapters_summary = QLabel("")
+        self.lbl_chapters_summary.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; border: none; background: transparent;")
+        chapters_layout.addWidget(self.lbl_chapters_summary)
+
+        if self.is_paginated:
+            left_layout.addWidget(self.pages_card)
+        else:
+            self.pages_card.hide()
+        left_layout.addWidget(self.all_card, 1)
+        left_layout.addWidget(self.chapters_card, 1)
+
+        # Détermination du mode initial et visibilité
+        has_custom_pages = bool(doc.start_page and doc.end_page and (doc.start_page > 1 or doc.end_page < self._max_page))
+        if has_custom_pages:
+            self.btn_scope_mode_range.setChecked(True)
+            self.slider_scope_container.show()
+            self.range_presets_container.show()
+            self.range_info_card.show()
+            self.all_card.hide()
+            self.chapters_card.hide()
+            left_layout.setStretchFactor(self.pages_card, 1)
+        else:
+            self.btn_scope_mode_all.setChecked(True)
+            self.slider_scope_container.hide()
+            self.range_presets_container.hide()
+            self.range_info_card.hide()
+            self.all_card.show()
+            self.chapters_card.hide()
+            left_layout.setStretchFactor(self.pages_card, 0)
+        self.btn_scope_mode_sections.setEnabled(True)
+
+        # 3. Liste des sections et chapitres cochables
+        sections_card = QFrame()
+        self.sections_card = sections_card
+        sections_card.setObjectName("sectionsCard")
+        sections_layout = QVBoxLayout(sections_card)
+        sections_layout.setContentsMargins(12, 10, 12, 10)
+        sections_layout.setSpacing(8)
+
+        sec_header = QHBoxLayout()
+        sec_title = "2. SECTIONS & TITRES DÉTECTÉS" if self.is_paginated else "SECTIONS & TITRES DÉTECTÉS"
+        lbl_sec2 = QLabel(sec_title)
+        lbl_sec2.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: bold; font-size: 10px; letter-spacing: 0.5px; border: none;")
+        sec_header.addWidget(lbl_sec2)
+        sec_header.addStretch()
+
+        self.lbl_selection_kpi = QLabel("")
+        self.lbl_selection_kpi.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 11px; font-weight: bold; border: none;")
+        sec_header.addWidget(self.lbl_selection_kpi)
+        sections_layout.addLayout(sec_header)
+
+        # Actions rapides
+        self.section_actions = QWidget()
+        quick_btns = QHBoxLayout(self.section_actions)
+        btn_check_all = SecondaryButton("Tout sélectionner")
+        btn_check_all.setFixedHeight(28)
+        btn_check_all.setStyleSheet(f"font-size: 11px; padding: 4px 10px; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px;")
+        btn_check_all.clicked.connect(lambda: self._set_all_checked(True))
+
+        btn_uncheck_all = SecondaryButton("Tout désélectionner")
+        btn_uncheck_all.setFixedHeight(28)
+        btn_uncheck_all.setStyleSheet(f"font-size: 11px; padding: 4px 10px; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px;")
+        btn_uncheck_all.clicked.connect(lambda: self._set_all_checked(False))
+
+        quick_btns.addWidget(btn_check_all)
+        quick_btns.addWidget(btn_uncheck_all)
+        quick_btns.addStretch()
+        sections_layout.addWidget(self.section_actions)
+
+        self.filter_input = QLineEdit()
+        self.filter_input.setPlaceholderText(self.tr("Filtrer les sections et leurs titres..."))
+        self.filter_input.setClearButtonEnabled(True)
+        self.filter_input.setFixedHeight(28)
+        self.filter_input.setStyleSheet(
+            f"QLineEdit {{ background-color: {DesignTokens.BG_INPUT}; color: {DesignTokens.TEXT_PRIMARY}; "
+            f"border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius:  6px; padding: 4px 8px; }}"
+            f"QLineEdit:focus {{ border-color: {DesignTokens.ACCENT_PRIMARY}; }}"
+        )
+        self.filter_input.textChanged.connect(self._on_filter_changed)
+        sections_layout.addWidget(self.filter_input)
+
+        self.section_tree_container = QWidget()
+        tree_container_layout = QVBoxLayout(self.section_tree_container)
+        tree_container_layout.setContentsMargins(0, 0, 0, 0)
+        self.sections_list = DocumentStructureTreeWidget()
+        self.sections_list.setIndentation(16)
+        self.sections_tree = self.sections_list
+        self.sections_list.setStyleSheet(f"""
+            QTreeWidget {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius:  6px;
+                padding: 4px;
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+            QTreeWidget::item {{
+                padding: 2px 4px;
+                border-radius: 4px;
+                margin-bottom: 2px;
+                border: none;
+            }}
+            QTreeWidget::item:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+            QTreeWidget::item:selected {{
+                background-color: {DesignTokens.BG_ACTIVE};
+            }}
+            QTreeWidget::indicator {{
+                width: 0px;
+                height: 0px;
+                border: none;
+                background: transparent;
+            }}
+        """)
+        self.sections_list.setMinimumHeight(240)
+        self.sections_list.setVerticalScrollMode(QTreeWidget.ScrollMode.ScrollPerPixel)
+        self.sections_list.currentRowChanged.connect(self._on_section_selected)
+        self.sections_list.itemClicked.connect(lambda item: self._on_section_selected(self.sections_list.row(item)))
+        tree_container_layout.addWidget(self.sections_list)
+        sections_layout.addWidget(self.section_tree_container, 1)
+        left_layout.addWidget(sections_card, 1)
+
+        # Splitter principal : Panneau gauche (sélection) + Panneau droit (visionneuse de document)
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.main_splitter.addWidget(left_container)
+
+        right_container = QWidget()
+        right_layout = QVBoxLayout(right_container)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(6)
+
+        view_switch_bar = QHBoxLayout()
+        view_switch_bar.setContentsMargins(0, 0, 0, 0)
+        view_switch_bar.setSpacing(6)
+        self.btn_view_source = QPushButton(self.tr("Document Source"))
+        self.btn_view_source.setIcon(load_phosphor_icon("ph.file-text", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_view_source.setCheckable(True)
+        self.btn_view_source.setChecked(True)
+        self.btn_view_source.setStyleSheet(mode_btn_style)
+        self.btn_view_final = QPushButton(self.tr("Vue Finale Assemblée"))
+        self.btn_view_final.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_view_final.setCheckable(True)
+        self.btn_view_final.setStyleSheet(mode_btn_style)
+        self.view_switch_group = QButtonGroup(self)
+        self.view_switch_group.addButton(self.btn_view_source)
+        self.view_switch_group.addButton(self.btn_view_final)
+        self.btn_view_source.clicked.connect(self._on_view_source_clicked)
+        self.btn_view_final.clicked.connect(self._on_view_final_clicked)
+        view_switch_bar.addWidget(self.btn_view_source)
+        view_switch_bar.addWidget(self.btn_view_final)
+        view_switch_bar.addStretch()
+        right_layout.addLayout(view_switch_bar)
+
+        self.preview_stack = QStackedWidget()
+        self.preview_widget = DocumentPreviewWidget(doc)
+        self.preview_stack.addWidget(self.preview_widget)
+
+        self.final_preview_card = QFrame()
+        self.final_preview_card.setObjectName("finalPreviewCard")
+        self.final_preview_card.setStyleSheet(
+            f"QFrame#finalPreviewCard {{ background-color: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius:  {DesignTokens.RADIUS_MD}px; }}"
+        )
+        final_layout = QVBoxLayout(self.final_preview_card)
+        final_layout.setContentsMargins(12, 10, 12, 10)
+        final_layout.setSpacing(8)
+        self.lbl_final_preview_kpi = QLabel("")
+        self.lbl_final_preview_kpi.setWordWrap(True)
+        self.lbl_final_preview_kpi.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
+        final_layout.addWidget(self.lbl_final_preview_kpi)
+        self.final_preview_browser = QTextBrowser()
+        self.final_preview_browser.setStyleSheet(
+            f"QTextBrowser {{ background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; "
+            f"border-radius:  6px; padding: 12px; color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_MAIN}; font-size: 12px; }}"
+        )
+        final_layout.addWidget(self.final_preview_browser, 1)
+        self.preview_stack.addWidget(self.final_preview_card)
+        right_layout.addWidget(self.preview_stack, 1)
+
+        self.main_splitter.addWidget(right_container)
+        self.main_splitter.setCollapsible(0, False)
+        self.main_splitter.setCollapsible(1, False)
+        self.main_splitter.setSizes([480, 800])
+        layout.addWidget(self.main_splitter, 1)
+
+        self._populate_sections()
+        self.setFocus()
+
+        # Connecteurs réactifs pour les spinboxes (si paginé)
+        if self.is_paginated:
+            self.spin_p_start.valueChanged.connect(self._on_start_page_changed)
+            self.spin_p_end.valueChanged.connect(self._on_end_page_changed)
+            self.preview_widget.page_scope_toggled.connect(self._on_page_scope_toggled_from_preview)
+
+        # 4. Pied de page & validation
+        footer = QHBoxLayout()
+        saved_revec = bool(SettingsService.get("documents/revectorize_after_delimitation", True))
+        self.chk_revectorize = QCheckBox(self.tr("Réindexer automatiquement dans FAISS (RAG) après délimitation"))
+        self.chk_revectorize.setChecked(saved_revec)
+        self.chk_revectorize.stateChanged.connect(lambda s: SettingsService.set("documents/revectorize_after_delimitation", s == Qt.CheckState.Checked.value, category="documents"))
+        footer.addWidget(self.chk_revectorize)
+        footer.addStretch()
+
+        btn_cancel = SecondaryButton("Annuler")
+        btn_cancel.clicked.connect(self.reject)
+        self.btn_reset = SecondaryButton("↩ Réinitialiser")
+        self.btn_reset.setToolTip(self.tr("Réinitialiser les bornes et exclusions du document"))
+        self.btn_reset.clicked.connect(self._on_reset)
+        footer.addWidget(self.btn_reset)
+        footer.addWidget(btn_cancel)
+
+        apply_text = "Enregistrer la délimitation globale"
+        btn_apply = PrimaryButton(apply_text)
+        btn_apply.setIcon(load_on_accent_icon("ph.check-circle"))
+        btn_apply.clicked.connect(self._on_apply)
+        footer.addWidget(btn_apply)
+
+        layout.addLayout(footer)
+        self._update_kpi()
+
+    def _on_filter_changed(self, text: str) -> None:
+        """Filtre l'arbre sans modifier les états cochés, en conservant les ancêtres utiles."""
+        query = text.casefold().strip()
+
+        def filter_item(item: QTreeWidgetItem) -> bool:
+            row = self.sections_list.row(item)
+            meta = self._section_meta.get(row, {})
+            haystack = " ".join(str(meta.get(key) or "") for key in ("title", "heading_path")).casefold()
+            own_match = not query or query in haystack
+            child_match = False
+            for index in range(item.childCount()):
+                child_match = filter_item(item.child(index)) or child_match
+            visible = own_match or child_match
+            item.setHidden(not visible)
+            if visible and query and child_match:
+                item.setExpanded(True)
+            return visible
+
+        for index in range(self.sections_list.topLevelItemCount()):
+            filter_item(self.sections_list.topLevelItem(index))
+
+    def _set_section_controls_visible(self, visible: bool) -> None:
+        """Affiche les contrôles de sélection fine uniquement en mode sections."""
+        self.sections_card.setVisible(visible)
+        self.section_actions.setVisible(visible)
+        self.filter_input.setVisible(visible)
+        self.section_tree_container.setVisible(visible)
+        self.sections_list.setVisible(visible)
+
+    def _on_reset(self) -> None:
+        """Réinitialise la délimitation après confirmation explicite."""
+        reply = QMessageBox.question(
+            self,
+            self.tr("Réinitialiser la délimitation"),
+            self.tr("Réinitialiser les bornes et les exclusions pour retrouver le document original ?"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        self._manual_exclusions.clear()
+        self._set_all_checked(True)
+        # Le mode réinitialisé doit rester celui d'un onglet actif : « pages » n'existe pas
+        # sur un document non paginé, où le retour se fait par les chapitres.
+        self.activate_scope_mode("pages" if self.is_paginated else "chapters", "all", force=True)
+        self._syncing_selection = True
+        try:
+            if hasattr(self, "input_custom_pages"):
+                self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
+            self.range_bar.set_selected_pages(self._selected_pages, self._max_page)
+        finally:
+            self._syncing_selection = False
+        self.doc.start_page = None
+        self.doc.end_page = None
+        self.doc.excluded_headings = json.dumps([], ensure_ascii=False)
+        self.doc.save()
+        # Réutilise le chemin d'enregistrement différentiel pour restaurer aussi
+        # les chunks supprimés par une délimitation précédente.
+        self._on_apply()
+
+    def _on_section_selected(self, row: int) -> None:
+        """Fait défiler l'aperçu du document vers la section sélectionnée."""
+        if row < 0 or row not in self._section_meta:
+            return
+        meta = self._section_meta[row]
+        title = str(meta.get("title") or "")
+        page = meta.get("page_number")
+        h_path = str(meta.get("heading_path") or "")
+        self.preview_widget.jump_to_heading(title, page, h_path)
+
+    def _on_view_source_clicked(self) -> None:
+        self.preview_stack.setCurrentIndex(0)
+
+    def _on_view_final_clicked(self) -> None:
+        self._refresh_final_preview()
+        self.preview_stack.setCurrentIndex(1)
+
+    def _selected_chunks_for_mode(self) -> list[dict[str, Any]]:
+        """Retourne les fragments gouvernés par le mode actif."""
+        if self.selection_mode == "pages":
+            if self.is_paginated:
+                return [chunk for chunk in self._all_chunks if (chunk.get("page_number") or 1) in self._selected_pages]
+            return list(self._all_chunks)
+
+        selected: list[dict[str, Any]] = []
+        if self.selection_mode == "chapters":
+            if self._chapter_cards:
+                # Source de vérité unique du mode chapitres : les cartes cochées, pas la
+                # plage de combobox (qui n'en est qu'un reflet).
+                checked_chapters = {c.chapter_index for c in self._chapter_cards if c.is_checked()}
+            else:
+                start = self.combo_c_start.currentIndex()
+                end = self.combo_c_end.currentIndex()
+                if start < 0 or end < 0:
+                    return selected
+                checked_chapters = set(range(start, end + 1))
+            for i in range(self.sections_list.count()):
+                item = self.sections_list.item(i)
+                if item is None:
+                    continue
+                meta = self._section_meta.get(i, {})
+                chunk = meta.get("chunk")
+                if not isinstance(chunk, dict):
+                    continue
+                if meta.get("root_index", -1) in checked_chapters and (item.childCount() == 0 or has_substantive_content(chunk)):
+                    selected.append(chunk)
+            return selected
+
+        for i in range(self.sections_list.count()):
+            item = self.sections_list.item(i)
+            if item is None:
+                continue
+            state = item.checkState(0)
+            if state == Qt.CheckState.Unchecked:
+                continue
+            chunk = self._section_meta.get(i, {}).get("chunk")
+            if not isinstance(chunk, dict):
+                continue
+            if item.childCount() == 0:
+                if state == Qt.CheckState.Checked:
+                    selected.append(chunk)
+            else:
+                meta = self._section_meta.get(i, {})
+                h_path = chunk.get("heading_path") or meta.get("heading_path")
+                if not self._is_region_excluded(h_path, chunk.get("page_number")) and has_substantive_content(chunk):
+                    selected.append(chunk)
+        return selected
+
+    def _refresh_final_preview(self) -> None:
+        """Construit en mémoire l'aperçu assemblé des feuilles actuellement retenues."""
+        selected_chunks = self._selected_chunks_for_mode()
+        checked_items = [
+            (
+                next(
+                    (meta for meta in self._section_meta.values() if meta.get("chunk") is chunk),
+                    {"title": chunk.get("title", ""), "page_number": chunk.get("page_number"), "tokens": 0},
+                ),
+                chunk,
+            )
+            for chunk in selected_chunks
+        ]
+
+        if not checked_items:
+            self.lbl_final_preview_kpi.setText(self.tr("Aucun fragment sélectionné pour la vue finale."))
+            self.final_preview_browser.setHtml(f"<p style='color: {DesignTokens.TEXT_MUTED}; font-style: italic;'>Cochez au moins une section pour prévisualiser le contenu assemblé.</p>")
+            return
+
+        total_words = sum(len(str(chunk.get("content", "")).split()) for _, chunk in checked_items)
+        total_tokens = sum(int(meta.get("tokens", 0)) for meta, _ in checked_items)
+        approx_cards = max(1, total_words // 180) if total_words else 0
+        self.lbl_final_preview_kpi.setText(f"{len(checked_items)} fragment(s) assemblé(s) • ~{total_tokens:,} tokens • ~{total_words:,} mots • ~{approx_cards} cartes estimées".replace(",", " "))
+
+        html_blocks: list[str] = []
+        for meta, chunk in checked_items:
+            title = html.escape(str(meta.get("title") or ""))
+            page = meta.get("page_number")
+            page_info = f" <span style='color: {DesignTokens.TEXT_MUTED};'>(Page {page})</span>" if page else ""
+            content = html.escape(str(chunk.get("content") or ""))
+            html_blocks.append(
+                f'<div style="background-color: {DesignTokens.BG_INPUT}; border: 1px solid {DesignTokens.BORDER_COLOR}; '
+                f'border-radius:  6px; padding: 12px; margin-bottom: 12px;">'
+                f'<div style="color: {DesignTokens.ACCENT_PRIMARY}; font-weight: bold; margin-bottom: 8px;">'
+                f"{title}{page_info}</div>"
+                f'<div style="color: {DesignTokens.TEXT_PRIMARY}; white-space: pre-wrap;">{content}</div></div>'
+            )
+        self.final_preview_browser.setHtml("".join(html_blocks))
+
+    def _on_custom_pages_text_changed(self, text: str) -> None:
+        if not self.is_paginated or self._syncing_selection:
+            return
+        parsed = parse_page_ranges(text, max_page=self._max_page)
+        if parsed:
+            self._apply_page_selection(parsed, trigger_jump=False, update_text=False)
+
+    def _on_page_scope_toggled_from_preview(self, page_num: int, should_include: bool) -> None:
+        if not self.is_paginated:
+            return
+        new_pages = set(self._selected_pages)
+        if should_include:
+            new_pages.add(page_num)
+            self._manual_exclusions.discard(f"page:{page_num}")
+        else:
+            new_pages.discard(page_num)
+            self._manual_exclusions.add(f"page:{page_num}")
+        if not new_pages:
+            new_pages = {page_num}
+        self._apply_page_selection(new_pages, trigger_jump=False, update_text=True)
+
+    def _on_page_pill_toggled(self, page_num: int) -> None:
+        if not self.is_paginated:
+            return
+        new_pages = set(self._selected_pages)
+        if page_num in new_pages:
+            if len(new_pages) > 1:
+                new_pages.remove(page_num)
+                self._manual_exclusions.add(f"page:{page_num}")
+        else:
+            new_pages.add(page_num)
+            self._manual_exclusions.discard(f"page:{page_num}")
+        self._apply_page_selection(new_pages, trigger_jump=True, update_text=True)
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.jump_to_page(page_num)
+
+    def _on_select_all_pages(self) -> None:
+        if not self.is_paginated:
+            return
+        self._manual_exclusions = {ex for ex in self._manual_exclusions if not ex.startswith("page:")}
+        self._apply_page_selection(set(range(1, self._max_page + 1)), trigger_jump=True, update_text=True)
+
+    def _on_deselect_all_pages(self) -> None:
+        if not self.is_paginated:
+            return
+        cur = min(self._selected_pages) if self._selected_pages else 1
+        for p in range(1, self._max_page + 1):
+            if p != cur:
+                self._manual_exclusions.add(f"page:{p}")
+        self._apply_page_selection({cur}, trigger_jump=True, update_text=True)
+
+    def _on_invert_pages(self) -> None:
+        if not self.is_paginated:
+            return
+        all_p = set(range(1, self._max_page + 1))
+        inverted = all_p - self._selected_pages
+        if not inverted:
+            inverted = {1}
+        for p in all_p:
+            if p in inverted:
+                self._manual_exclusions.discard(f"page:{p}")
+            else:
+                self._manual_exclusions.add(f"page:{p}")
+        self._apply_page_selection(inverted, trigger_jump=True, update_text=True)
+
+    def _on_segment_removed(self, start_p: int, end_p: int) -> None:
+        if not self.is_paginated:
+            return
+        to_remove = set(range(start_p, end_p + 1))
+        new_pages = self._selected_pages - to_remove
+        if not new_pages:
+            new_pages = {min(self._selected_pages)} if self._selected_pages else {1}
+        for p in to_remove:
+            self._manual_exclusions.add(f"page:{p}")
+        self._apply_page_selection(new_pages, trigger_jump=True, update_text=True)
+
+    def _on_segment_added(self, start_p: int, end_p: int) -> None:
+        if not self.is_paginated:
+            return
+        start_p = max(1, min(start_p, self._max_page))
+        end_p = max(1, min(end_p, self._max_page))
+        if start_p > end_p:
+            start_p, end_p = end_p, start_p
+        to_add = set(range(start_p, end_p + 1))
+        new_pages = self._selected_pages | to_add
+        for p in to_add:
+            self._manual_exclusions.discard(f"page:{p}")
+        self._apply_page_selection(new_pages, trigger_jump=True, update_text=True)
+
+    def _apply_page_selection(self, selected_pages: set[int], trigger_jump: bool = True, update_text: bool = True) -> None:
+        """Met à jour l'état de pagination globale, synchronise spinboxes/curseurs, barre de portée, arborescence et aperçu.
+
+        C'est le point de passage unique de toute sélection de pages : il active donc le mode
+        pages (sous-mode plage) si un autre mode gouvernait la portée.
+        """
+        if not self.is_paginated:
+            return
+        self.ensure_scope_mode("pages", "range")
+        self._selected_pages = {p for p in selected_pages if p >= 1}
+        if not self._selected_pages:
+            self._selected_pages = {1}
+
+        min_p = min(self._selected_pages)
+        max_p = max(self._selected_pages)
+
+        if update_text and hasattr(self, "input_custom_pages"):
+            self.input_custom_pages.blockSignals(True)
+            self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
+            self.input_custom_pages.blockSignals(False)
+
+        if self.spin_p_start.value() != min_p:
+            self.spin_p_start.blockSignals(True)
+            self.spin_p_start.setValue(min_p)
+            self.spin_p_start.blockSignals(False)
+        self.slider_p_start.blockSignals(True)
+        self.slider_p_start.setValue(min(min_p, self._max_page))
+        self.slider_p_start.blockSignals(False)
+
+        if self.spin_p_end.value() != max_p:
+            self.spin_p_end.blockSignals(True)
+            self.spin_p_end.setValue(max_p)
+            self.spin_p_end.blockSignals(False)
+        self.slider_p_end.blockSignals(True)
+        self.slider_p_end.setValue(min(max_p, self._max_page))
+        self.slider_p_end.blockSignals(False)
+
+        valid_pages = {p for p in self._selected_pages if p <= self._max_page} or {1}
+        if hasattr(self, "range_bar"):
+            self.range_bar.set_selected_pages(valid_pages, self._max_page)
+
+        if hasattr(self, "slide_selector_bar"):
+            self.slide_selector_bar.set_pages(valid_pages, self._max_page)
+
+        if hasattr(self, "range_segments_widget"):
+            self.range_segments_widget.set_selected_pages(valid_pages, self._max_page)
+
+        self._filter_sections_by_pages(valid_pages)
+
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.set_scope_range(min(valid_pages), max(valid_pages), included_pages=valid_pages)
+            if trigger_jump:
+                self.preview_widget.jump_to_page(min(valid_pages))
+
+        self._refresh_final_preview()
+        self._update_kpi()
+
+    def _apply_page_range(self, start_p: int, end_p: int, trigger_jump: bool = True) -> None:
+        """Applique une plage continue et met à jour l'ensemble des pages sélectionnées."""
+        start_p = max(1, start_p)
+        if start_p > end_p:
+            start_p, end_p = end_p, start_p
+        pages = set(range(start_p, min(end_p, self._max_page) + 1))
+        if end_p > self._max_page:
+            pages.add(end_p)
+        self._apply_page_selection(pages, trigger_jump=trigger_jump, update_text=True)
+
+    def _apply_page_preset(self, start: int, end: int) -> None:
+        """Applique un préréglage de pagination et met à jour l'interface."""
+        self._apply_page_range(start, end, trigger_jump=True)
+
+    def _on_check_all_chapters(self) -> None:
+        """Coche tous les chapitres dans la vue chapitres."""
+        for card in self._chapter_cards:
+            card.set_checked(True)
+        if hasattr(self, "combo_c_start") and hasattr(self, "combo_c_end") and self.combo_c_start.count() > 0:
+            self.combo_c_start.blockSignals(True)
+            self.combo_c_end.blockSignals(True)
+            self.combo_c_start.setCurrentIndex(0)
+            self.combo_c_end.setCurrentIndex(self.combo_c_start.count() - 1)
+            self.combo_c_start.blockSignals(False)
+            self.combo_c_end.blockSignals(False)
+        self._set_all_checked(True)
+
+    def _on_uncheck_all_chapters(self) -> None:
+        """Décoche tous les chapitres dans la vue chapitres."""
+        for card in self._chapter_cards:
+            card.set_checked(False)
+        self._set_all_checked(False)
+
+    def _on_chapter_card_toggled(self, chapter_index: int, is_checked: bool) -> None:
+        """Met à jour les sections et l'aperçu lorsqu'une carte de chapitre est basculée."""
+        if self.ensure_scope_mode("chapters"):
+            # L'activation resynchronise les cartes sur la plage de chapitres : l'interaction
+            # utilisateur reste la source de vérité de la portée, on la réapplique.
+            for card in self._chapter_cards:
+                if card.chapter_index == chapter_index:
+                    card.set_checked(is_checked)
+        self._syncing_selection = True
+        try:
+            for i in range(self.sections_list.count()):
+                meta = self._section_meta.get(i, {})
+                if meta.get("root_index") == chapter_index:
+                    it = self.sections_list.item(i)
+                    if it:
+                        w = self.sections_list.itemWidget(it, 0)
+                        if isinstance(w, SectionRowWidget):
+                            w.set_checked(is_checked)
+                        else:
+                            it.setCheckState(0, Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked)
+        finally:
+            self._syncing_selection = False
+        # Le sélecteur de plage n'est qu'un reflet des cartes : il reste aligné dessus.
+        checked_indices = [c.chapter_index for c in self._chapter_cards if c.is_checked()]
+        if checked_indices and hasattr(self, "combo_c_start") and hasattr(self, "combo_c_end"):
+            self.combo_c_start.blockSignals(True)
+            self.combo_c_end.blockSignals(True)
+            self.combo_c_start.setCurrentIndex(min(checked_indices))
+            self.combo_c_end.setCurrentIndex(max(checked_indices))
+            self.combo_c_start.blockSignals(False)
+            self.combo_c_end.blockSignals(False)
+        self._refresh_final_preview()
+        self._update_kpi()
+
+    # --- Exclusivité des modes de portée (cf. ScopeModeExclusivityMixin) -------------------
+
+    def _mode_buttons_for(self) -> Mapping[tuple[str, str], CheckableButton]:
+        return {
+            ("pages", "all"): self.btn_scope_mode_all,
+            ("pages", "range"): self.btn_scope_mode_range,
+            ("chapters", "all"): self.btn_scope_mode_structure,
+            ("sections", "all"): self.btn_scope_mode_sections,
+        }
+
+    def _pages_in_span_excluding_holes(self, start_p: int, end_p: int) -> set[int]:
+        """Pages de la délimitation utile, exclusions ``page:N`` persistées comprises.
+
+        Ces exclusions sont une délimitation de pages au sens strict (et non un filtre
+        croisé) : elles doivent survivre à toute réinitialisation du mode pages.
+        """
+        pages = {p for p in range(start_p, end_p + 1)}
+        for ex in self._manual_exclusions:
+            if ex.startswith("page:"):
+                try:
+                    pages.discard(int(ex.split(":", 1)[1]))
+                except ValueError:
+                    continue
+        return pages or {start_p}
+
+    def _neutralize_foreign_selection(self, mode: ScopeMode) -> None:
+        """Neutralise les sélections des catégories qui ne gouvernent pas le mode actif.
+
+        Seules les exclusions de *titres* sont dérivées d'une catégorie (pages, chapitres ou
+        sections) : les écarter évite que la dernière catégorie utilisée ne filtre le mode
+        nouvellement activé. Les exclusions ``page:N`` sont au contraire la délimitation de
+        pages elle-même : elles sont conservées et réappliquées par
+        ``_pages_in_span_excluding_holes``.
+        """
+        self._manual_exclusions = {ex for ex in self._manual_exclusions if ex.startswith("page:")}
+        if mode != "pages":
+            return
+        # Le mode pages repart de l'état des curseurs, jamais d'une sélection dérivée.
+        start_p = max(1, self.spin_p_start.value())
+        end_p = max(start_p, self.spin_p_end.value())
+        self._selected_pages = self._pages_in_span_excluding_holes(start_p, min(end_p, self._max_page))
+
+    def _is_region_excluded(self, heading_path: str | None, page_number: int | None = None) -> bool:
+        """Prédicat d'appartenance partagé avec le dépôt et les autres vues.
+
+        L'arbre affichait ses cases selon un test de sous-chaîne tandis que le dépôt appliquait
+        le sien : les deux lectures d'une même exclusion divergeaient, et décocher une case pouvait
+        laisser la matière dans le périmètre — ou l'inverse. Une seule implémentation, ici.
+        """
+        return covers_region(self._manual_exclusions, heading_path=heading_path, page_number=page_number)
+
+    def _row_region_address(self, title: str, heading_path: str, page_number: int | None) -> RegionAddress | None:
+        """Adresse de région d'une ligne de l'arbre, dans la portée qui la décrit réellement.
+
+        Une page sans titre porte le libellé synthétique ``Page N`` : l'enregistrer comme
+        exclusion de titre affirmait une section qui n'existe pas, et ne touchait aucune
+        matière. La règle est celle du dépôt — un libellé de page est une page.
+        """
+        if heading_path.strip() and DocumentRepository.is_excludable_heading(heading_path):
+            return RegionAddress(RegionScope.HEADING, heading_path)
+        if page_number is None:
+            return RegionAddress(RegionScope.HEADING, heading_path or title) if (heading_path or title).strip() else None
+        return RegionAddress(RegionScope.PAGE, str(page_number))
+
+    def _row_region_keys(self, meta: Mapping[str, Any]) -> list[str]:
+        """Clés de région d'une ligne, telles qu'attendu par ``_manual_exclusions`` (une forme rendue)."""
+        return [address.render() for address in self._row_addresses(meta)]
+
+    def _set_row_excluded(self, meta: Mapping[str, Any], excluded: bool) -> None:
+        """Mémorise ou oublie l'exclusion d'une ligne, sans se fier à la casse de la chaîne.
+
+        ``_manual_exclusions`` mêle des adresses relues (casse d'origine) et des adresses
+        nouvellement rendues (casse du document courant) : une comparaison brute laissait
+        l'entrée périmée en place, et la région restait écartée alors que sa case était cochée.
+        """
+        keys = self._row_region_keys(meta)
+        if excluded:
+            self._manual_exclusions.update(keys)
+            return
+        # Comparaison par adresse résolue, pas par chaîne : un profil hérité stocke des
+        # libellés sans préfixe (« Cours > Ch1 »), qu'aucune forme rendue ne rejoint
+        # littéralement — la case se cochait, la matière restait écartée, et Apply
+        # réinscrivait l'exclusion que l'utilisateur venait d'annuler.
+        targets = [address for address in (parse_region_address(key) for key in keys) if address is not None]
+        kept: set[str] = set()
+        for existing in self._manual_exclusions:
+            parsed = parse_region_address(existing)
+            if parsed is not None and any(parsed.covers_address(target) or target.covers_address(parsed) for target in targets):
+                continue
+            kept.add(existing)
+        self._manual_exclusions = kept
+
+    def _is_page_hole(self, page_number: int) -> bool:
+        """Vrai si cette page est un trou persisté, au sens des adresses de région."""
+        return covers_region(self._manual_exclusions, heading_path=None, page_number=page_number)
+
+    def _persisted_heading_exclusions(self) -> set[str]:
+        """Exclusions de *titres* mémorisées sur le document (trous de pages exclus).
+
+        Ces exclusions ne sont honorables que par le mode sections : les ignorer à la
+        réouverture reviendrait à effacer la délimitation enregistrée par l'utilisateur.
+        """
+        non_page: set[str] = set()
+        for entry in self._manual_exclusions:
+            address = parse_region_address(entry)
+            if address is not None and address.value and address.scope is not RegionScope.PAGE:
+                non_page.add(entry)
+        return non_page
+
+    def _section_exclusion_scope(self, heading_path: str | None) -> RegionScope | None:
+        """Détermine la portée d'exclusion d'un titre dans les exclusions manuelles : NODE, HEADING ou None."""
+        if not heading_path or not heading_path.strip():
+            return None
+        parsed = [parse_region_address(entry) for entry in self._manual_exclusions]
+        covering = [addr for addr in parsed if addr is not None and addr.covers(heading_path=heading_path, page_number=None)]
+        if not covering:
+            return None
+        if any(addr.scope is RegionScope.HEADING for addr in covering):
+            return RegionScope.HEADING
+        if any(addr.scope is RegionScope.NODE for addr in covering):
+            return RegionScope.NODE
+        return None
+
+    def _apply_mode_view(self, mode: ScopeMode, sub_mode: PageSubMode) -> None:
+        """Applique la visibilité exclusive des volets et l'état visuel du mode actif."""
+        is_pages = mode == "pages"
+        is_range = is_pages and sub_mode == "range"
+
+        self._set_section_controls_visible(mode == "sections")
+        if mode == "chapters":
+            self.all_card.hide()
+            self.chapters_card.show()
+        else:
+            self.chapters_card.hide()
+            self.all_card.setVisible(is_pages and not is_range)
+        if self.is_paginated:
+            # Le panneau de pages n'existe qu'en mode pages : pas de filtre croisé visuel.
+            self.pages_card.setVisible(is_pages)
+            self.slider_scope_container.setVisible(is_range)
+            self.range_presets_container.setVisible(is_range)
+            self.range_info_card.setVisible(is_range)
+            self.left_layout.setStretchFactor(self.pages_card, 1 if is_range else 0)
+        if hasattr(self, "structure_scope_container"):
+            self.structure_scope_container.setVisible(mode == "chapters")
+
+        if self._restoring_scope_mode:
+            # À la réouverture, bornes de pages, pages retenues et exclusions de titres portent
+            # déjà l'état du document : les réinitialiser écraserait la délimitation enregistrée.
+            return
+
+        if mode == "chapters":
+            self._sync_chapter_cards_from_range()
+            return
+        if mode == "sections":
+            self._reset_sections_to_full_scope()
+            return
+        if is_range:
+            if hasattr(self, "input_custom_pages"):
+                self.input_custom_pages.blockSignals(True)
+                self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
+                self.input_custom_pages.blockSignals(False)
+            if hasattr(self, "range_bar"):
+                self.range_bar.set_selected_pages(self._selected_pages, self._max_page)
+        else:
+            self._reset_page_controls_to_full_span()
+        self._filter_sections_by_pages(self._selected_pages)
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.set_scope_range(min(self._selected_pages), max(self._selected_pages), included_pages=self._selected_pages)
+
+    def _reset_sections_to_full_scope(self) -> None:
+        """Réinitialise la sélection des sections : le mode sections part de « tout est coché ».
+
+        Les cases de l'arbre sont une vue dérivée d'une catégorie (pages, chapitres ou sections).
+        En entrant dans le mode sections, la dérivation précédente est donc abandonnée : sans
+        cela, la restriction de pages ou de chapitres filtrerait silencieusement le résultat.
+        Les exclusions de titres ont déjà été écartées par ``_neutralize_foreign_selection``.
+        """
+        self._set_all_checked(True)
+
+    def _reset_page_controls_to_full_span(self) -> None:
+        """Réétale les curseurs de pages sur toute la délimitation utile."""
+        self._selected_pages = self._pages_in_span_excluding_holes(1, self._max_page)
+        for widget, value in (
+            (self.spin_p_start, 1),
+            (self.spin_p_end, self._max_page),
+            (self.slider_p_start, 1),
+            (self.slider_p_end, self._max_page),
+        ):
+            widget.blockSignals(True)
+            widget.setValue(value)
+            widget.blockSignals(False)
+        if hasattr(self, "input_custom_pages"):
+            self.input_custom_pages.blockSignals(True)
+            self.input_custom_pages.setText(format_page_ranges(self._selected_pages))
+            self.input_custom_pages.blockSignals(False)
+        if hasattr(self, "range_bar"):
+            self.range_bar.set_selected_pages(self._selected_pages, self._max_page)
+        self._set_all_checked(True)
+        for card in self._chapter_cards:
+            card.set_checked(True)
+
+    def _on_mode_activated(self, mode: ScopeMode, sub_mode: PageSubMode) -> None:
+        """Recalcule l'aperçu et les indicateurs après un changement de mode."""
+        self._refresh_final_preview()
+        self._update_kpi()
+
+    def _reactivate_scope_mode(self, mode: ScopeMode, sub_mode: PageSubMode | None = None) -> None:
+        """Réinitialise le volet d'un mode, sauf si c'est déjà le mode actif.
+
+        Rejouer l'activation d'un mode inactif abandonne la sélection dérivée de la catégorie
+        précédente — c'est voulu. Rejouer celle du mode *déjà* actif n'abandonne rien : cela
+        effacerait les exclusions que l'utilisateur vient de poser dans ce mode, pour un geste
+        qui ne demandait rien. La réinitialisation d'un même mode reste possible en quittant
+        le mode puis en y revenant.
+        """
+        if self.is_mode_active(mode, sub_mode):
+            self._on_mode_activated(mode, sub_mode or self.current_page_sub_mode())
+            return
+        self.activate_scope_mode(mode, sub_mode, force=True)
+
+    def _on_mode_all_clicked(self) -> None:
+        self._reactivate_scope_mode("pages", "all")
+
+    def _on_mode_range_clicked(self) -> None:
+        self._reactivate_scope_mode("pages", "range")
+
+    def _on_mode_structure_clicked(self) -> None:
+        self._reactivate_scope_mode("chapters")
+
+    def _on_mode_sections_clicked(self) -> None:
+        self._reactivate_scope_mode("sections")
+
+    def _on_chapter_range_changed(self) -> None:
+        """Le sélecteur de plage de chapitres est une interaction chapitre : il active son mode."""
+        if not hasattr(self, "combo_c_start") or not hasattr(self, "combo_c_end"):
+            return
+        if self.ensure_scope_mode("chapters"):
+            return
+        self._sync_chapter_cards_from_range()
+        self._refresh_final_preview()
+        self._update_kpi()
+
+    def _sync_chapter_cards_from_range(self) -> None:
+        """Aligne les cartes chapitre et l'aperçu sur la plage de chapitres courante (sans notification)."""
+        if not hasattr(self, "combo_c_start") or not hasattr(self, "combo_c_end"):
+            return
+
+        def _sync_preview(min_chapter: int, max_chapter: int, _chapters: set[int]) -> None:
+            """Oriente l'aperçu sur les pages des lignes de chapitres de la plage (mode chapitres seulement)."""
+            if self.selection_mode != "chapters" or not self.is_paginated or not hasattr(self, "preview_widget"):
+                return
+            checked_pages = [
+                self._section_meta[i]["page_number"]
+                for i in range(self.sections_list.count())
+                if self.sections_list.item(i).childCount() == 0
+                and min_chapter <= self._section_meta.get(i, {}).get("root_index", -1) <= max_chapter
+                and self._section_meta.get(i, {}).get("page_number") is not None
+            ]
+            if checked_pages:
+                self.preview_widget.set_scope_range(min(checked_pages), max(checked_pages), included_pages=set(checked_pages))
+                self.preview_widget.jump_to_page(min(checked_pages))
+
+        sync_chapter_cards_from_range(self.combo_c_start, self.combo_c_end, self._chapter_cards, _sync_preview)
+
+    def _on_slider_start_changed(self, val: int) -> None:
+        self.ensure_scope_mode("pages", "range")
+        end_val = self.spin_p_end.value()
+        if val > end_val:
+            end_val = val
+        self._apply_page_range(val, end_val, trigger_jump=True)
+
+    def _on_slider_end_changed(self, val: int) -> None:
+        self.ensure_scope_mode("pages", "range")
+        start_val = self.spin_p_start.value()
+        if val < start_val:
+            start_val = val
+        self._apply_page_range(start_val, val, trigger_jump=True)
+
+    def _on_start_page_changed(self, val: int) -> None:
+        if self._syncing_selection:
+            return
+        self.ensure_scope_mode("pages", "range")
+        end_val = self.spin_p_end.value()
+        if val > end_val:
+            end_val = val
+        self._apply_page_range(val, end_val, trigger_jump=True)
+
+    def _on_end_page_changed(self, val: int) -> None:
+        if self._syncing_selection:
+            return
+        self.ensure_scope_mode("pages", "range")
+        start_val = self.spin_p_start.value()
+        if val < start_val:
+            start_val = val
+        self._apply_page_range(start_val, val, trigger_jump=True)
+
+    def _filter_sections_by_pages(self, pages_or_start: set[int] | int, end_p: int | None = None) -> None:
+        """Coche ou décoche automatiquement les fragments selon la plage de pages-governante.
+
+        En mode pages, seule ``_selected_pages`` fait foi : les exclusions de titres
+        appartiennent au mode sections et ne doivent pas filtrer le mode pages.
+        """
+        if not self.is_paginated or self.selection_mode != "pages" or self._syncing_selection:
+            return
+        if isinstance(pages_or_start, set):
+            selected_pages = pages_or_start
+        elif isinstance(pages_or_start, int) and end_p is not None:
+            selected_pages = set(range(pages_or_start, end_p + 1))
+        else:
+            selected_pages = set(range(1, self._max_page + 1))
+
+        self._syncing_selection = True
+        try:
+            self.sections_list.blockSignals(True)
+            for i in range(self.sections_list.count()):
+                meta = self._section_meta.get(i, {})
+                p_num = meta.get("page_number")
+                end_p_num = meta.get("end_page") or p_num
+                if p_num is not None:
+                    sec_end = end_p_num if end_p_num is not None and end_p_num >= p_num else p_num
+                    should_check = any(p in selected_pages for p in range(p_num, sec_end + 1))
+                    item = self.sections_list.item(i)
+                    if item:
+                        target_state = Qt.CheckState.Checked if should_check else Qt.CheckState.Unchecked
+                        item.setCheckState(0, target_state)
+                        w = self.sections_list.itemWidget(item, 0)
+                        if isinstance(w, SectionRowWidget):
+                            w.set_check_state(target_state)
+            for it in reversed(self.sections_list.all_items()):
+                if it.childCount() > 0:
+                    self._update_parent_from_children(it)
+            self.sections_list.blockSignals(False)
+        finally:
+            self._syncing_selection = False
+
+    def _on_tree_item_state_changed(self, item: QTreeWidgetItem, state: Qt.CheckState) -> None:
+        """Synchronisation dynamique unifiée arborescence -> sliders, mémorisation des exclusions et cascade parent-enfant.
+
+        Cocher/décocher une section est une interaction « sections » : elle active le mode
+        correspondant au lieu de laisser une exclusion décorative hors du mode gouvernant.
+        """
+        if self.ensure_scope_mode("sections") and state in (Qt.CheckState.Checked, Qt.CheckState.Unchecked) and item.checkState(0) != state:
+            # L'activation du mode sections réinitialise les cases à « tout coché » : l'interaction
+            # utilisateur reste la source de vérité de la portée, on la réapplique puis on poursuit
+            # le traitement commun (cascade, exclusions, aperçu).
+            item.setCheckState(0, state)
+            widget = self.sections_list.itemWidget(item, 0)
+            if isinstance(widget, SectionRowWidget):
+                widget.set_check_state(state)
+        row = self.sections_list.row(item)
+        meta = self._section_meta.get(row, {})
+        orig_title = str(meta.get("title") or "")
+        p_num = meta.get("page_number")
+
+        # 1. Navigation immédiate vers la section concernée dans l'aperçu
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.jump_to_heading(orig_title, p_num, str(meta.get("heading_path") or ""))
+
+        # 2. Cascade parent/enfant
+        if not self._syncing_selection:
+            self._syncing_selection = True
+            try:
+                if state in (Qt.CheckState.Checked, Qt.CheckState.Unchecked):
+                    self._cascade_down(item, state)
+                self._cascade_up(item)
+
+                self._set_row_excluded(meta, state == Qt.CheckState.Unchecked)
+            finally:
+                self._syncing_selection = False
+
+        if self.selection_mode == "pages" or self._syncing_selection:
+            self._update_kpi()
+            return
+
+        self._update_kpi()
+
+    def _cascade_down(self, item: QTreeWidgetItem, state: Qt.CheckState) -> None:
+        for i in range(item.childCount()):
+            child = item.child(i)
+            child.setCheckState(0, state)
+            w = self.sections_list.itemWidget(child, 0)
+            if isinstance(w, SectionRowWidget):
+                w.set_check_state(state)
+            child_meta = self._section_meta.get(self.sections_list.row(child), {})
+            self._set_row_excluded(child_meta, state == Qt.CheckState.Unchecked)
+            self._cascade_down(child, state)
+
+    def _cascade_up(self, item: QTreeWidgetItem) -> None:
+        parent = item.parent()
+        if parent is None:
+            return
+        self._update_parent_from_children(parent)
+        self._cascade_up(parent)
+
+    def _update_parent_from_children(self, parent: QTreeWidgetItem) -> None:
+        child_states = [parent.child(i).checkState(0) for i in range(parent.childCount())]
+        if all(s == Qt.CheckState.Checked for s in child_states):
+            parent_state = Qt.CheckState.Checked
+        elif all(s == Qt.CheckState.Unchecked for s in child_states):
+            parent_state = Qt.CheckState.Unchecked
+        else:
+            parent_state = Qt.CheckState.PartiallyChecked
+
+        parent.setCheckState(0, parent_state)
+        w = self.sections_list.itemWidget(parent, 0)
+        if isinstance(w, SectionRowWidget):
+            w.set_check_state(parent_state)
+
+    def _load_document_stats(self) -> None:
+        """Charge la distribution des cartes créées par fragment et par page avec indexation robuste."""
+        self._chunk_cards = {}
+        self._page_cards = {}
+        self._hash_cards = {}
+        self._heading_page_cards = {}
+
+        if not getattr(self.doc, "id", None):
+            return
+
+        try:
+            CoverageAlignmentService.sync_coverage_from_tags(self.doc.id)
+        except Exception as e:
+            logger.debug("Sync couverture silencieuse dans délimitation: %s", e)
+
+        try:
+            links = (
+                NoteChunkLinkModel.select(
+                    DocumentChunkModel.chunk_index,
+                    DocumentChunkModel.page_number,
+                    DocumentChunkModel.content_hash,
+                    DocumentChunkModel.heading_path,
+                    fn.COUNT(NoteChunkLinkModel.note).alias("cnt"),
+                )
+                .join(DocumentChunkModel)
+                .where(DocumentChunkModel.document == self.doc)
+                .group_by(
+                    DocumentChunkModel.chunk_index,
+                    DocumentChunkModel.page_number,
+                    DocumentChunkModel.content_hash,
+                    DocumentChunkModel.heading_path,
+                )
+            )
+            for row in links:
+                c_idx = row.chunk.chunk_index
+                p_num = row.chunk.page_number
+                c_hash = row.chunk.content_hash
+                h_path = row.chunk.heading_path
+                cnt = int(getattr(row, "cnt", 0))
+                if c_idx is not None:
+                    self._chunk_cards[c_idx] = self._chunk_cards.get(c_idx, 0) + cnt
+                if p_num is not None:
+                    self._page_cards[p_num] = self._page_cards.get(p_num, 0) + cnt
+                if c_hash:
+                    self._hash_cards[c_hash] = self._hash_cards.get(c_hash, 0) + cnt
+                if h_path:
+                    key = (h_path, p_num)
+                    self._heading_page_cards[key] = self._heading_page_cards.get(key, 0) + cnt
+        except Exception as e:
+            logger.debug("Erreur comptage des cartes par fragment: %s", e)
+
+    def _populate_sections(self) -> None:
+        """Remplit l'arborescence avec les sections sémantiques en affichant volume, cartes créées et avis d'utilité."""
+        self.sections_list.blockSignals(True)
+        self.sections_list.clear()
+        self._section_meta.clear()
+
+        # 1. Extraction arborescente des titres
+        tree_nodes: list[HeadingTreeNode] = []
+        if self.doc.content:
+            tree_nodes = ChunkingService.extract_heading_tree_with_pages(self.doc.content, self._max_page, self.doc.file_type or "md")
+        if not tree_nodes:
+            chunks_to_display = self._all_chunks
+            if not chunks_to_display and getattr(self.doc, "id", None):
+                existing = list(DocumentChunkModel.select().where(DocumentChunkModel.document == self.doc).order_by(DocumentChunkModel.chunk_index))
+                chunks_to_display = [
+                    {
+                        "index": c.chunk_index,
+                        "heading_path": c.heading_path,
+                        "page_number": c.page_number,
+                        "content": c.content,
+                        "content_hash": c.content_hash,
+                    }
+                    for c in existing
+                ]
+            tree_nodes = ChunkingService.build_tree_from_chunks(chunks_to_display)
+
+        has_headings = has_structured_heading_nodes(tree_nodes)
+
+        # Remplissage des sélecteurs de chapitres
+        if hasattr(self, "combo_c_start") and hasattr(self, "combo_c_end"):
+            self.combo_c_start.blockSignals(True)
+            self.combo_c_end.blockSignals(True)
+            self.combo_c_start.clear()
+            self.combo_c_end.clear()
+            if has_headings:
+                for idx, root_n in enumerate(tree_nodes):
+                    p_span = ""
+                    if self.is_paginated and root_n.start_page is not None:
+                        p_span = f" (p. {root_n.start_page}–{root_n.end_page})" if root_n.end_page and root_n.end_page > root_n.start_page else f" (p. {root_n.start_page})"
+                    label = f"{root_n.title}{p_span}"
+                    self.combo_c_start.addItem(label, idx)
+                    self.combo_c_end.addItem(label, idx)
+                self.combo_c_start.setCurrentIndex(0)
+                self.combo_c_end.setCurrentIndex(len(tree_nodes) - 1)
+                self.btn_scope_mode_structure.show()
+                if not self.is_paginated:
+                    self.structure_scope_container.show()
+            else:
+                self.btn_scope_mode_structure.hide()
+                if hasattr(self, "structure_scope_container"):
+                    self.structure_scope_container.hide()
+            self.combo_c_start.blockSignals(False)
+            self.combo_c_end.blockSignals(False)
+
+        self.btn_scope_mode_sections.setVisible(has_headings)
+        self.btn_scope_mode_sections.setEnabled(has_headings)
+        self.btn_scope_mode_all.setEnabled(self.is_paginated)
+        self.btn_scope_mode_range.setEnabled(self.is_paginated)
+        if not has_headings:
+            # Sans hiérarchie de titres, les exclusions de titres sont matérialisées dans les
+            # fragments retenus : aucun mode ne peut les exprimer, la délimitation repart des pages.
+            self.activate_scope_mode("pages" if self.is_paginated else "chapters", force=True)
+        elif self.is_paginated and not self._persisted_heading_exclusions():
+            self.restore_scope_mode("pages", "all")
+        else:
+            # Des exclusions de titres mémorisées ne sont honorables que par le mode sections :
+            # rouvrir en mode pages les effacerait silencieusement de la délimitation.
+            self.restore_scope_mode("sections")
+
+        # 2. Peuplement récursif du QTreeWidget
+        def _add_node_recursive(node: HeadingTreeNode, parent_item: QTreeWidgetItem | None = None, root_index: int = -1) -> None:
+            if parent_item is None:
+                item = SectionTreeWidgetItem(self.sections_list)
+                self.sections_list.addTopLevelItem(item)
+                root_index = self.sections_list.topLevelItemCount() - 1
+            else:
+                item = SectionTreeWidgetItem(parent_item)
+            item.setExpanded(True)
+
+            flat_idx = len(self._section_meta)
+            title_str = node.heading_path or node.title
+            page_num = node.start_page
+            end_p = node.end_page
+            chunk_idx = node.chunk_index if node.chunk_index is not None else flat_idx
+            word_count = node.word_count
+            level = node.level
+            chunk_dict: dict[str, Any] | None = None
+            for candidate in self._all_chunks:
+                if candidate.get("heading_path") == node.heading_path:
+                    candidate_page = candidate.get("page_number")
+                    if page_num is None or candidate_page is None or candidate_page == page_num:
+                        chunk_dict = candidate
+                        break
+            if chunk_dict is None:
+                chunk_dict = next(
+                    (candidate for candidate in self._all_chunks if candidate.get("index") == chunk_idx),
+                    None,
+                )
+
+            cards_count = 0
+            if (node.heading_path, page_num) in self._heading_page_cards:
+                cards_count = self._heading_page_cards[(node.heading_path, page_num)]
+            elif (node.title, page_num) in self._heading_page_cards:
+                cards_count = self._heading_page_cards[(node.title, page_num)]
+            elif chunk_idx in self._chunk_cards:
+                cards_count = self._chunk_cards[chunk_idx]
+            elif page_num is not None:
+                cards_count = self._page_cards.get(page_num, 0)
+
+            is_noise = False
+
+            self._section_meta[flat_idx] = {
+                "title": node.title,
+                "heading_path": node.heading_path,
+                "page_number": page_num,
+                "end_page": end_p,
+                "level": level,
+                "word_count": word_count,
+                "tokens": node.token_count,
+                "cards_count": cards_count,
+                "is_noise": is_noise,
+                "is_leaf": not node.children,
+                "root_index": root_index,
+                "chunk": chunk_dict,
+                "item": item,
+            }
+
+            in_range = True
+            if self.is_paginated and page_num is not None and hasattr(self, "spin_p_start") and hasattr(self, "spin_p_end"):
+                in_range = self.spin_p_start.value() <= page_num <= self.spin_p_end.value()
+            is_checked = in_range and not self._is_region_excluded(node.heading_path, page_num)
+
+            item.setCheckState(0, Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked)
+            item.setData(0, Qt.ItemDataRole.UserRole, title_str)
+
+            excl_scope = self._section_exclusion_scope(node.heading_path)
+            row_widget = SectionRowWidget(
+                item=item,
+                tree_widget=self.sections_list,
+                title=node.title,
+                is_checked=is_checked,
+                page_number=page_num,
+                end_page=end_p,
+                level=level,
+                word_count=word_count,
+                cards_count=cards_count,
+                is_noise=is_noise,
+                is_leaf=not node.children,
+                show_page=self.is_paginated,
+                exclusion_scope=excl_scope,
+            )
+            row_widget.state_changed.connect(lambda st, it=item: self._on_tree_item_state_changed(it, st))
+            item.setSizeHint(0, QSize(0, 36))
+
+            self.sections_list.setItemWidget(item, 0, row_widget)
+
+            # Tooltip
+            if excl_scope is RegionScope.NODE:
+                rec_text = "Hors périmètre (titre seul) : conteneur écarté, sous-sections actives"
+            elif excl_scope is RegionScope.HEADING:
+                rec_text = "Hors périmètre : section écartée de la couverture"
+            elif cards_count > 0:
+                rec_text = "À conserver impérativement (Cartes déjà créées)"
+            elif word_count < 25:
+                rec_text = "Section courte / à vérifier"
+            else:
+                rec_text = "Contenu de cours standard"
+            p_str = f" (Pages {page_num}–{end_p})" if (self.is_paginated and page_num and end_p and end_p > page_num) else (f" (Page {page_num})" if (self.is_paginated and page_num) else "")
+            item.setToolTip(0, tr("<b>%1</b>%2<br>• Volume : %3 mots<br>• Cartes créées : %4 carte(s)<br>• Diagnostic : <b>%5</b>", node.title, p_str, word_count, cards_count, rec_text))
+
+            for child in node.children:
+                _add_node_recursive(child, item, root_index)
+
+        for root_node in tree_nodes:
+            _add_node_recursive(root_node, None)
+
+        self._tree_nodes = tree_nodes
+        self._chapter_cards.clear()
+        while self.chapters_list_layout.count():
+            item_c = self.chapters_list_layout.takeAt(0)
+            w_c = item_c.widget()
+            if w_c:
+                w_c.deleteLater()
+
+        while self.all_outline_layout.count():
+            item_o = self.all_outline_layout.takeAt(0)
+            w_o = item_o.widget()
+            if w_o:
+                w_o.deleteLater()
+
+        def _gather_chapter_stats(n: HeadingTreeNode) -> tuple[int, int]:
+            sub_c = len(n.children)
+            words = n.word_count
+            for ch in n.children:
+                sc, w = _gather_chapter_stats(ch)
+                sub_c += sc
+                words += w
+            return sub_c, words
+
+        for idx, root_n in enumerate(tree_nodes):
+            subsections_count, chapter_words = _gather_chapter_stats(root_n)
+            ch_card = ChapterCardWidget(
+                chapter_index=idx,
+                title=root_n.title,
+                start_page=root_n.start_page,
+                end_page=root_n.end_page,
+                subsections_count=subsections_count,
+                word_count=chapter_words,
+                is_checked=True,
+                is_paginated=self.is_paginated,
+            )
+            ch_card.toggled.connect(self._on_chapter_card_toggled)
+            self._chapter_cards.append(ch_card)
+            self.chapters_list_layout.addWidget(ch_card)
+
+            outline_row = QFrame()
+            outline_row.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {DesignTokens.BG_INPUT};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius:  {DesignTokens.RADIUS_SM}px;
+                }}
+            """)
+            or_layout = QHBoxLayout(outline_row)
+            or_layout.setContentsMargins(8, 6, 8, 6)
+            or_layout.setSpacing(8)
+
+            ch_badge = QLabel(tr("Ch. %1", idx + 1))
+            ch_badge.setStyleSheet(
+                f"background-color: {DesignTokens.ACCENT_BG}; color: {DesignTokens.COLOR_PURPLE_TEXT}; border: 1px solid {DesignTokens.ACCENT_BORDER};"
+                f" border-radius: 4px; padding: 2px 6px; font-weight: bold; font-size: 10px;"
+            )
+            or_layout.addWidget(ch_badge)
+
+            or_title = QLabel(root_n.title)
+            or_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500; border: none; background: transparent;")
+            or_title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            or_layout.addWidget(or_title, 1)
+
+            p_parts: list[str] = []
+            if self.is_paginated and root_n.start_page is not None:
+                p_span = f"p. {root_n.start_page}–{root_n.end_page}" if root_n.end_page and root_n.end_page > root_n.start_page else f"p. {root_n.start_page}"
+                p_parts.append(p_span)
+            if subsections_count > 0:
+                p_parts.append(f"{subsections_count} sec.")
+            p_parts.append(f"~{chapter_words:,} mots".replace(",", " "))
+            or_meta = QLabel(" • ".join(p_parts))
+            or_meta.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; border: none; background: transparent;")
+            or_layout.addWidget(or_meta)
+
+            self.all_outline_layout.addWidget(outline_row)
+
+        self.chapters_list_layout.addStretch()
+        self.all_outline_layout.addStretch()
+
+        # Règle GEMINI.md 13 : synchroniser les parents en parcours inverse (post-order)
+        for it in reversed(self.sections_list.all_items()):
+            if it.childCount() > 0:
+                self._update_parent_from_children(it)
+
+        self.sections_list.blockSignals(False)
+        self._refresh_final_preview()
+
+    def _update_kpi(self) -> None:
+        """Met à jour l'indicateur de sections retenues et exclues ainsi que l'alerte d'impact de pagination."""
+        total = self.sections_list.count()
+        selected_chunks = self._selected_chunks_for_mode()
+        selected_ids = {id(chunk) for chunk in selected_chunks}
+        checked_count = 0
+        excluded_count = 0
+        checked_words = 0
+        excluded_words = 0
+        checked_cards = 0
+        excluded_cards = 0
+
+        for i in range(total):
+            item = self.sections_list.item(i)
+            if not item:
+                continue
+            meta = self._section_meta.get(i, {})
+            chunk = meta.get("chunk")
+            is_substantive = has_substantive_content(chunk) if isinstance(chunk, dict) else False
+
+            if item.childCount() > 0 and not is_substantive:
+                continue
+
+            w_cnt = int(meta.get("word_count", 0))
+            c_cnt = int(meta.get("cards_count", 0))
+
+            if id(chunk) in selected_ids:
+                checked_count += 1
+                checked_words += w_cnt
+                checked_cards += c_cnt
+            else:
+                excluded_count += 1
+                excluded_words += w_cnt
+                excluded_cards += c_cnt
+
+        total_words = checked_words + excluded_words
+        pct_words = int(round((checked_words / total_words) * 100)) if total_words > 0 else 100
+
+        if excluded_cards > 0:
+            self.lbl_selection_kpi.setText(tr("%1 retenues (%2%% mots) • %3 exclues (dont %4 carte%5 !)", checked_count, pct_words, excluded_count, excluded_cards, "s" if excluded_cards > 1 else ""))
+            self.lbl_selection_kpi.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
+        else:
+            self.lbl_selection_kpi.setText(tr("%1 retenues (%2%% mots • %3 cartes) • %4 exclues (%5%%)", checked_count, pct_words, checked_cards, excluded_count, 100 - pct_words))
+            self.lbl_selection_kpi.setStyleSheet(f"color: {DesignTokens.COLOR_BLUE}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
+
+        # Mise à jour des KPIs du Mode All
+        if hasattr(self, "lbl_all_kpi_pages"):
+            self.lbl_all_kpi_pages.setText(tr("%1 p.", self._max_page))
+            self.lbl_all_kpi_chapters.setText(tr("%1 chap.", len(self._chapter_cards)))
+            self.lbl_all_kpi_sections.setText(tr("%1 sec.", len(self._section_meta)))
+            self.lbl_all_kpi_words.setText(f"~{total_words:,} mots".replace(",", " "))
+
+        # Mise à jour des informations du Mode Range
+        if hasattr(self, "lbl_range_coverage_kpi") and hasattr(self, "spin_p_start") and hasattr(self, "spin_p_end"):
+            p_cnt = len(self._selected_pages) if self.is_paginated else self._max_page
+            p_pct = (p_cnt / self._max_page * 100) if self._max_page > 0 else 100.0
+            range_display = format_page_ranges(self._selected_pages) if self.is_paginated else f"1-{self._max_page}"
+            self.lbl_range_coverage_kpi.setText(tr("Pages sélectionnées : %1 (%2 / %3 pages — %4%%)", range_display, p_cnt, self._max_page, f"{p_pct:.1f}"))
+            words_in_range = sum(m.get("word_count", 0) for m in self._section_meta.values() if m.get("page_number") in self._selected_pages and m.get("is_leaf"))
+            chs_in_range = [c.title for c in self._tree_nodes if (c.start_page is not None and c.end_page is not None and any(p in self._selected_pages for p in range(c.start_page, c.end_page + 1)))]
+            self.lbl_range_words_kpi.setText(f"Volume estimé dans la plage : ~{words_in_range:,} mots".replace(",", " "))
+            ch_txt = ", ".join(chs_in_range[:3]) + (f" (+{len(chs_in_range) - 3})" if len(chs_in_range) > 3 else "") if chs_in_range else "Tous"
+            self.lbl_range_chapters_kpi.setText(tr("Chapitres concernés : %1", ch_txt))
+
+        # Mise à jour des KPIs du Mode Chapitres
+        if hasattr(self, "lbl_chapters_kpi") and hasattr(self, "_chapter_cards"):
+            checked_chs = [c for c in self._chapter_cards if c.is_checked()]
+            self.lbl_chapters_kpi.setText(tr("%1 / %2 chapitres sélectionnés", len(checked_chs), len(self._chapter_cards)))
+            ch_plural = "s" if len(checked_chs) > 1 else ""
+            self.lbl_chapters_summary.setText(f"{len(checked_chs)} chapitre{ch_plural} actif{ch_plural} • {checked_words:,} mots sélectionnés".replace(",", " "))
+
+        # Impact sur la pagination (uniquement si le document est un PDF / paginé)
+        if self.is_paginated and self.selection_mode == "pages":
+            self.lbl_page_impact.show()
+            excluded_pages = [p for p in self._page_cards if p not in self._selected_pages]
+            excluded_page_cards = sum(self._page_cards[p] for p in excluded_pages)
+
+            if excluded_page_cards > 0:
+                p_str = ", ".join(f"p.{p}" for p in sorted(excluded_pages))
+                self.lbl_page_impact.setText(tr("%1 carte(s) existante(s) dans les pages exclues (%2) — la délimitation restreindra leur couverture.", excluded_page_cards, p_str))
+                self.lbl_page_impact.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: 500; border: none; background: transparent;")
+            else:
+                self.lbl_page_impact.setText(self.tr("Aucune carte n'est impactée par les bornes de pagination choisies."))
+                self.lbl_page_impact.setStyleSheet(f"color: {DesignTokens.COLOR_GREEN}; font-size: 11px; border: none; background: transparent;")
+        else:
+            self.lbl_page_impact.hide()
+
+    def _set_all_checked(self, checked: bool) -> None:
+        self.sections_list.blockSignals(True)
+        state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
+        for i in range(self.sections_list.count()):
+            item = self.sections_list.item(i)
+            item.setCheckState(state)
+            widget = self.sections_list.itemWidget(item)
+            if isinstance(widget, SectionRowWidget):
+                widget.set_checked(checked)
+            meta = self._section_meta.get(i, {})
+            self._set_row_excluded(meta, not checked)
+        self.sections_list.blockSignals(False)
+
+        self._sync_preview_with_active_scope()
+        self._update_kpi()
+
+    def _sync_preview_with_active_scope(self) -> None:
+        """Aligne l'aperçu sur la portée gouvernante du mode actif (pages ou sections)."""
+        if not hasattr(self, "preview_widget"):
+            return
+        if self.selection_mode == "pages":
+            pages = {p for p in self._selected_pages if p <= self._max_page}
+            if pages:
+                self.preview_widget.set_scope_range(min(pages), max(pages), included_pages=pages)
+            return
+        if self.selection_mode != "sections":
+            return
+        active_pages = {
+            self._section_meta[i]["page_number"]
+            for i in range(self.sections_list.count())
+            if self.sections_list.item(i)
+            and self.sections_list.item(i).checkState(0) == Qt.CheckState.Checked
+            and self.sections_list.item(i).childCount() == 0
+            and self._section_meta.get(i, {}).get("page_number") is not None
+        }
+        if active_pages:
+            self._selected_pages = set(active_pages)
+            self.preview_widget.set_scope_range(min(active_pages), max(active_pages), included_pages=active_pages)
+
+    def _validate_page_scope(self) -> bool:
+        """Vérifie la cohérence de la plage de pages saisie, et refuse l'application.
+
+        Séparé du calcul des adresses parce qu'un refus et « aucun trou » ne se ressemblent
+        pas : confondus, une plage invalide s'appliquait silencieusement, et une plage valide
+        sans trou perdait sa trace.
+        """
+        if self.selection_mode != "pages" or not self.is_paginated:
+            return True
+        page_start_val, page_end_val = self.spin_p_start.value(), self.spin_p_end.value()
+        if page_start_val > page_end_val:
+            show_toast(self, self.tr("La page de début doit être inférieure ou égale à la page de fin."), is_error=True)
+            return False
+        if page_end_val > self._max_page or any(p > self._max_page for p in self._selected_pages):
+            show_toast(self, tr("La page de fin ne peut pas dépasser la dernière page détectée (%1).", self._max_page), is_error=True)
+            return False
+        if not self._selected_pages:
+            show_toast(self, self.tr("Veuillez sélectionner au moins une page."), is_error=True)
+            return False
+        return True
+
+    def _current_page_span(self) -> tuple[int | None, int | None]:
+        """Bornes de la sélection de pages courante, ou ``(None, None)`` si elle les couvre toutes.
+
+        Un seul calcul pour l'application et pour les adresses : deux appels qui dérivent
+        décrivent des périmètres différents au même instant, dont l'un gagne et l'autre non.
+        """
+        if self.selection_mode != "pages" or not self.is_paginated or not self._selected_pages:
+            return None, None
+        if hasattr(self, "btn_scope_mode_all") and self.btn_scope_mode_all.isChecked() and self._selected_pages == set(range(1, self._max_page + 1)):
+            return None, None
+        return min(self._selected_pages), max(self._selected_pages)
+
+    def _excluded_addresses_for_apply(self) -> list[RegionAddress]:
+        """Adresses de région écartées par la délimitation courante.
+
+        Chaque mode s'exprime dans sa propre portée, et **tous** les modes laissent une trace
+        persistée : décocher un chapitre sans rien écrire revenait à matérialiser le choix par la
+        seule suppression des fragments, donc à l'oublier au prochain réindex. Or une exclusion
+        n'est pas un trou dans la matière, c'est une règle.
+        """
+        addresses: list[RegionAddress] = []
+
+        if self.selection_mode == "pages" and self.is_paginated and self._selected_pages:
+            page_start, page_end = self._current_page_span()
+            # Enregistrer uniquement les trous à l'intérieur de la plage comme exclusions effectives
+            if page_start is not None and page_end is not None:
+                excluded_pages_set = set(range(page_start, page_end + 1)) - self._selected_pages
+            else:
+                excluded_pages_set = set(range(1, self._max_page + 1)) - self._selected_pages
+            addresses.extend(RegionAddress(RegionScope.PAGE, str(p)) for p in sorted(excluded_pages_set))
+
+        for raw in self._manual_exclusions:
+            parsed = parse_region_address(raw)
+            if parsed is not None and parsed.value:
+                addresses.append(parsed)
+
+        # Les cases de l'arbre sont la source de vérité de l'utilisateur, pas la mémoire
+        # interne : l'activation d'un mode réinitialise ses cases, et une exclusion ne doit
+        # pas disparaître parce qu'un objet de ligne a été reconstruite entre-temps.
+        if self.selection_mode == "sections":
+            for i in range(self.sections_list.count()):
+                item = self.sections_list.item(i)
+                if item is None or item.checkState(0) != Qt.CheckState.Unchecked:
+                    continue
+                for address in self._row_addresses(self._section_meta.get(i, {})):
+                    addresses.append(address)
+        elif self.selection_mode == "chapters":
+            addresses.extend(self._unchecked_chapter_addresses())
+
+        return addresses
+
+    def _row_addresses(self, meta: Mapping[str, Any]) -> list[RegionAddress]:
+        """Adresse de région d'une ligne : une seule, celle que la ligne décrit.
+
+        Le repli sur le titre ne vaut que pour une section sans fil d'Ariane. Sur une page sans
+        titre, il produirait ``heading:Page 3`` : une adresse de section désignant une section
+        qui n'existe pas, et que personne ne saurait réintégrer.
+        """
+        address = self._row_region_address(str(meta.get("title") or ""), str(meta.get("heading_path") or ""), meta.get("page_number"))
+        return [] if address is None else [address]
+
+    def _unchecked_chapter_addresses(self) -> list[RegionAddress]:
+        """Adresses des chapitres décochés, pour que le mode cartes laisse une trace persistée."""
+        unchecked = {card.chapter_index for card in self._chapter_cards if not card.is_checked()}
+        if not unchecked:
+            return []
+        return [RegionAddress(RegionScope.HEADING, node.heading_path or node.title) for index, node in enumerate(self._tree_nodes) if index in unchecked and (node.heading_path or node.title).strip()]
+
+    def _on_apply(self) -> None:
+        # La validation passe avant tout calcul de bornes : une sélection vide est un refus
+        # explicite, pas une `ValueError` remontée depuis `min()` sur le fil de l'interface.
+        if not self._validate_page_scope():
+            return
+        page_start, page_end = self._current_page_span()
+
+        if not self._selected_chunks_for_mode():
+            show_toast(self, self.tr("Aucun contenu ne correspond à cette sélection."), is_error=True)
+            return
+
+        effective_exclusions = self._excluded_addresses_for_apply()
+
+        # 1. Persistance durable sur DocumentModel : la portée est une règle, la matière reste.
+        self.doc.start_page = page_start
+        self.doc.end_page = page_end
+        self.doc.excluded_headings = render_region_addresses(effective_exclusions)
+        if getattr(self, "_max_page", 0) and self._max_page > 1:
+            self.doc.total_pages = self._max_page
+        self.doc.save()
+
+        # 2. Mise à jour différentielle atomique des fragments ré-extraits.
+        #
+        #    Le périmètre est désormais exprimé par la règle ci-dessus, et non par la suppression
+        #    des fragments hors sélection : les conserver était nécessaire, car
+        #    `NoteChunkLinkModel.chunk` est en `on_delete="CASCADE"` — une exclusion destructrice
+        #    emportait les liens de couverture du sous-arbre, rendant l'écartement irréversible
+        #    depuis l'interface. Seuls les fragments que la ré-extraction ne retrouve plus sont
+        #    supprimés : ceux-là ont réellement disparu du document.
+        # Une seule couture d'écriture pour tout rédecoupage : l'appariement préserve les
+        # fragments inchangés, donc leurs rattachements de cartes, et la matière écartée reste
+        # en base. L'exclusion est une règle de périmètre, pas un filtre de matière.
+        chunk_report = DocumentRepository().sync_extracted_chunks(self.doc, self._all_chunks)
+        logger.info(
+            "Délimitation du document %s : %d fragments conservés, %d créés, %d disparus",
+            getattr(self.doc, "id", None),
+            chunk_report.preserved,
+            chunk_report.created,
+            chunk_report.deleted,
+        )
+
+        from ankidraft.services.reindex_service import mark_document_version
+
+        mark_document_version(self.doc)
+
+        # 3. Réindexation RAG si demandée — déclarée sur le hub d'activité (ADR 0021) et
+        #    servie par la couture `revectorize_document` (non destructive, cf. ci-dessous) :
+        #    ce chemin ne doit plus contourner le suivi d'avancement des réindexations.
+        if self.chk_revectorize.isChecked():
+            from ankidraft.services.reindex_activity_service import ReindexActivityService
+            from ankidraft.services.reindex_service import REINDEX_ERROR, revectorize_document
+
+            activity = ReindexActivityService.get_instance()
+            if activity.begin(1):
+                activity.report_document(1, 1, self.doc.title)
+                fragments: list[int] = [0]
+
+                def _on_fragment(cur: int, tot: int) -> None:
+                    fragments[0] = tot
+                    activity.report_fragments(cur, tot)
+
+                try:
+                    # Rév vectorisation NON destructive : les fragments viennent d'être mis à
+                    # jour différentiellement ci-dessus (`sync_extracted_chunks`), leurs liens
+                    # de couverture doivent donc être préservés — un re-découpage destructeur les
+                    # emporterait en cascade (`NoteChunkLinkModel.chunk` est en CASCADE).
+                    status = revectorize_document(self.doc.id, fragment_cb=_on_fragment)
+                    if status == REINDEX_ERROR:
+                        activity.finish(0, 0, 1)
+                    else:
+                        activity.finish(1, fragments[0], 0)
+                except Exception as e:
+                    logger.warning("Erreur réindexation FAISS : %s", e)
+                    activity.finish(0, 0, 1)
+            else:
+                current, total = activity.current_position()
+                logger.warning(
+                    "Délimitation du document %s : rév vectorisation abandonnée, une passe de réindexation est déjà en cours (%d/%d).",
+                    getattr(self.doc, "id", None),
+                    current,
+                    total,
+                )
+
+        self.accept()

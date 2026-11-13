@@ -1,0 +1,584 @@
+"""Service d'extraction OCR des images et documents via moteurs natifs ou distants."""
+
+import base64
+import hashlib
+import logging
+import mimetypes
+import shutil
+import subprocess  # nosec B404
+import sys
+import tempfile
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
+
+from PIL import Image
+
+from ankidraft.database.models import DocumentPageModel
+from ankidraft.services.ai.base import LLMProvider, MockProvider
+from ankidraft.services.ai.vision_category_service import VisionCategoryService
+from ankidraft.services.cards.media_manager import MediaManager
+from ankidraft.utils.paths import get_app_data_dir
+
+logger = logging.getLogger(__name__)
+
+#: Format d'enregistrement Pillow par extension, pour matérialiser une planche rendue.
+SUPPORTED_SAVE_FORMATS: dict[str, str] = {
+    ".png": "PNG",
+    ".jpg": "JPEG",
+    ".jpeg": "JPEG",
+    ".webp": "WEBP",
+    ".bmp": "BMP",
+    ".tif": "TIFF",
+    ".tiff": "TIFF",
+}
+
+#: Paramètres d'enregistrement par format. Pillow.encode par défaut à `quality=75`, ce qui
+#: dégradait systématiquement les planches avant analyse — le défaut exact qui rend le petit
+#: texte d'un scan pâle illisible, alors que le fichier source était intact. La lossless
+#: est donc la règle pour ce qui ne perd rien, et le near-lossless le plancher du reste.
+LOSSY_SAVE_OPTIONS: dict[str, dict[str, object]] = {
+    "JPEG": {"quality": 95, "subsampling": 0},
+    "WEBP": {"quality": 95},
+}
+
+
+def save_rendered_page(image: Image.Image, target: str | Path, suffix: str) -> None:
+    """Écrit une planche rendue dans le format déduit de son suffixe d'origine.
+
+    Point unique de la matérialisation d'une planche : l'OCR, le RAG visuel et l'occlusion
+    passent tous par ici, donc aucun ne peut réencoder un scan en qualité réduite pendant
+    qu'un autre préserve l'original.
+    """
+    save_format = SUPPORTED_SAVE_FORMATS.get(suffix.lower())
+    if save_format is None:
+        # Format inconnu : on écrit du PNG sous une extension étrangère, ce qu'un
+        # fournisseur qui déduit le type MIME du suffixe refuserait. On normalise donc
+        # aussi l'extension du fichier temporaire, pas seulement son contenu.
+        save_format = "PNG"
+        target = Path(target).with_suffix(".png")
+    image.save(str(target), format=save_format, **LOSSY_SAVE_OPTIONS.get(save_format, {}))
+
+
+# Code Swift natif pour exécuter VNRecognizeTextRequest sur macOS via l'Apple Neural Engine
+# noqa: T20 - Le `print` ci-dessous est du code Swift (stdout OCR), pas Python
+SWIFT_OCR_SOURCE = """
+import Foundation
+import Vision
+import AppKit
+
+guard CommandLine.arguments.count > 1 else {
+    exit(1)
+}
+
+let imagePath = CommandLine.arguments[1]
+let fileURL = URL(fileURLWithPath: imagePath)
+
+guard let image = NSImage(contentsOf: fileURL),
+      let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+    exit(2)
+}
+
+let request = VNRecognizeTextRequest { request, error in
+    if let error = error {
+        fputs("Error: \\(error.localizedDescription)\\n", stderr)
+        return
+    }
+    guard let observations = request.results as? [VNRecognizedTextObservation], !observations.isEmpty else {
+        return
+    }
+
+    struct TextItem {
+        let text: String
+        let box: CGRect
+        var midY: CGFloat { box.midY }
+        var minX: CGFloat { box.minX }
+    }
+
+    let items: [TextItem] = observations.compactMap { obs in
+        guard let text = obs.topCandidates(1).first?.string.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
+            return nil
+        }
+        return TextItem(text: text, box: obs.boundingBox)
+    }
+
+    if items.isEmpty { return }
+
+    // Tri vertical descendant (dans Vision, y=1 est en haut de page, y=0 en bas)
+    let sortedByY = items.sorted { $0.midY > $1.midY }
+
+    // Regroupement par lignes physiques (tolérance d'interligne)
+    var lines: [[TextItem]] = []
+    for item in sortedByY {
+        if let lastLineIndex = lines.indices.last {
+            let currentLine = lines[lastLineIndex]
+            let avgMidY = currentLine.reduce(CGFloat(0)) { $0 + $1.midY } / CGFloat(currentLine.count)
+            let avgHeight = currentLine.reduce(CGFloat(0)) { $0 + $1.box.height } / CGFloat(currentLine.count)
+            let threshold = max(avgHeight * 0.5, 0.008)
+
+            if abs(item.midY - avgMidY) < threshold {
+                lines[lastLineIndex].append(item)
+                continue
+            }
+        }
+        lines.append([item])
+    }
+
+    // Tri horizontal (gauche à droite) au sein de chaque ligne
+    var outputLines: [String] = []
+    for line in lines {
+        let sortedLine = line.sorted { $0.minX < $1.minX }
+        let lineText = sortedLine.map { $0.text }.joined(separator: " ")
+        if !lineText.isEmpty {
+            outputLines.append(lineText)
+        }
+    }
+
+    print(outputLines.joined(separator: "\\n"))
+}
+
+request.recognitionLevel = .accurate
+request.usesLanguageCorrection = false
+
+if #available(macOS 13.0, *) {
+    request.automaticallyDetectsLanguage = true
+}
+
+if let supported = try? request.supportedRecognitionLanguages(), !supported.isEmpty {
+    request.recognitionLanguages = supported
+}
+
+let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+do {
+    try handler.perform([request])
+} catch {
+    fputs("Handler error: \\(error.localizedDescription)\\n", stderr)
+    exit(3)
+}
+"""
+
+
+def get_swift_ocr_hash() -> str:
+    """Calcule l'empreinte SHA-256 courte du code source Swift pour versionner le binaire."""
+    return hashlib.sha256(SWIFT_OCR_SOURCE.encode("utf-8")).hexdigest()[:12]
+
+
+def build_multimodal_payload(prompt: str, image_paths: Sequence[str | Path]) -> list[dict[str, Any]]:
+    """Construit un payload multimodal conforme au format standard (OpenAI-style).
+
+    Encode les images en Base64 avec détection automatique du type MIME.
+    """
+    payload: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+
+    for p in image_paths:
+        path_obj = Path(p)
+        if not path_obj.exists():
+            logger.warning("Image introuvable pour payload multimodal : %s", p)
+            continue
+
+        mime, _ = mimetypes.guess_type(str(path_obj))
+        if not mime or not mime.startswith("image/"):
+            mime = "image/png"
+
+        try:
+            with open(path_obj, "rb") as f:
+                b64_str = base64.b64encode(f.read()).decode("utf-8")
+            payload.append(
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{mime};base64,{b64_str}",
+                    },
+                }
+            )
+        except Exception as e:
+            logger.warning("Échec d'encodage base64 de l'image %s : %s", p, e)
+
+    return payload
+
+
+class OCRService:
+    """Service central de transcription OCR et d'analyse visuelle par catégories.
+
+    Gère l'accélération matérielle macOS (Apple Vision) et le repli multiplateforme
+    sur les modèles de vision (VLM : Qwen2.5-VL, Claude 3.7, Gemini 2.5).
+    """
+
+    def __init__(self, media_manager: MediaManager | None = None) -> None:
+        self.media_manager = media_manager or MediaManager()
+        self._apple_vision_binary: Path | None = None
+        self._apple_vision_tested = False
+        self._apple_vision_available = False
+
+    @staticmethod
+    def _cleanup_old_apple_vision_binaries(bin_dir: Path, keep_hash: str) -> None:
+        """Supprime les anciens binaires et fichiers sources Apple Vision pour libérer l'espace."""
+        try:
+            for file in bin_dir.glob("ankiforge_vision_ocr*"):
+                if keep_hash not in file.name:
+                    try:
+                        file.unlink()
+                        logger.debug("Ancien fichier Apple Vision nettoyé : %s", file)
+                    except Exception as e:
+                        logger.debug("Impossible de supprimer l'ancien fichier %s : %s", file, e)
+        except Exception as e:
+            logger.debug("Erreur lors du nettoyage des anciens binaires Apple Vision : %s", e)
+
+    def is_apple_vision_available(self) -> bool:
+        """Vérifie si le framework Apple Vision est exploitable sur la machine courante.
+
+        Conditionné à macOS (darwin) et à la présence du binaire compilé ou du compilateur Swift.
+        """
+        if sys.platform != "darwin":
+            return False
+
+        if self._apple_vision_tested:
+            return self._apple_vision_available
+
+        self._apple_vision_tested = True
+        swift_hash = get_swift_ocr_hash()
+        bin_dir = get_app_data_dir() / "bin"
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        bin_path = bin_dir / f"ankiforge_vision_ocr_{swift_hash}"
+
+        # 1. Vérifier si le binaire existe déjà pour cette version de source
+        if bin_path.exists() and os_is_executable(bin_path):
+            self._apple_vision_binary = bin_path
+            self._apple_vision_available = True
+            return True
+
+        # 2. Tenter de compiler le binaire autonome via swiftc
+        swiftc = shutil.which("swiftc")
+        if swiftc:
+            try:
+                swift_src = bin_dir / f"ankiforge_vision_ocr_{swift_hash}.swift"
+                swift_src.write_text(SWIFT_OCR_SOURCE, encoding="utf-8")
+                res = subprocess.run(  # nosec B603
+                    [swiftc, "-O", str(swift_src), "-o", str(bin_path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    check=False,
+                )  # argv fixe, source SWIFT_OCR_SOURCE embarquée (aucune interpolation), timeout borné
+                if res.returncode == 0 and bin_path.exists():
+                    self._apple_vision_binary = bin_path
+                    self._apple_vision_available = True
+                    logger.info("Binaire Apple Vision OCR compilé avec succès dans %s", bin_path)
+                    self._cleanup_old_apple_vision_binaries(bin_dir, keep_hash=swift_hash)
+                    return True
+                logger.debug("Échec compilation swiftc : %s", res.stderr)
+            except Exception as e:
+                logger.debug("Compilation Apple Vision impossible : %s", e)
+
+        # 3. Vérifier si swift interprété est disponible
+        if shutil.which("swift"):
+            self._apple_vision_binary = None  # Mode interprété
+            self._apple_vision_available = True
+            return True
+
+        self._apple_vision_available = False
+        return False
+
+    def transcribe_with_apple_vision(self, image_path: str | Path) -> str | None:
+        """Transcrit une image via le framework natif Apple Vision sous macOS."""
+        if not self.is_apple_vision_available():
+            return None
+
+        p = Path(image_path)
+        if not p.exists():
+            return None
+
+        try:
+            cmd = [str(self._apple_vision_binary), str(p)] if self._apple_vision_binary and self._apple_vision_binary.exists() else ["swift", "-e", SWIFT_OCR_SOURCE, str(p)]
+
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=90, check=False)  # nosec B603  # argv fixe, chemin image vérifié + source Swift embarquée, pas de shell
+            if res.returncode == 0:
+                return res.stdout.strip()
+            logger.warning("Erreur exécution Apple Vision OCR (code %d) : %s", res.returncode, res.stderr)
+        except Exception as e:
+            logger.warning("Exception lors de l'appel Apple Vision : %s", e)
+
+        return None
+
+    def transcribe_with_vlm(
+        self,
+        image_path: str | Path,
+        provider: LLMProvider,
+        system_prompt: str = "Tu es un transcripteur expert de documents académiques.",
+        custom_instructions: str = "",
+        temperature: float | None = None,
+    ) -> str:
+        """Transcrit une image via un modèle de langage visuel (VLM)."""
+        prompt = custom_instructions or (
+            "Transcris fidèlement et intégralement le contenu textuel, les formules mathématiques "
+            "et les tableaux de cette image au format Markdown propre. "
+            "Convertis les tableaux en Markdown ou HTML et les équations en LaTeX ($...$ ou $$...$$). "
+            "Ne produis aucune explication préalable, uniquement le contenu extrait."
+        )
+        payload = build_multimodal_payload(prompt, [image_path])
+        gen_kwargs: dict[str, Any] = {
+            "system_prompt": system_prompt,
+            "user_prompt": payload,
+            "response_format": "text",
+        }
+        if temperature is not None:
+            gen_kwargs["temperature"] = temperature
+        try:
+            return provider.generate(**gen_kwargs).strip()
+        except TypeError as err:
+            if "temperature" in gen_kwargs and "temperature" in str(err):
+                gen_kwargs.pop("temperature", None)
+                return provider.generate(**gen_kwargs).strip()
+            raise
+
+    def transcribe_image(
+        self,
+        image_path: str | Path,
+        model_id: str | None = None,
+        provider: str | None = None,
+        data_type: Any | None = None,
+        provider_override: LLMProvider | None = None,
+        custom_instructions: str | None = None,
+        temperature: float | None = None,
+        thinking_budget: int = 0,
+        category_id: str | None = None,
+        **kwargs: Any,
+    ) -> str:
+        """Transcrit une image en appliquant le modèle d'IA sélectionné et le type de données.
+
+        Accepte directement model_id / provider ainsi qu'un ImageDataType,
+        tout en préservant la compatibilité avec l'ancienne indirection category_id.
+        """
+        from ankidraft.services.ai.vision_category_service import (
+            ImageDataType,
+            get_image_data_type,
+        )
+
+        effective_model_id = model_id or category_id or kwargs.get("category_id")
+        if not effective_model_id:
+            logger.error("Modèle de vision non spécifié.")
+            raise ValueError("Modèle de vision non spécifié")
+
+        effective_model_id = str(effective_model_id)
+
+        # Préparation des consignes de prompt intégrant le type de donnée d'image
+        prompt_parts: list[str] = []
+        if data_type:
+            dt_obj = data_type if isinstance(data_type, ImageDataType) else get_image_data_type(str(data_type))
+            if dt_obj and dt_obj.default_prompt_directive:
+                prompt_parts.append(dt_obj.default_prompt_directive)
+        if custom_instructions and custom_instructions.strip():
+            prompt_parts.append(custom_instructions.strip())
+
+        effective_instructions = "\n".join(prompt_parts) if prompt_parts else None
+
+        # 1. OCR matériel local (Apple Vision sous macOS)
+        is_native = provider == "native" or effective_model_id in ("hardware", "native", "apple_vision")
+        if is_native:
+            if self.is_apple_vision_available():
+                native_text = self.transcribe_with_apple_vision(image_path)
+                if native_text is not None:
+                    return native_text
+                logger.error("La transcription locale Apple Vision n'a retourné aucun texte ou a expiré pour %s", image_path)
+                raise RuntimeError("La transcription locale Apple Vision a échoué ou a dépassé le délai imparti.")
+
+            logger.error("Le framework de transcription locale Apple Vision n'est pas disponible sur ce système.")
+            raise RuntimeError("Le framework de transcription locale Apple Vision n'est pas disponible sur ce système.")
+
+        # 2. Validation immédiate de l'existence du modèle ou de la catégorie demandée
+        from ankidraft.database.models import LLMConfigModel
+        from ankidraft.services.ai.flexible_service import AIManager
+        from ankidraft.services.settings_service import SettingsService
+        from ankidraft.utils.secret_store import load_llm_key
+
+        cfg = LLMConfigModel.get_or_none(LLMConfigModel.model_id == effective_model_id)
+        if not cfg and effective_model_id.isdigit():
+            cfg = LLMConfigModel.get_or_none(LLMConfigModel.id == int(effective_model_id))
+        cat = VisionCategoryService.get_category_by_id(effective_model_id)
+
+        if not (is_native or cfg or provider or cat):
+            logger.error("Catégorie de vision inconnue ou non configurée : '%s'", effective_model_id)
+            raise ValueError(f"Catégorie de vision inconnue ou non configurée : '{effective_model_id}'")
+
+        # 3. Si un provider est fourni explicitement (ex: injection de test ou override)
+        if provider_override:
+            effective_inst = effective_instructions
+            if effective_inst is None and cat:
+                effective_inst = cat.custom_instructions
+            return self.transcribe_with_vlm(
+                image_path,
+                provider_override,
+                custom_instructions=effective_inst or "",
+                temperature=temperature,
+            )
+
+        # 4. Résolution directe via LLMConfigModel configuré en base SQLite
+
+        if cfg:
+            prov_name = provider or cfg.provider
+            key = str(SettingsService.get(f"keys/{prov_name.lower()}", ""))
+            if not key:
+                key = load_llm_key(str(cfg.model_id), str(prov_name)) or ""
+            effective_tb = thinking_budget if thinking_budget > 0 else (getattr(cfg, "thinking_budget", 0) if getattr(cfg, "supports_thinking", False) else 0)
+            effective_temp = temperature if temperature is not None else getattr(cfg, "temperature", 0.2)
+            resolved_provider = AIManager.create_provider(
+                provider_name=prov_name,
+                model_id=cfg.model_id,
+                api_key=key if key else None,
+                thinking_budget=effective_tb,
+            )
+            return self.transcribe_with_vlm(
+                image_path,
+                resolved_provider,
+                custom_instructions=effective_instructions or "",
+                temperature=effective_temp,
+            )
+
+        # 4. Résolution avec provider explicite
+        if provider:
+            key = str(SettingsService.get(f"keys/{provider.lower()}", ""))
+            if not key:
+                key = load_llm_key(str(effective_model_id), str(provider)) or ""
+            resolved_provider = AIManager.create_provider(
+                provider_name=provider,
+                model_id=effective_model_id,
+                api_key=key if key else None,
+                thinking_budget=thinking_budget,
+            )
+            return self.transcribe_with_vlm(
+                image_path,
+                resolved_provider,
+                custom_instructions=effective_instructions or "",
+                temperature=temperature,
+            )
+
+        # 5. Rétrocompatibilité avec les catégories VisionCategory existantes
+        category = VisionCategoryService.get_category_by_id(effective_model_id)
+        if category:
+            inst = effective_instructions if effective_instructions is not None else category.custom_instructions
+            temp = temperature if temperature is not None else category.temperature
+            resolved = VisionCategoryService.resolve_provider_for_category(category)
+            if resolved == "native":
+                if self.is_apple_vision_available():
+                    native_text = self.transcribe_with_apple_vision(image_path)
+                    if native_text is not None:
+                        return native_text
+                    raise RuntimeError("La transcription locale Apple Vision a échoué ou a dépassé le délai imparti.")
+                raise RuntimeError("Le framework de transcription locale Apple Vision n'est pas disponible sur ce système.")
+
+            if isinstance(resolved, LLMProvider) and not isinstance(resolved, MockProvider):
+                return self.transcribe_with_vlm(
+                    image_path,
+                    resolved,
+                    custom_instructions=inst or "",
+                    temperature=temp,
+                )
+            # Aucun fournisseur de vision réel n'a pu être résolu (MockProvider silencieux
+            # renvoyé par resolve_provider_for_category ou valeur inattendue) : on refuse
+            # d'écrire un texte factice en base et on lève une erreur explicite.
+            logger.error("Aucun fournisseur de vision résolu pour la catégorie '%s'.", effective_model_id)
+            raise RuntimeError(f"Aucun fournisseur de vision disponible pour la catégorie '{effective_model_id}'.")
+
+        logger.error("Catégorie de vision inconnue ou non configurée : '%s'", effective_model_id)
+        raise ValueError(f"Catégorie de vision inconnue ou non configurée : '{effective_model_id}'")
+
+    def transcribe_page(
+        self,
+        page_id: int,
+        model_id: str | None = None,
+        provider: str | None = None,
+        data_type: Any | None = None,
+        provider_override: LLMProvider | None = None,
+        custom_instructions: str | None = None,
+        temperature: float | None = None,
+        thinking_budget: int = 0,
+        category_id: str | None = None,
+        **kwargs: Any,
+    ) -> DocumentPageModel:
+        """Transcrit une DocumentPageModel, met à jour son champ ocr_text et son statut en base SQLite.
+
+        La planche est rendue par la couture (ADR 0011).
+        """
+        from ankidraft.database.models import LLMConfigModel
+        from ankidraft.services.cards.album_service import AlbumService
+
+        effective_model_id = model_id or category_id or kwargs.get("category_id")
+        if not effective_model_id:
+            logger.error("Modèle de vision non spécifié.")
+            raise ValueError("Modèle de vision non spécifié")
+
+        effective_model_id = str(effective_model_id)
+
+        # Validation immédiate du modèle demandé avant tout rendu ou écriture
+        is_native = provider == "native" or effective_model_id in ("hardware", "native", "apple_vision")
+        cfg_found = LLMConfigModel.get_or_none(LLMConfigModel.model_id == effective_model_id)
+        if not cfg_found and effective_model_id.isdigit():
+            cfg_found = LLMConfigModel.get_or_none(LLMConfigModel.id == int(effective_model_id))
+        cat_found = VisionCategoryService.get_category_by_id(effective_model_id)
+
+        if not (is_native or provider_override or cfg_found or provider or cat_found):
+            logger.error("Catégorie de vision inconnue ou non configurée : '%s'", effective_model_id)
+            raise ValueError(f"Catégorie de vision inconnue ou non configurée : '{effective_model_id}'")
+
+        model_db = DocumentPageModel._meta.database
+
+        # 1. Lecture de la planche et rendu de l'image (lecture BDD + I/O fichier,
+        #    aucun appel réseau, donc hors transaction).
+        page = DocumentPageModel.get_by_id(page_id)
+        album_service = AlbumService(media_manager=self.media_manager)
+        rendered = album_service.render_page_image(page)
+
+        temp_path: Path | None = None
+        try:
+            suffix = album_service.page_media_path(page).suffix or ".png"
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
+                save_rendered_page(rendered, handle.name, suffix)
+                temp_path = Path(handle.name)
+
+            # 2. Marquer "ocr_running" : écriture BDD seule, aucune opération réseau.
+            with model_db.atomic():
+                page = DocumentPageModel.get_by_id(page_id)
+                original_status = page.status
+                page.status = "ocr_running"
+                page.save()
+
+            # 3. Appel réseau VLM : HORS transaction SQLite (évite le verrou prolongé
+            #    de la base pendant l'appel IA lent).
+            try:
+                text = self.transcribe_image(
+                    temp_path,
+                    model_id=effective_model_id,
+                    provider=provider,
+                    data_type=data_type,
+                    provider_override=provider_override,
+                    custom_instructions=custom_instructions,
+                    temperature=temperature,
+                    thinking_budget=thinking_budget,
+                )
+            except Exception:
+                with model_db.atomic():
+                    page = DocumentPageModel.get_by_id(page_id)
+                    page.status = original_status
+                    page.save()
+                raise
+        finally:
+            rendered.close()
+            if temp_path is not None and temp_path.exists():
+                temp_path.unlink(missing_ok=True)
+
+        # 4. Enregistrer le résultat : écriture BDD seule, hors appel réseau.
+        with model_db.atomic():
+            page = DocumentPageModel.get_by_id(page_id)
+            page.ocr_text = text
+            page.status = "ready"
+            page.save()
+
+        logger.info("Page ID %d (album %d, p.%d) transcrite (%d caractères)", page.id, page.document.id, page.page_number, len(text))
+        return page
+
+
+def os_is_executable(path: Path) -> bool:
+    """Vérifie si un fichier dispose des droits d'exécution."""
+    import os
+
+    return os.access(str(path), os.X_OK)

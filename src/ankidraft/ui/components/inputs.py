@@ -1,0 +1,650 @@
+import logging
+import typing
+from typing import Any
+
+from PySide6.QtCore import Property, QEasingCurve, QEvent, QObject, QPropertyAnimation, QRectF, Qt, Signal
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QWheelEvent
+from PySide6.QtWidgets import QApplication, QComboBox, QGraphicsDropShadowEffect, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QWidget
+
+from ankidraft.ui.theme import DesignTokens, apply_shadow
+
+logger = logging.getLogger(__name__)
+
+
+class StyledLineEdit(QLineEdit):
+    """Input avec style design system et relief subtil."""
+
+    def __init__(self, icon_name: str = "", placeholder: str = "", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedHeight(34)
+        if placeholder:
+            self.setPlaceholderText(placeholder)
+        self.icon_name = icon_name
+        self._action = None
+        if icon_name:
+            from ankidraft.utils.icon_loader import load_phosphor_icon
+
+            icon = load_phosphor_icon(icon_name, color=DesignTokens.TEXT_MUTED)
+            self._action = self.addAction(icon, QLineEdit.ActionPosition.LeadingPosition)
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        if self.icon_name and hasattr(self, "_action") and self._action:
+            from ankidraft.utils.icon_loader import load_phosphor_icon
+
+            color = profile.text_muted if profile else DesignTokens.TEXT_MUTED
+            self._action.setIcon(load_phosphor_icon(self.icon_name, color=color))
+
+
+class StyledTextEdit(QPlainTextEdit):
+    """Textarea avec style design system."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+
+    def setText(self, text: str) -> None:
+        """Alias pour setPlainText pour compatibilité d'interface."""
+        self.setPlainText(text)
+
+
+class AutoExpandingTextEdit(QPlainTextEdit):
+    """Textarea auto-agrandissante selon son contenu, bornée par min_height et max_height.
+
+    Respecte les DesignTokens (INPUT_AUTO_EXPAND_MIN_HEIGHT, INPUT_AUTO_EXPAND_MAX_HEIGHT),
+    assure une compatibilité d'interface avec QLineEdit (text(), setText(), setCursorPosition(),
+    cursorPosition()), fait défiler verticalement lorsque le contenu dépasse max_height,
+    transmet la tabulation au widget suivant (setTabChangesFocus(True)), et délègue l'événement
+    molette au parent lorsque l'ascenseur interne est inactif (anti-piège de scroll).
+    """
+
+    def __init__(
+        self,
+        placeholder: str = "",
+        min_height: int | None = None,
+        max_height: int | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._custom_min_height = min_height
+        self._custom_max_height = max_height
+        self._min_height = min_height if min_height is not None else DesignTokens.INPUT_AUTO_EXPAND_MIN_HEIGHT
+        self._max_height = max_height if max_height is not None else DesignTokens.INPUT_AUTO_EXPAND_MAX_HEIGHT
+
+        if placeholder:
+            self.setPlaceholderText(placeholder)
+
+        self.setTabChangesFocus(True)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        self.textChanged.connect(self._adjust_height)
+        self._adjust_height()
+
+    def setText(self, text: str) -> None:
+        """Alias pour setPlainText compatible avec l'API QLineEdit."""
+        self.setPlainText(text)
+        self._adjust_height()
+
+    def text(self) -> str:
+        """Alias pour toPlainText compatible avec l'API QLineEdit."""
+        return self.toPlainText()
+
+    def setCursorPosition(self, pos: int) -> None:
+        """Déplace le curseur à la position demandée (compatibilité QLineEdit)."""
+        cursor = self.textCursor()
+        cursor.setPosition(min(max(0, pos), len(self.toPlainText())))
+        self.setTextCursor(cursor)
+
+    def cursorPosition(self) -> int:
+        """Retourne la position du curseur (compatibilité QLineEdit)."""
+        return self.textCursor().position()
+
+    @property
+    def min_height(self) -> int:
+        return self._min_height
+
+    @property
+    def max_height(self) -> int:
+        return self._max_height
+
+    def set_min_height(self, height: int) -> None:
+        """Configure dynamiquement la hauteur minimale."""
+        self._custom_min_height = height
+        self._min_height = height
+        self._adjust_height()
+
+    def set_max_height(self, height: int) -> None:
+        """Configure dynamiquement la hauteur maximale."""
+        self._custom_max_height = height
+        self._max_height = height
+        self._adjust_height()
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        """Met à jour les bornes de hauteur depuis le profil de thème actif."""
+        if self._custom_min_height is None:
+            self._min_height = getattr(profile, "input_auto_expand_min_height", DesignTokens.INPUT_AUTO_EXPAND_MIN_HEIGHT)
+        if self._custom_max_height is None:
+            self._max_height = getattr(profile, "input_auto_expand_max_height", DesignTokens.INPUT_AUTO_EXPAND_MAX_HEIGHT)
+        self._adjust_height()
+
+    def resizeEvent(self, event: Any) -> None:
+        super().resizeEvent(event)
+        self._adjust_height()
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        """Délègue l'événement de défilement au parent si le widget n'a pas besoin de défiler."""
+        if self.verticalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff:
+            event.ignore()
+            return
+        super().wheelEvent(event)
+
+    def _adjust_height(self) -> None:
+        """Ajuste la hauteur du widget en fonction du nombre de lignes réelles (y compris wrap)."""
+        lines = max(1, self.document().lineCount())
+        line_h = self.fontMetrics().lineSpacing()
+        doc_margin = int(self.document().documentMargin() * 2)
+        margins = self.contentsMargins()
+        needed = (lines * line_h) + doc_margin + margins.top() + margins.bottom()
+
+        target_height = int(max(self._min_height, min(needed, self._max_height)))
+
+        # Bascule transparente de la scrollbar selon le dépassement
+        if needed > self._max_height:
+            if self.verticalScrollBarPolicy() != Qt.ScrollBarPolicy.ScrollBarAsNeeded:
+                self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        else:
+            if self.verticalScrollBarPolicy() != Qt.ScrollBarPolicy.ScrollBarAlwaysOff:
+                self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        if self.height() != target_height or self.minimumHeight() != target_height or self.maximumHeight() != target_height:
+            self.setFixedHeight(target_height)
+
+
+class GlowLineEdit(QLineEdit):
+    """Input de recherche avec loupe intégrée, animation d'ombre au survol et contour accentué au focus."""
+
+    def __init__(self, placeholder: str = "Rechercher...", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedHeight(34)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self.setProperty("role", "search")
+        self._is_focused = False
+        if placeholder:
+            self.setPlaceholderText(placeholder)
+        self.setClearButtonEnabled(True)
+
+        from ankidraft.utils.icon_loader import load_phosphor_icon
+
+        self._search_icon = load_phosphor_icon("ph.magnifying-glass", color=DesignTokens.TEXT_MUTED)
+        self.addAction(self._search_icon, QLineEdit.ActionPosition.LeadingPosition)
+
+        self._apply_base_style()
+
+        apply_shadow(self, blur=4, offset_y=1, color=DesignTokens.SHADOW_COLOR)
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            self._shadow_effect = effect
+            self.anim = QPropertyAnimation(effect, b"blurRadius", self)
+            self.anim.setDuration(160)
+            self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            self.default_blur = 4
+            self.hover_blur = 12
+            self.focus_blur = 18
+
+    def _apply_base_style(self, profile: Any = None) -> None:
+        bg_input = profile.bg_input if profile else DesignTokens.BG_INPUT
+        border_color = profile.border_color if profile else DesignTokens.BORDER_COLOR
+        border_light = profile.border_light if profile else DesignTokens.BORDER_LIGHT
+        radius_sm = profile.radius_sm if profile else DesignTokens.RADIUS_SM
+        text_primary = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+        accent_primary = profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY
+        bg_hover = profile.bg_hover if profile else DesignTokens.BG_HOVER
+        bg_panel = profile.bg_panel if profile else DesignTokens.BG_PANEL
+
+        self.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {bg_input};
+                border: 1px solid {border_color};
+                border-top: 1px solid {border_light};
+                border-radius: {radius_sm}px;
+                color: {text_primary};
+                padding: 4px 10px;
+                font-size: 12px;
+                selection-background-color: {accent_primary};
+                selection-color: {DesignTokens.TEXT_ON_ACCENT};
+            }}
+            QLineEdit:hover {{
+                background-color: {bg_hover};
+                border: 1.5px solid {accent_primary};
+                color: {text_primary};
+            }}
+            QLineEdit:focus {{
+                background-color: {bg_panel};
+                border: 2px solid {accent_primary};
+                color: {text_primary};
+            }}
+        """)
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        self._apply_base_style(profile)
+
+    def _start_anim(self, end_val: float) -> None:
+        if not hasattr(self, "anim"):
+            return
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            if self.anim.targetObject() is not effect:
+                self.anim.setTargetObject(effect)
+            if self.anim.targetObject() is None:
+                return
+            self.anim.stop()
+            self.anim.setEndValue(end_val)
+            self.anim.start()
+
+    def enterEvent(self, event: Any) -> None:
+        if not (self.hasFocus() or self._is_focused):
+            self._start_anim(self.hover_blur)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event: Any) -> None:
+        if not (self.hasFocus() or self._is_focused):
+            self._start_anim(self.default_blur)
+        super().leaveEvent(event)
+
+    def hideEvent(self, event: Any) -> None:
+        if hasattr(self, "anim"):
+            self.anim.stop()
+        super().hideEvent(event)
+
+    def focusInEvent(self, event: Any) -> None:
+        self._is_focused = True
+        self._start_anim(self.focus_blur)
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            accent_qcolor = QColor(DesignTokens.ACCENT_PRIMARY)
+            accent_qcolor.setAlpha(120)
+            effect.setColor(accent_qcolor)
+        super().focusInEvent(event)
+
+    def focusOutEvent(self, event: Any) -> None:
+        self._is_focused = False
+        self._start_anim(self.default_blur)
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            effect.setColor(QColor(0, 0, 0, 56))
+        super().focusOutEvent(event)
+
+
+class ToggleSwitch(QWidget):
+    """Toggle iOS-style (36x20px). Usage: Settings, Batch Factory, Options."""
+
+    toggled = Signal(bool)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(36, 20)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._checked: bool = False
+        self._thumb_pos: float = 2.0
+        self._profile: Any = None
+
+        self.anim = QPropertyAnimation(self, b"thumb_pos")
+        self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+
+    def is_checked(self) -> bool:
+        return self._checked
+
+    def isChecked(self) -> bool:
+        return self._checked
+
+    def toggle(self, animated: bool = True) -> None:
+        self.set_checked(not self._checked, animated=animated)
+
+    def set_checked(self, checked: bool, animated: bool = True) -> None:
+        if self._checked == checked:
+            return
+        self._checked = checked
+        target_pos = 18.0 if self._checked else 2.0
+
+        if animated and self.isVisible():
+            self.anim.stop()
+            self.anim.setStartValue(self._thumb_pos)
+            self.anim.setEndValue(target_pos)
+            remaining_dist = abs(target_pos - self._thumb_pos)
+            duration = max(40, int(150 * (remaining_dist / 16.0)))
+            self.anim.setDuration(duration)
+            self.anim.start()
+        else:
+            self.anim.stop()
+            self._thumb_pos = target_pos
+            self.update()
+
+        self.toggled.emit(self._checked)
+
+    def setChecked(self, checked: bool) -> None:
+        self.set_checked(checked)
+
+    def get_thumb_pos(self) -> float:
+        return self._thumb_pos
+
+    def set_thumb_pos(self, pos: float) -> None:
+        self._thumb_pos = pos
+        self.update()
+
+    thumb_pos = Property(float, get_thumb_pos, set_thumb_pos)
+
+    def apply_theme_profile(self, profile: Any = None) -> None:
+        self._profile = profile
+        self.update()
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.toggle(animated=True)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Interpolation fluide de la couleur d'arrière-plan
+        t = max(0.0, min(1.0, (self._thumb_pos - 2.0) / 16.0))
+        bg_input = self._profile.bg_input if self._profile else DesignTokens.BG_INPUT
+        accent_color = self._profile.accent_primary if self._profile else DesignTokens.ACCENT_PRIMARY
+
+        c_off = QColor(bg_input)
+        c_on = QColor(accent_color)
+        r = int(c_off.red() + (c_on.red() - c_off.red()) * t)
+        g = int(c_off.green() + (c_on.green() - c_off.green()) * t)
+        b = int(c_off.blue() + (c_on.blue() - c_off.blue()) * t)
+        bg_color = QColor(r, g, b)
+
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(bg_color)
+        p.drawRoundedRect(0, 0, self.width(), self.height(), 10, 10)
+
+        # Curseur circulaire avec coordonnées sous-pixel
+        p.setBrush(QColor(DesignTokens.TEXT_ON_ACCENT))
+        p.drawEllipse(QRectF(self._thumb_pos, 2.0, 16.0, 16.0))
+
+
+class OptionToggleRow(QWidget):
+    """Ligne d'option moderne et interactive avec icône Phosphor, libellé et ToggleSwitch.
+
+    Une infobulle posée sur la rangée couvre toute sa surface : Qt remonte la chaîne des parents
+    depuis le libellé ou l'icône pour la trouver, il n'y a donc rien à propager à chaque enfant.
+    Une rangée désactivée devient automatiquement inerte (Qt n'y délivre plus d'événement souris)
+    et se grise via `setEnabled`.
+    """
+
+    toggled = Signal(bool)
+
+    def __init__(
+        self,
+        title: str,
+        icon_name: str = "",
+        checked: bool = True,
+        tooltip: str = "",
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setObjectName("optionToggleRow")
+        self.setFixedHeight(32)
+        self.setMinimumWidth(0)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.icon_name = icon_name
+        self._checked: bool = checked
+        self._profile: Any = None
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 3, 8, 3)
+        layout.setSpacing(6)
+
+        if icon_name:
+            self.icon_lbl = QLabel()
+            self.icon_lbl.setStyleSheet("border: none; background: transparent;")
+            layout.addWidget(self.icon_lbl)
+
+        self.title_lbl = QLabel(title)
+        self.title_lbl.setMinimumWidth(0)
+        self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 11px; font-weight: 500; border: none; background: transparent;")
+        layout.addWidget(self.title_lbl, 1)
+
+        self.switch = ToggleSwitch(self)
+        # Rendre le switch transparent aux événements souris pour que la rangée entière réagisse de manière unifiée
+        self.switch.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.switch.set_checked(checked, animated=False)
+        self.switch.toggled.connect(self._on_switch_toggled)
+        layout.addWidget(self.switch)
+
+        self._update_style()
+        if tooltip:
+            self.setToolTip(tooltip)
+
+    def _update_style(self) -> None:
+        if self._profile is not None:
+            accent = self._profile.accent_primary
+            border = accent if self._checked else self._profile.border_color
+            bg = self._profile.bg_panel
+            text_color = self._profile.text_primary
+            icon_color = accent if self._checked else self._profile.text_secondary
+        else:
+            accent = DesignTokens.ACCENT_PRIMARY
+            border = accent if self._checked else DesignTokens.BORDER_COLOR
+            bg = DesignTokens.BG_PANEL
+            text_color = DesignTokens.TEXT_PRIMARY
+            icon_color = accent if self._checked else DesignTokens.TEXT_SECONDARY
+
+        if not self.isEnabled():
+            # Un état désactivé doit se lire « grisé » : le style explicite ci-dessous
+            # passerait sinon outre Qt et laisserait l'option aussi vive qu'une option active.
+            border = self._profile.border_color if self._profile is not None else DesignTokens.BORDER_COLOR
+            text_color = self._profile.text_muted if self._profile is not None else DesignTokens.TEXT_MUTED
+            icon_color = text_color
+
+        self.setStyleSheet(f"""
+            QWidget#optionToggleRow {{
+                background-color: {bg};
+                border: 1px solid {border};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+            }}
+            QWidget#optionToggleRow:hover {{
+                border-color: {accent};
+            }}
+        """)
+        if hasattr(self, "title_lbl"):
+            self.title_lbl.setStyleSheet(f"color: {text_color}; font-size: 11px; font-weight: 500; border: none; background: transparent;")
+        if hasattr(self, "icon_lbl") and self.icon_name:
+            from ankidraft.utils.icon_loader import load_phosphor_icon
+
+            self.icon_lbl.setPixmap(load_phosphor_icon(self.icon_name, color=icon_color).pixmap(14, 14))
+
+    def setEnabled(self, enabled: bool) -> None:  # API Qt
+        super().setEnabled(enabled)
+        self._update_style()
+
+    def apply_theme_profile(self, profile: Any = None) -> None:
+        self._profile = profile
+        self.switch.apply_theme_profile(profile)
+        self._update_style()
+
+    def _on_switch_toggled(self, state: bool) -> None:
+        self._checked = state
+        self._update_style()
+        self.toggled.emit(state)
+
+    def is_checked(self) -> bool:
+        return self.switch.is_checked()
+
+    def isChecked(self) -> bool:
+        return self.switch.is_checked()
+
+    def set_checked(self, checked: bool, animated: bool = True) -> None:
+        self._checked = checked
+        self.switch.set_checked(checked, animated=animated)
+        self._update_style()
+
+    def setChecked(self, checked: bool) -> None:
+        self.set_checked(checked)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.set_checked(not self.is_checked(), animated=True)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
+
+class ComboBoxWheelFilter(QObject):
+    """Protection globale neutralisant le changement intempestif d'option à la molette sur les QComboBox fermées.
+
+    Intercepte les événements de molette sur toutes les QComboBox de l'application :
+    si le menu déroulant n'est pas déployé, l'événement est ignoré et relayé au conteneur
+    parent pour assurer le défilement fluide des zones scrollables sans altérer la sélection.
+    """
+
+    _instance: "ComboBoxWheelFilter | None" = None
+    _installed: bool = False
+    _original_wheel_event: Any = None
+    _is_forwarding: bool = False
+
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+
+    @classmethod
+    def install(cls, app: QApplication | None = None) -> "ComboBoxWheelFilter":
+        """Installe la protection molette sur les QComboBox de l'application (idempotent)."""
+        if cls._instance is None:
+            cls._instance = cls()
+        if not cls._installed:
+            cls._original_wheel_event = QComboBox.wheelEvent
+
+            def _safe_wheel(combo_self: QComboBox, event: QWheelEvent) -> None:
+                cls.handle_wheel_event(combo_self, event)
+
+            QComboBox.wheelEvent = _safe_wheel
+            cls._installed = True
+        return cls._instance
+
+    @classmethod
+    def handle_wheel_event(cls, combo: QComboBox, event: QWheelEvent) -> None:
+        """Gère l'événement de molette pour une QComboBox : actif si menu ouvert, sinon ignore et propage."""
+        if cls._is_popup_open(combo):
+            if cls._original_wheel_event is not None:
+                cls._original_wheel_event(combo, event)
+            else:
+                cls.install()
+                if cls._original_wheel_event is not None:
+                    cls._original_wheel_event(combo, event)
+        else:
+            event.ignore()
+            if not cls._is_forwarding:
+                cls._is_forwarding = True
+                try:
+                    parent = combo.parentWidget()
+                    while parent is not None:
+                        QApplication.sendEvent(parent, event)
+                        if event.isAccepted():
+                            break
+                        parent = parent.parentWidget()
+                finally:
+                    cls._is_forwarding = False
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Support complémentaire d'event filter individuel si posé sur un widget spécifique."""
+        if event.type() == QEvent.Type.Wheel and isinstance(watched, QComboBox) and isinstance(event, QWheelEvent):
+            self.handle_wheel_event(watched, event)
+            return True
+        return super().eventFilter(watched, event)
+
+    @staticmethod
+    def _is_popup_open(combo: QComboBox) -> bool:
+        """Détermine si la liste déroulante du QComboBox est actuellement déployée."""
+        view = combo.view()
+        if view is None:
+            return False
+        container = view.parentWidget()
+        if container is not None and container is not combo:
+            return container.isVisible() and not container.isHidden()
+        return view.isVisible() and not view.isHidden()
+
+
+class StyledComboBox(QComboBox):
+    """ComboBox avec style design system et protection contre le défilement intempestif à la molette."""
+
+    def __init__(self, parent: QWidget | None = None, *, density: str = "normal") -> None:
+        super().__init__(parent)
+        self.set_density(density)
+
+    def set_density(self, density: str) -> None:
+        """Configure le profil de densité ('normal' ou 'compact')."""
+        clean_density = density if density in ("normal", "compact") else "normal"
+        self.setProperty("density", clean_density)
+        if clean_density == "compact":
+            self.setFixedHeight(28)
+        else:
+            self.setFixedHeight(36)
+        style = self.style()
+        if style:
+            style.unpolish(self)
+            style.polish(self)
+        self.update()
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        ComboBoxWheelFilter.handle_wheel_event(self, event)
+
+
+class DBComboBox(StyledComboBox):
+    """ComboBox peuplée dynamiquement à partir d'un modèle Peewee."""
+
+    def __init__(
+        self,
+        model_class: typing.Any = None,
+        display_field: str = "name",
+        sort_field: str = "name",
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.model_class = model_class
+        self.display_field = display_field
+        self.sort_field = sort_field
+        if model_class is not None:
+            self.refresh_from_model()
+
+    def refresh_from_model(self) -> None:
+        prev_data = self.currentData()
+        self.clear()
+        if self.model_class is None:
+            return
+        try:
+            query = self.model_class.select()
+            if hasattr(self.model_class, self.sort_field):
+                query = query.order_by(getattr(self.model_class, self.sort_field))
+            for item in query:
+                text = getattr(item, self.display_field, str(item))
+                val = getattr(item, "id", text)
+                self.addItem(text, val)
+
+            if prev_data is not None:
+                for i in range(self.count()):
+                    if self.itemData(i) == prev_data:
+                        self.setCurrentIndex(i)
+                        break
+        except Exception as err:
+            logger.debug("Rechargement du modèle dans le combo ignoré : %s", err)
+
+    def refresh_data(self) -> None:
+        """Alias pour refresh_from_model."""
+        self.refresh_from_model()

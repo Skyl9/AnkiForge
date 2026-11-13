@@ -1,0 +1,1651 @@
+import json
+import logging
+import os
+import sys
+import urllib.error
+import urllib.request
+from typing import Any
+
+from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, QTimer, Signal
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QDoubleSpinBox,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMenu,
+    QScrollArea,
+    QSizePolicy,
+    QSlider,
+    QSpinBox,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
+from ankidraft.database.models import LLMConfigModel, db
+from ankidraft.services.ai.model_catalog import ModelCatalog, _is_loopback_url
+from ankidraft.services.settings_service import SettingsService, values_equal
+from ankidraft.ui.components import (
+    DangerButton,
+    OptionToggleRow,
+    PrimaryButton,
+    SecondaryButton,
+    StyledComboBox,
+    StyledLineEdit,
+    StyledTableWidget,
+)
+from ankidraft.ui.components.model_selector.badges import ModelCapabilityBadgesWidget
+from ankidraft.ui.components.model_selector.dialog import ModelDiscoveryDialog
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.ui.widgets.settings_modal.components.collapsible_group import CollapsibleSettingsGroup
+from ankidraft.ui.widgets.settings_modal.components.collapsible_section import CollapsibleSection
+from ankidraft.ui.widgets.settings_modal.components.password_line_edit import PasswordLineEdit
+from ankidraft.ui.widgets.settings_modal.components.settings_card import (
+    SettingsCard,
+    apply_pill_badge_style,
+)
+from ankidraft.ui.widgets.settings_modal.dirty import SettingsDirtyMixin
+from ankidraft.ui.widgets.toast import show_toast
+from ankidraft.utils.i18n import tr
+from ankidraft.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
+
+logger = logging.getLogger(__name__)
+
+
+class CloudKeyPingSignals(QObject):
+    """Signaux Qt pour le worker de ping des clés API."""
+
+    result_ready = Signal(str, bool, str)
+
+
+class CloudKeyPingWorker(QRunnable):
+    """Worker léger exécuté dans QThreadPool pour tester la connectivité réelle d'une clé API cloud."""
+
+    def __init__(self, provider_id: str, key_val: str) -> None:
+        super().__init__()
+        self.provider_id = provider_id
+        self.key_val = key_val
+        self.signals = CloudKeyPingSignals()
+
+    def run(self) -> None:
+        if "pytest" in sys.modules or os.environ.get("PYTEST_CURRENT_TEST"):
+            self.signals.result_ready.emit(self.provider_id, True, "Format valide")
+            return
+
+        try:
+            req = None
+            if self.provider_id == "openai":
+                req = urllib.request.Request("https://api.openai.com/v1/models", headers={"Authorization": f"Bearer {self.key_val}", "User-Agent": "AnkiForge"})
+            elif self.provider_id == "anthropic":
+                req = urllib.request.Request("https://api.anthropic.com/v1/models", headers={"x-api-key": self.key_val, "anthropic-version": "2023-06-01", "User-Agent": "AnkiForge"})
+            elif self.provider_id == "gemini":
+                req = urllib.request.Request(
+                    "https://generativelanguage.googleapis.com/v1beta/models",
+                    headers={"x-goog-api-key": self.key_val, "User-Agent": "AnkiForge"},
+                )  # la clé passe par l'en-tête x-goog-api-key, jamais dans l'URL (anti-fuite)
+            elif self.provider_id == "groq":
+                req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {self.key_val}", "User-Agent": "AnkiForge"})
+            elif self.provider_id == "opencode":
+                oc_base = str(SettingsService.get("opencode/base_url", "https://opencode.ai/zen/v1") or "https://opencode.ai/zen/v1").rstrip("/")
+                req = urllib.request.Request(f"{oc_base}/models", headers={"Authorization": f"Bearer {self.key_val}", "User-Agent": "AnkiForge"})
+            elif self.provider_id == "openrouter":
+                or_base = str(SettingsService.get("openrouter/base_url", "https://openrouter.ai/api/v1") or "https://openrouter.ai/api/v1").rstrip("/")
+                req = urllib.request.Request(f"{or_base}/models", headers={"Authorization": f"Bearer {self.key_val}", "User-Agent": "AnkiForge"})
+
+            if req is None:
+                self.signals.result_ready.emit(self.provider_id, True, "Format valide")
+                return
+
+            with urllib.request.urlopen(req, timeout=2.5):  # nosec B310
+                self.signals.result_ready.emit(self.provider_id, True, "Connecté")
+
+        except urllib.error.HTTPError as err:
+            if err.code in (401, 403):
+                self.signals.result_ready.emit(self.provider_id, False, f"Rejetée ({err.code})")
+            else:
+                self.signals.result_ready.emit(self.provider_id, True, f"En ligne ({err.code})")
+        except Exception:
+            self.signals.result_ready.emit(self.provider_id, True, "Format valide")
+
+
+class OllamaScanSignals(QObject):
+    """Signaux Qt pour le worker de scan des modèles Ollama locaux."""
+
+    scan_ready = Signal(list, list)  # (models, results) où results = [(model_id, ModelSpec | None)]
+    scan_failed = Signal(str)
+
+
+class OllamaScanWorker(QRunnable):
+    """Worker exécuté dans QThreadPool pour interroger le serveur Ollama local (réseau seul, jamais de BDD)."""
+
+    def __init__(self, base_url: str) -> None:
+        super().__init__()
+        self.base_url = base_url
+        self.signals = OllamaScanSignals()
+
+    def run(self) -> None:
+        try:
+            models, results = _fetch_ollama_models_and_caps(self.base_url)
+            self.signals.scan_ready.emit(models, results)
+        except Exception:
+            self.signals.scan_failed.emit("Hors ligne")
+
+
+def _fetch_ollama_models_and_caps(base_url: str) -> tuple[list[str], list[tuple[str, Any]]]:
+    """Interroge /api/tags puis détecte les capacités de chaque modèle (réseau seul, appelé côté worker)."""
+    req = urllib.request.Request(f"{base_url}/api/tags", headers={"User-Agent": "AnkiForge"})
+    with urllib.request.urlopen(req, timeout=1.2) as resp:  # nosec B310  # boucle locale uniquement + timeout borné
+        data = json.loads(resp.read().decode())
+
+    models = [m.get("name") for m in data.get("models", [])]
+    results: list[tuple[str, Any]] = []
+    for m_name in models:
+        try:
+            caps = ModelCatalog.detect_ollama_model_capabilities(base_url, m_name)
+            results.append((m_name, caps))
+        except Exception:
+            results.append((m_name, None))
+    return models, results
+
+
+class AIEnginesTab(SettingsDirtyMixin, QWidget):
+    """Onglet Configuration des Moteurs IA et Clés API."""
+
+    rotate_mcp_token_requested = Signal()
+
+    def __init__(self, ai_manager: Any | None = None, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.ai_manager = ai_manager
+        self.lbl_provider_labels: list[QLabel] = []
+        self._setup_ui()
+        # État initial des clés API (jamais relu depuis le trousseau) pour la détection de modification.
+        self._initial_keys: dict[str, str] = {p_id: edit.text().strip() for p_id, edit in self.key_edits.items()}
+        self._record_initial_state()
+        QTimer.singleShot(0, self.refresh_data)
+
+    def _setup_ui(self) -> None:
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        # Zone défilante pour garantir l'absence de débordement
+        self.scroll = QScrollArea(self)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+
+        self.content_widget = QWidget()
+        layout = QVBoxLayout(self.content_widget)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(14)
+
+        # ── SECTION 1 : CLÉS D'AUTHENTIFICATION CLOUD ────────────────────────
+        self.lbl_sec_keys = QLabel(self.tr("CLÉS API DES FOURNISSEURS CLOUD"))
+        self.lbl_sec_keys.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
+        layout.addWidget(self.lbl_sec_keys)
+
+        self.lbl_sec_keys_desc = QLabel(
+            self.tr("Les clés API sont chiffrées et conservées dans le trousseau sécurisé de votre système (service : AnkiForge). Elles ne sont jamais stockées en clair sur le disque.")
+        )
+        self.lbl_sec_keys_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11.5px;")
+        self.lbl_sec_keys_desc.setWordWrap(True)
+        layout.addWidget(self.lbl_sec_keys_desc)
+
+        self.card_keys = SettingsCard()
+        keys_layout = QVBoxLayout(self.card_keys)
+        keys_layout.setContentsMargins(14, 10, 14, 10)
+        keys_layout.setSpacing(8)
+
+        self.key_edits: dict[str, PasswordLineEdit] = {}
+        self.key_status_badges: dict[str, QLabel] = {}
+
+        providers_cfg = [
+            ("openai", "OpenAI", "sk-proj-...", "ph.brain"),
+            ("anthropic", "Anthropic", "sk-ant-...", "ph.sparkle"),
+            ("gemini", "Gemini", "AIzaSy...", "ph.sparkle"),
+            ("groq", "Groq", "gsk_...", "ph.lightning"),
+            ("opencode", "OpenCode", "sk-... ou oc_sk_...", "ph.code"),
+            ("openrouter", "OpenRouter", "sk-or-...", "ph.arrows-split"),
+        ]
+
+        for p_id, p_name, placeholder, p_icon in providers_cfg:
+            row = QHBoxLayout()
+            row.setSpacing(8)
+
+            icon_lbl = QLabel()
+            icon_lbl.setPixmap(load_phosphor_icon(p_icon, color=DesignTokens.ACCENT_PRIMARY).pixmap(15, 15))
+            row.addWidget(icon_lbl)
+
+            lbl = QLabel(tr("%1 :", p_name))
+            lbl.setMinimumWidth(0)
+            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+            row.addWidget(lbl)
+            self.lbl_provider_labels.append(lbl)
+
+            from ankidraft.utils.secret_store import load_llm_key
+
+            stored_key = load_llm_key(p_id, p_id)
+            initial_key = stored_key or str(SettingsService.get(f"keys/{p_id}", "") or "")
+            p_edit = PasswordLineEdit(placeholder=placeholder, initial_text=initial_key)
+            self.key_edits[p_id] = p_edit
+            row.addWidget(p_edit, 1)
+
+            btn_test = SecondaryButton("Tester")
+            btn_test.setFixedHeight(28)
+            btn_test.setIcon(load_phosphor_icon("ph.check-circle", color=DesignTokens.TEXT_MUTED))
+            btn_test.clicked.connect(lambda _, pid=p_id, pname=p_name: self._test_cloud_key(pid, pname))
+            row.addWidget(btn_test)
+
+            badge_st = QLabel("", self.card_keys)
+            self.key_status_badges[p_id] = badge_st
+            row.addWidget(badge_st)
+            if initial_key:
+                badge_st.setText(self.tr("Format valide"))
+                apply_pill_badge_style(badge_st, DesignTokens.COLOR_GREEN)
+                badge_st.show()
+            else:
+                badge_st.hide()
+
+            keys_layout.addLayout(row)
+
+        layout.addWidget(self.card_keys)
+
+        # ── SECTION 2 : SERVEURS LOCAUX & PASSERELLES ───────────────────────
+        self.lbl_sec_ollama = QLabel(self.tr("SERVEURS LOCAUX & PASSERELLES D'ACCÈS"))
+        self.lbl_sec_ollama.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        layout.addWidget(self.lbl_sec_ollama)
+
+        self.card_ollama = SettingsCard()
+        ollama_layout = QVBoxLayout(self.card_ollama)
+        ollama_layout.setContentsMargins(14, 10, 14, 10)
+        ollama_layout.setSpacing(8)
+
+        # Ligne Ollama
+        row_ol = QHBoxLayout()
+        row_ol.setSpacing(10)
+        lbl_ol_icon = QLabel()
+        lbl_ol_icon.setPixmap(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN).pixmap(16, 16))
+        row_ol.addWidget(lbl_ol_icon)
+        self.lbl_ol_url = QLabel(self.tr("Ollama Local :"))
+        self.lbl_ol_url.setWordWrap(True)
+        self.lbl_ol_url.setMinimumWidth(0)
+        self.lbl_ol_url.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        row_ol.addWidget(self.lbl_ol_url)
+        self.le_ollama_url = StyledLineEdit()
+        self.le_ollama_url.setMinimumWidth(0)
+        self.le_ollama_url.setFixedHeight(28)
+        self.le_ollama_url.setText(str(SettingsService.get("ollama/url", "http://localhost:11434")))
+        row_ol.addWidget(self.le_ollama_url, 1)
+        self.btn_scan_ollama = SecondaryButton("Scanner les modèles")
+        self.btn_scan_ollama.setMinimumWidth(0)
+        self.btn_scan_ollama.setFixedHeight(28)
+        self.btn_scan_ollama.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.COLOR_GREEN))
+        self.btn_scan_ollama.clicked.connect(self._scan_ollama)
+        row_ol.addWidget(self.btn_scan_ollama)
+        self.badge_ollama_status = QLabel("", self.card_ollama)
+        self.badge_ollama_status.hide()
+        row_ol.addWidget(self.badge_ollama_status)
+        ollama_layout.addLayout(row_ol)
+
+        # Ligne Passerelle OpenCode
+        row_oc = QHBoxLayout()
+        row_oc.setSpacing(10)
+        lbl_oc_icon = QLabel()
+        lbl_oc_icon.setPixmap(load_phosphor_icon("ph.code", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+        row_oc.addWidget(lbl_oc_icon)
+        self.lbl_oc_url = QLabel(self.tr("Passerelle OpenCode :"))
+        self.lbl_oc_url.setWordWrap(True)
+        self.lbl_oc_url.setMinimumWidth(0)
+        self.lbl_oc_url.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        row_oc.addWidget(self.lbl_oc_url)
+        self.le_opencode_url = StyledLineEdit()
+        self.le_opencode_url.setMinimumWidth(0)
+        self.le_opencode_url.setFixedHeight(28)
+        self.le_opencode_url.setPlaceholderText(self.tr("https://opencode.ai/zen/v1"))
+        self.le_opencode_url.setText(str(SettingsService.get("opencode/base_url", "https://opencode.ai/zen/v1") or "https://opencode.ai/zen/v1"))
+        row_oc.addWidget(self.le_opencode_url, 1)
+        ollama_layout.addLayout(row_oc)
+
+        # Ligne Passerelle OpenRouter
+        row_or = QHBoxLayout()
+        row_or.setSpacing(10)
+        lbl_or_icon = QLabel()
+        lbl_or_icon.setPixmap(load_phosphor_icon("ph.arrows-split", color=DesignTokens.COLOR_GREEN).pixmap(16, 16))
+        row_or.addWidget(lbl_or_icon)
+        self.lbl_or_url = QLabel(self.tr("API OpenRouter :"))
+        self.lbl_or_url.setWordWrap(True)
+        self.lbl_or_url.setMinimumWidth(0)
+        self.lbl_or_url.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        row_or.addWidget(self.lbl_or_url)
+        self.le_openrouter_url = StyledLineEdit()
+        self.le_openrouter_url.setMinimumWidth(0)
+        self.le_openrouter_url.setFixedHeight(28)
+        self.le_openrouter_url.setPlaceholderText(self.tr("https://openrouter.ai/api/v1"))
+        self.le_openrouter_url.setText(str(SettingsService.get("openrouter/base_url", "https://openrouter.ai/api/v1") or "https://openrouter.ai/api/v1"))
+        row_or.addWidget(self.le_openrouter_url, 1)
+        ollama_layout.addLayout(row_or)
+
+        layout.addWidget(self.card_ollama)
+
+        # ── SECTION 2b : SERVEUR MCP LOCAL (MODEL CONTEXT PROTOCOL) ──────────
+        self.lbl_sec_mcp = QLabel(self.tr("SERVEUR MCP LOCAL (MODEL CONTEXT PROTOCOL)"))
+        self.lbl_sec_mcp.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        layout.addWidget(self.lbl_sec_mcp)
+
+        self.card_mcp = SettingsCard()
+        mcp_layout = QVBoxLayout(self.card_mcp)
+        mcp_layout.setContentsMargins(14, 10, 14, 10)
+        mcp_layout.setSpacing(8)
+
+        row_mcp_top = QHBoxLayout()
+        row_mcp_top.setSpacing(10)
+
+        lbl_mcp_icon = QLabel()
+        lbl_mcp_icon.setPixmap(load_phosphor_icon("ph.plugs-connected", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+        row_mcp_top.addWidget(lbl_mcp_icon)
+
+        from ankidraft.utils.environment import get_app_qsettings
+
+        q_settings = get_app_qsettings()
+        mcp_enabled_val = q_settings.value("mcp/enabled", True, type=bool)
+        mcp_port_val = q_settings.value("mcp/port", 8765, type=int)
+
+        self.chk_mcp_enabled = QCheckBox(self.tr("Activer le serveur MCP en arrière-plan"))
+        self.chk_mcp_enabled.setChecked(mcp_enabled_val)
+        self.chk_mcp_enabled.setMinimumWidth(0)
+        self.chk_mcp_enabled.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.chk_mcp_enabled.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        row_mcp_top.addWidget(self.chk_mcp_enabled, 1)
+
+        mcp_layout.addLayout(row_mcp_top)
+
+        self.grp_mcp = CollapsibleSettingsGroup(
+            self.tr("Avancé MCP & diagnostic"),
+            expanded=False,
+        )
+        row_mcp_params = QHBoxLayout()
+        row_mcp_params.setSpacing(10)
+
+        self.lbl_mcp_port = QLabel(self.tr("Port d'écoute :"))
+        self.lbl_mcp_port.setMinimumWidth(0)
+        self.lbl_mcp_port.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        row_mcp_params.addWidget(self.lbl_mcp_port)
+
+        self.spin_mcp_port = QSpinBox()
+        self.spin_mcp_port.setRange(1024, 65535)
+        self.spin_mcp_port.setValue(mcp_port_val if 1024 <= mcp_port_val <= 65535 else 8765)
+        self.spin_mcp_port.setFixedHeight(28)
+        self.spin_mcp_port.setMinimumWidth(70)
+        row_mcp_params.addWidget(self.spin_mcp_port)
+
+        row_mcp_params.addStretch()
+
+        self.btn_rotate_mcp_token = SecondaryButton("Renouveler le jeton")
+        self.btn_rotate_mcp_token.setMinimumWidth(0)
+        self.btn_rotate_mcp_token.setIcon(load_phosphor_icon("ph.arrows-clockwise", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_rotate_mcp_token.setToolTip(self.tr("Régénère un nouveau jeton Bearer 256 bits pour sécuriser le serveur MCP."))
+        self.btn_rotate_mcp_token.clicked.connect(self._on_rotate_mcp_token)
+        row_mcp_params.addWidget(self.btn_rotate_mcp_token)
+
+        self.grp_mcp.add_layout(row_mcp_params)
+        mcp_layout.addWidget(self.grp_mcp)
+
+        # Lignes Préférences de navigation et demandes contextuelles MCP & Agents
+        consultant_default_tab_val = q_settings.value("consultant/default_tab", "mcp", type=str)
+        consultant_target_val = q_settings.value("consultant/external_prompt_target", "mcp", type=str)
+
+        row_pref1 = QHBoxLayout()
+        self.lbl_consultant_default_tab = QLabel(self.tr("Onglet par défaut :"))
+        self.lbl_consultant_default_tab.setWordWrap(True)
+        self.lbl_consultant_default_tab.setMinimumWidth(0)
+        self.lbl_consultant_default_tab.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        row_pref1.addWidget(self.lbl_consultant_default_tab, 1)
+
+        self.cb_consultant_default_tab = StyledComboBox()
+        self.cb_consultant_default_tab.addItem(self.tr("Serveur MCP (recommandé)"), "mcp")
+        self.cb_consultant_default_tab.addItem(self.tr("Consultant IA"), "in_app")
+        idx_tab = 0 if consultant_default_tab_val == "mcp" else 1
+        self.cb_consultant_default_tab.setCurrentIndex(idx_tab)
+        self.cb_consultant_default_tab.setFixedHeight(28)
+        self.cb_consultant_default_tab.setMinimumWidth(0)
+        row_pref1.addWidget(self.cb_consultant_default_tab)
+        mcp_layout.addLayout(row_pref1)
+
+        row_pref2 = QHBoxLayout()
+        self.lbl_consultant_prompt_target = QLabel(self.tr("Demandes contextuelles :"))
+        self.lbl_consultant_prompt_target.setWordWrap(True)
+        self.lbl_consultant_prompt_target.setMinimumWidth(0)
+        self.lbl_consultant_prompt_target.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        row_pref2.addWidget(self.lbl_consultant_prompt_target, 1)
+
+        self.cb_consultant_prompt_target = StyledComboBox()
+        self.cb_consultant_prompt_target.addItem(self.tr("Serveur MCP (bandeau prêt à copier)"), "mcp")
+        self.cb_consultant_prompt_target.addItem(self.tr("Consultant IA (chat direct)"), "in_app")
+        idx_target = 0 if consultant_target_val == "mcp" else 1
+        self.cb_consultant_prompt_target.setCurrentIndex(idx_target)
+        self.cb_consultant_prompt_target.setFixedHeight(28)
+        self.cb_consultant_prompt_target.setMinimumWidth(0)
+        row_pref2.addWidget(self.cb_consultant_prompt_target)
+        mcp_layout.addLayout(row_pref2)
+
+        layout.addWidget(self.card_mcp)
+
+        # ── SECTION 3 : CATALOGUE DES MOTEURS IA ─────────────────────────────
+        self.lbl_sec_cat = QLabel(self.tr("CATALOGUE DES MOTEURS & MODÈLES"))
+        self.lbl_sec_cat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        layout.addWidget(self.lbl_sec_cat)
+
+        self.table_engines = StyledTableWidget(["Nom du Moteur", "Fournisseur", "Identifiant Modèle", "Capacités & Atouts"])
+        self.table_engines.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table_engines.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_engines.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_engines.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_engines.verticalHeader().setDefaultSectionSize(34)
+        self.table_engines.itemChanged.connect(self._on_table_item_changed)
+        self.table_engines.itemDoubleClicked.connect(lambda _: self._edit_selected_engine())
+        self.table_engines.setMinimumHeight(160)
+        self.table_engines.setMinimumWidth(0)
+        layout.addWidget(self.table_engines)
+
+        # Barre d'outils Catalogue compacte et réactive
+        self.toolbar_widget = QWidget()
+        self.toolbar_widget.setMinimumWidth(0)
+        self.toolbar_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.toolbar_vlayout = QVBoxLayout(self.toolbar_widget)
+        self.toolbar_vlayout.setContentsMargins(0, 0, 0, 0)
+        self.toolbar_vlayout.setSpacing(6)
+
+        self.btn_browse_catalog = PrimaryButton(self.tr("Explorer le catalogue & comparateur..."))
+        self.btn_browse_catalog.setMinimumWidth(0)
+        self.btn_browse_catalog.setIcon(load_on_accent_icon("ph.sparkle"))
+        self.btn_browse_catalog.clicked.connect(self._open_catalog_dialog)
+
+        self.btn_add_menu = SecondaryButton(self.tr("Ajouter un modèle ▾"))
+        self.btn_add_menu.setMinimumWidth(0)
+        self.btn_add_menu.setIcon(load_phosphor_icon("ph.plus-circle", color=DesignTokens.TEXT_PRIMARY))
+
+        self.menu_add = QMenu(self)
+
+        act_from_catalog = QAction(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY), self.tr("Depuis le catalogue officiel..."), self)
+        act_from_catalog.triggered.connect(self._open_catalog_dialog)
+        self.menu_add.addAction(act_from_catalog)
+
+        act_custom = QAction(load_phosphor_icon("ph.plus-circle", color=DesignTokens.ACCENT_PRIMARY), self.tr("Modèle personnalisé..."), self)
+        act_custom.triggered.connect(self._add_custom_engine)
+        self.menu_add.addAction(act_custom)
+
+        self.menu_add.addSeparator()
+
+        presets_menu = self.menu_add.addMenu(self.tr("Presets rapides populaires"))
+
+        act_gemini = QAction(load_phosphor_icon("ph.sparkle", color=DesignTokens.COLOR_BLUE), self.tr("Google Gemini 3.5 Flash Lite"), self)
+        act_gemini.triggered.connect(lambda: self._quick_add_engine("Google Gemini 3.5 Flash Lite", "gemini", "gemini-3.5-flash-lite", True, max_tokens=65536, sort_order=0))
+        presets_menu.addAction(act_gemini)
+
+        act_openai = QAction(load_phosphor_icon("ph.brain", color=DesignTokens.TEXT_PRIMARY), self.tr("GPT-4o (OpenAI)"), self)
+        act_openai.triggered.connect(lambda: self._quick_add_engine("GPT-4o (OpenAI)", "openai", "gpt-4o", False, max_tokens=16384, sort_order=10))
+        presets_menu.addAction(act_openai)
+
+        act_claude = QAction(load_phosphor_icon("ph.lightning", color=DesignTokens.COLOR_YELLOW), self.tr("Claude 3.7 Sonnet"), self)
+        act_claude.triggered.connect(lambda: self._quick_add_engine("Claude 3.7 Sonnet", "anthropic", "claude-3-7-sonnet-20250219", False, max_tokens=64000, sort_order=15))
+        presets_menu.addAction(act_claude)
+
+        act_ollama = QAction(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_GREEN), self.tr("Ollama Local (llama3)"), self)
+        act_ollama.triggered.connect(lambda: self._quick_add_engine("Ollama Local", "ollama", "llama3:latest", True, max_tokens=16384, sort_order=30))
+        presets_menu.addAction(act_ollama)
+
+        act_opencode = QAction(load_phosphor_icon("ph.code", color=DesignTokens.ACCENT_PRIMARY), self.tr("OpenCode (DeepSeek V4 Flash)"), self)
+        act_opencode.triggered.connect(lambda: self._quick_add_engine("OpenCode (DeepSeek V4 Flash)", "opencode", "deepseek-v4-flash", False, max_tokens=16384, sort_order=25))
+        presets_menu.addAction(act_opencode)
+
+        act_openrouter = QAction(load_phosphor_icon("ph.arrows-split", color=DesignTokens.COLOR_GREEN), self.tr("OpenRouter Gratuit (Qwen 3.8 27B)"), self)
+        act_openrouter.triggered.connect(lambda: self._quick_add_engine("OpenRouter Gratuit (Qwen 3.8 27B)", "openrouter", "qwen/qwen3.8-27b:free", True, max_tokens=8192, sort_order=26))
+        presets_menu.addAction(act_openrouter)
+
+        self.btn_add_menu.setMenu(self.menu_add)
+
+        self.btn_edit_engine = SecondaryButton(self.tr("Modifier"))
+        self.btn_edit_engine.setMinimumWidth(0)
+        self.btn_edit_engine.setIcon(load_phosphor_icon("ph.pencil-simple", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_edit_engine.setToolTip(self.tr("Modifier les paramètres du moteur IA sélectionné"))
+        self.btn_edit_engine.clicked.connect(lambda: self._edit_selected_engine())
+
+        self.btn_del_engine = DangerButton(tr("Supprimer"), ghost=True)
+        self.btn_del_engine.setMinimumWidth(0)
+        self.btn_del_engine.setIcon(load_phosphor_icon("ph.trash", color=DesignTokens.COLOR_RED))
+        self.btn_del_engine.clicked.connect(lambda: self._del_engine())
+
+        layout.addWidget(self.toolbar_widget)
+
+        # ── SECTION 4 : PRÉFÉRENCES IA GLOBALES ──────────────────────────────
+        self.lbl_sec_global_prefs = QLabel(self.tr("PRÉFÉRENCES IA GLOBALES"))
+        self.lbl_sec_global_prefs.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
+        layout.addWidget(self.lbl_sec_global_prefs)
+
+        self.card_global_prefs = SettingsCard()
+        prefs_layout = QVBoxLayout(self.card_global_prefs)
+        prefs_layout.setContentsMargins(14, 12, 14, 12)
+        prefs_layout.setSpacing(12)
+
+        # Modèle par défaut global
+        model_row = QHBoxLayout()
+        model_row.setSpacing(8)
+
+        icon_def_model = QLabel()
+        icon_def_model.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY).pixmap(15, 15))
+        model_row.addWidget(icon_def_model)
+
+        self.lbl_default_model = QLabel(self.tr("Modèle IA par défaut global :"))
+        self.lbl_default_model.setWordWrap(True)
+        self.lbl_default_model.setMinimumWidth(0)
+        self.lbl_default_model.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        model_row.addWidget(self.lbl_default_model)
+
+        self.cb_default_model = StyledComboBox()
+        self.cb_default_model.setMinimumWidth(0)
+        self.cb_default_model.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        model_row.addWidget(self.cb_default_model)
+        prefs_layout.addLayout(model_row)
+
+        # Paramètres de génération (Température, Max tokens, CoT budget)
+        self.gen_grid = QGridLayout()
+        self.gen_grid.setHorizontalSpacing(16)
+        self.gen_grid.setVerticalSpacing(8)
+
+        # Température
+        self.temp_col = QVBoxLayout()
+        self.temp_col.setSpacing(4)
+        temp_hdr = QHBoxLayout()
+        self.lbl_temp_title = QLabel(self.tr("Température :"))
+        self.lbl_temp_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        self.lbl_temp_val = QLabel(self.tr("0.70"))
+        self.lbl_temp_val.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
+        temp_hdr.addWidget(self.lbl_temp_title)
+        temp_hdr.addStretch()
+        temp_hdr.addWidget(self.lbl_temp_val)
+        self.temp_col.addLayout(temp_hdr)
+
+        self.slider_temp = QSlider(Qt.Orientation.Horizontal)
+        self.slider_temp.setMinimum(0)
+        self.slider_temp.setMaximum(100)
+        self.slider_temp.setValue(70)
+        self.slider_temp.valueChanged.connect(lambda v: self.lbl_temp_val.setText(f"{v / 100:.2f}"))
+        self.temp_col.addWidget(self.slider_temp)
+
+        # Max tokens
+        self.tokens_col = QVBoxLayout()
+        self.tokens_col.setSpacing(4)
+        self.lbl_tokens_title = QLabel(self.tr("Plafond Max Tokens :"))
+        self.lbl_tokens_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        self.tokens_col.addWidget(self.lbl_tokens_title)
+
+        self.cb_max_tokens = StyledComboBox()
+        self.cb_max_tokens.setMinimumWidth(0)
+        self.cb_max_tokens.addItem(self.tr("4 096 tokens"), 4096)
+        self.cb_max_tokens.addItem(self.tr("8 192 tokens"), 8192)
+        self.cb_max_tokens.addItem(self.tr("16 384 tokens (Standard)"), 16384)
+        self.cb_max_tokens.addItem(self.tr("32 768 tokens"), 32768)
+        self.cb_max_tokens.addItem(self.tr("65 536 tokens"), 65536)
+        self.cb_max_tokens.addItem(self.tr("128 000 tokens (Large)"), 128000)
+        self.cb_max_tokens.setCurrentIndex(2)
+        self.tokens_col.addWidget(self.cb_max_tokens)
+
+        # Thinking CoT Budget
+        self.thinking_col = QVBoxLayout()
+        self.thinking_col.setSpacing(4)
+        self.lbl_thinking_title = QLabel(self.tr("Budget Réflexion (CoT) :"))
+        self.lbl_thinking_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        self.thinking_col.addWidget(self.lbl_thinking_title)
+
+        self.cb_thinking = StyledComboBox()
+        self.cb_thinking.setMinimumWidth(0)
+        self.cb_thinking.addItem(self.tr("Désactivé (0)"), 0)
+        self.cb_thinking.addItem(self.tr("1 024 tokens"), 1024)
+        self.cb_thinking.addItem(self.tr("2 048 tokens"), 2048)
+        self.cb_thinking.addItem(self.tr("4 096 tokens"), 4096)
+        self.cb_thinking.addItem(self.tr("8 192 tokens"), 8192)
+        self.cb_thinking.addItem(self.tr("16 384 tokens"), 16384)
+        self.cb_thinking.addItem(self.tr("32 768 tokens (Max)"), 32768)
+        self.cb_thinking.setCurrentIndex(0)
+        self.thinking_col.addWidget(self.cb_thinking)
+
+        # Budget Tokens Consultant (Temps Réel)
+        self.consultant_tokens_col = QVBoxLayout()
+        self.consultant_tokens_col.setSpacing(4)
+        self.lbl_consultant_tokens_title = QLabel(self.tr("Budget Tokens Consultant :"))
+        self.lbl_consultant_tokens_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        self.consultant_tokens_col.addWidget(self.lbl_consultant_tokens_title)
+
+        self.cb_consultant_token_budget = StyledComboBox()
+        self.cb_consultant_token_budget.setMinimumWidth(0)
+        self.cb_consultant_token_budget.addItem(self.tr("10 000 tokens"), 10000)
+        self.cb_consultant_token_budget.addItem(self.tr("25 000 tokens"), 25000)
+        self.cb_consultant_token_budget.addItem(self.tr("50 000 tokens (Défaut)"), 50000)
+        self.cb_consultant_token_budget.addItem(self.tr("100 000 tokens"), 100000)
+        self.cb_consultant_token_budget.addItem(self.tr("200 000 tokens"), 200000)
+        self.cb_consultant_token_budget.addItem(self.tr("Illimité (0)"), 0)
+        self.cb_consultant_token_budget.setCurrentIndex(2)
+        self.consultant_tokens_col.addWidget(self.cb_consultant_token_budget)
+
+        # Budget Coût Consultant USD (Temps Réel)
+        self.consultant_cost_col = QVBoxLayout()
+        self.consultant_cost_col.setSpacing(4)
+        self.lbl_consultant_cost_title = QLabel(self.tr("Budget Coût Consultant (USD) :"))
+        self.lbl_consultant_cost_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        self.consultant_cost_col.addWidget(self.lbl_consultant_cost_title)
+
+        self.cb_consultant_cost_budget = StyledComboBox()
+        self.cb_consultant_cost_budget.setMinimumWidth(0)
+        self.cb_consultant_cost_budget.addItem(self.tr("0.10 $"), 0.10)
+        self.cb_consultant_cost_budget.addItem(self.tr("0.25 $"), 0.25)
+        self.cb_consultant_cost_budget.addItem(self.tr("0.50 $ (Défaut)"), 0.50)
+        self.cb_consultant_cost_budget.addItem(self.tr("1.00 $"), 1.00)
+        self.cb_consultant_cost_budget.addItem(self.tr("2.00 $"), 2.00)
+        self.cb_consultant_cost_budget.addItem(self.tr("5.00 $"), 5.00)
+        self.cb_consultant_cost_budget.addItem(self.tr("Illimité (0.00 $)"), 0.0)
+        self.cb_consultant_cost_budget.setCurrentIndex(2)
+        self.consultant_cost_col.addWidget(self.cb_consultant_cost_budget)
+
+        # Note d'information sur le garde-fou 80 %
+        self.info_guard_col = QVBoxLayout()
+        self.info_guard_col.setSpacing(4)
+        lbl_guard_title = QLabel(self.tr("Protection Budget Consultant :"))
+        lbl_guard_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        self.info_guard_col.addWidget(lbl_guard_title)
+        self.lbl_guard_desc = QLabel(self.tr("Arrêt préventif à 80 % du quota"))
+        self.lbl_guard_desc.setWordWrap(True)
+        self.lbl_guard_desc.setStyleSheet(f"color: {DesignTokens.COLOR_YELLOW}; font-size: 11px; font-weight: 600; padding-top: 4px;")
+        self.info_guard_col.addWidget(self.lbl_guard_desc)
+
+        # Délai maximal de génération (timeout réseau par requête)
+        timeout_row = QHBoxLayout()
+        timeout_row.setSpacing(8)
+        icon_timeout = QLabel()
+        icon_timeout.setPixmap(load_phosphor_icon("ph.timer", color=DesignTokens.TEXT_MUTED).pixmap(15, 15))
+        timeout_row.addWidget(icon_timeout)
+
+        self.lbl_timeout_title = QLabel(self.tr("Délai max. de génération :"))
+        self.lbl_timeout_title.setWordWrap(True)
+        self.lbl_timeout_title.setMinimumWidth(0)
+        self.lbl_timeout_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+        timeout_row.addWidget(self.lbl_timeout_title)
+
+        timeout_row.addStretch()
+
+        timeout_presets = [
+            ("30 s", 30),
+            ("60 s (1 min)", 60),
+            ("120 s (2 min)", 120),
+            ("300 s (5 min)", 300),
+            ("600 s (10 min)", 600),
+            ("1 800 s (30 min)", 1800),
+            ("3 600 s (1 h)", 3600),
+            ("60 000 s (défaut)", 60000),
+        ]
+        self.cb_timeout = StyledComboBox()
+        self.cb_timeout.setMinimumWidth(0)
+        self.cb_timeout.setFixedHeight(28)
+        for label, value in timeout_presets:
+            self.cb_timeout.addItem(label, value)
+        self.cb_timeout.setCurrentIndex(len(timeout_presets) - 1)
+        timeout_row.addWidget(self.cb_timeout)
+
+        # Toggles globaux réactifs
+        self.toggles_grid = QGridLayout()
+        self.toggles_grid.setHorizontalSpacing(12)
+        self.toggles_grid.setVerticalSpacing(8)
+
+        self.toggle_streaming = OptionToggleRow(tr("Streaming des réponses"), icon_name="ph.waveform", checked=True)
+        self.toggle_vision = OptionToggleRow(tr("Capacités Vision activées"), icon_name="ph.eye", checked=True)
+        self.toggle_autoval = OptionToggleRow(tr("Validation automatique des cartes"), icon_name="ph.shield-check", checked=False)
+        self.toggle_linter = OptionToggleRow(tr("Audit Linter automatique"), icon_name="ph.check-circle", checked=True)
+
+        prefs_layout.addLayout(self.toggles_grid)
+
+        # Paramètres RAG / Recherche Sémantique
+        rag_grid = QGridLayout()
+        rag_grid.setHorizontalSpacing(16)
+        rag_grid.setVerticalSpacing(8)
+
+        # Top-K RAG
+        rag_topk_col = QVBoxLayout()
+        rag_topk_col.setSpacing(4)
+        rag_topk_hdr = QHBoxLayout()
+        self.lbl_rag_topk_title = QLabel(self.tr("Chunks RAG (Top-K) :"))
+        self.lbl_rag_topk_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        self.lbl_rag_topk_val = QLabel(self.tr("5"))
+        self.lbl_rag_topk_val.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
+        rag_topk_hdr.addWidget(self.lbl_rag_topk_title)
+        rag_topk_hdr.addStretch()
+        rag_topk_hdr.addWidget(self.lbl_rag_topk_val)
+        rag_topk_col.addLayout(rag_topk_hdr)
+
+        self.slider_rag_topk = QSlider(Qt.Orientation.Horizontal)
+        self.slider_rag_topk.setMinimum(1)
+        self.slider_rag_topk.setMaximum(20)
+        self.slider_rag_topk.setValue(5)
+        self.slider_rag_topk.valueChanged.connect(lambda v: self.lbl_rag_topk_val.setText(str(v)))
+        rag_topk_col.addWidget(self.slider_rag_topk)
+        rag_grid.addLayout(rag_topk_col, 0, 0)
+
+        # Seuil de similarité RAG
+        rag_sim_col = QVBoxLayout()
+        rag_sim_col.setSpacing(4)
+        rag_sim_hdr = QHBoxLayout()
+        self.lbl_rag_sim_title = QLabel(self.tr("Seuil similarité min :"))
+        self.lbl_rag_sim_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; font-weight: 500;")
+        self.lbl_rag_sim_val = QLabel(self.tr("70%"))
+        self.lbl_rag_sim_val.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
+        rag_sim_hdr.addWidget(self.lbl_rag_sim_title)
+        rag_sim_hdr.addStretch()
+        rag_sim_hdr.addWidget(self.lbl_rag_sim_val)
+        rag_sim_col.addLayout(rag_sim_hdr)
+
+        self.slider_rag_sim = QSlider(Qt.Orientation.Horizontal)
+        self.slider_rag_sim.setMinimum(40)
+        self.slider_rag_sim.setMaximum(95)
+        self.slider_rag_sim.setValue(70)
+        self.slider_rag_sim.valueChanged.connect(lambda v: self.lbl_rag_sim_val.setText(tr("%1%%", v)))
+        rag_sim_col.addWidget(self.slider_rag_sim)
+        rag_grid.addLayout(rag_sim_col, 0, 1)
+
+        rag_grid.setColumnStretch(0, 1)
+        rag_grid.setColumnStretch(1, 1)
+
+        # Paramètres avancés : génération (température/tokens/CoT), timeout et RAG, repliés par défaut
+        self.sec_advanced_gen = CollapsibleSection(tr("Options avancées de génération & RAG"), collapsed=True)
+        self.sec_advanced_gen.add_layout(self.gen_grid)
+        self.sec_advanced_gen.add_layout(timeout_row)
+        self.sec_advanced_gen.add_layout(rag_grid)
+        prefs_layout.addWidget(self.sec_advanced_gen)
+
+        layout.addWidget(self.card_global_prefs)
+
+        # ── SECTION 5 : PARAMÈTRES DE GÉNÉRATION PAR DÉFAUT ──────────────────
+        self.lbl_sec_gen_defaults = QLabel(self.tr("PARAMÈTRES DE GÉNÉRATION PAR DÉFAUT"))
+        self.lbl_sec_gen_defaults.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
+        layout.addWidget(self.lbl_sec_gen_defaults)
+
+        self.card_gen_defaults = SettingsCard()
+        gen_defaults_layout = QVBoxLayout(self.card_gen_defaults)
+        gen_defaults_layout.setContentsMargins(14, 12, 14, 12)
+        gen_defaults_layout.setSpacing(12)
+
+        def add_gen_default_row(label_str: str, widget: QWidget) -> QLabel:
+            row = QHBoxLayout()
+            lbl = QLabel(label_str)
+            lbl.setWordWrap(True)
+            lbl.setMinimumWidth(0)
+            lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; font-size: 12px; font-weight: 500;")
+            row.addWidget(lbl, 1)
+            row.addWidget(widget)
+            gen_defaults_layout.addLayout(row)
+            return lbl
+
+        # Température par défaut (0.0 à 1.0, pas 0.05, défaut 0.30)
+        self.spn_ai_temperature = QDoubleSpinBox()
+        self.spn_ai_temperature.setRange(0.0, 1.0)
+        self.spn_ai_temperature.setSingleStep(0.05)
+        self.spn_ai_temperature.setDecimals(2)
+        self.spn_ai_temperature.setValue(float(SettingsService.get("ai/default_temperature", 0.30)))
+        self.spn_ai_temperature.setFixedHeight(30)
+        add_gen_default_row(self.tr("Température par défaut :"), self.spn_ai_temperature)
+
+        # Budget max tokens par défaut (500 à 32000, pas 500, défaut 4000)
+        self.spn_ai_max_tokens = QSpinBox()
+        self.spn_ai_max_tokens.setRange(500, 32000)
+        self.spn_ai_max_tokens.setSingleStep(500)
+        self.spn_ai_max_tokens.setValue(int(SettingsService.get("ai/max_tokens_budget", 4000)))
+        self.spn_ai_max_tokens.setFixedHeight(30)
+        add_gen_default_row(self.tr("Budget max tokens par défaut :"), self.spn_ai_max_tokens)
+
+        # Délai de requête par défaut (10 à 300 s, défaut 60 s)
+        self.spn_ai_timeout = QSpinBox()
+        self.spn_ai_timeout.setRange(10, 300)
+        self.spn_ai_timeout.setValue(int(SettingsService.get("ai/request_timeout_sec", 60)))
+        self.spn_ai_timeout.setFixedHeight(30)
+        add_gen_default_row(self.tr("Délai de requête par défaut (secondes) :"), self.spn_ai_timeout)
+
+        layout.addWidget(self.card_gen_defaults)
+
+        self.scroll.setWidget(self.content_widget)
+        root_layout.addWidget(self.scroll)
+
+        self._last_is_narrow: bool | None = None
+        self._relayout_responsive(is_narrow=True)
+
+    def _test_cloud_key(self, provider_id: str, provider_name: str) -> None:
+        key_edit = self.key_edits.get(provider_id)
+        badge = self.key_status_badges.get(provider_id)
+        if not key_edit or not badge:
+            return
+
+        key_val = key_edit.text()
+        if not key_val:
+            badge.setText(self.tr("Clé vide"))
+            apply_pill_badge_style(badge, DesignTokens.COLOR_YELLOW)
+            badge.show()
+            show_toast(self, tr("Veuillez saisir une clé %1.", provider_name), is_error=True)
+            return
+
+        valid_format = False
+        if (
+            (provider_id == "openai" and (key_val.startswith("sk-") or len(key_val) > 20))
+            or (provider_id == "anthropic" and (key_val.startswith("sk-ant-") or len(key_val) > 20))
+            or (provider_id == "gemini" and (key_val.startswith("AIza") or len(key_val) >= 20))
+            or (provider_id == "groq" and (key_val.startswith("gsk_") or len(key_val) > 20))
+            or (provider_id == "opencode" and (key_val.startswith("sk-") or key_val.startswith("oc_sk_") or len(key_val) >= 16))
+            or (provider_id == "openrouter" and (key_val.startswith("sk-or-") or len(key_val) >= 16))
+        ):
+            valid_format = True
+        else:
+            valid_format = len(key_val) >= 16
+
+        if valid_format:
+            badge.setText(self.tr("Format valide"))
+            apply_pill_badge_style(badge, DesignTokens.COLOR_GREEN)
+            badge.show()
+
+            # Persistance immédiate de la clé testée
+            try:
+                from ankidraft.utils.secret_store import store_llm_key
+
+                if store_llm_key(provider_id, provider_id, key_val):
+                    env_key = f"{provider_id.upper()}_API_KEY"
+                    os.environ[env_key] = key_val
+
+                    # Clé dans le trousseau OS : ne plus la persister en clair en BDD
+                    LLMConfigModel.update(api_key="").where(LLMConfigModel.provider == provider_id).execute()
+                else:
+                    # Pas de repli en clair : si le trousseau OS est indisponible, la clé n'est pas enregistrée
+                    logger.error(
+                        "Trousseau OS (keyring) indisponible : la clé '%s' n'a pas été enregistrée (aucun stockage en clair).",
+                        provider_id,
+                    )
+                    show_toast(self, tr("Trousseau OS indisponible : clé %1 non enregistrée (sécurité).", provider_name), is_error=True)
+                    return
+            except Exception as e:
+                logger.error("Échec de sauvegarde de la clé %s : %s", provider_id, e)
+                show_toast(self, tr("Impossible d'enregistrer la clé %1.", provider_name), is_error=True)
+                return
+
+            if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+                try:
+                    self.ai_manager.reload_provider()
+                except Exception as e:
+                    logger.warning("Erreur reload_provider dans _test_cloud_key: %s", e)
+
+            show_toast(self, tr("Clé %1 enregistrée et validée !", provider_name))
+
+            # Test de connectivité réseau non-bloquant en tâche de fond
+            self._verify_cloud_key_online(provider_id, provider_name, key_val)
+        else:
+            badge.setText(self.tr("Format suspect"))
+            apply_pill_badge_style(badge, DesignTokens.COLOR_RED)
+            badge.show()
+
+    def _verify_cloud_key_online(self, provider_id: str, provider_name: str, key_val: str) -> None:
+        """Lance une vérification réseau légère en arrière-plan sans bloquer l'UI."""
+        if "pytest" in sys.modules or os.environ.get("PYTEST_CURRENT_TEST"):
+            return
+        worker = CloudKeyPingWorker(provider_id, key_val)
+        worker.signals.result_ready.connect(self._on_key_ping_result)
+        QThreadPool.globalInstance().start(worker)
+
+    def _on_key_ping_result(self, provider_id: str, is_valid: bool, status_text: str) -> None:
+        badge = self.key_status_badges.get(provider_id)
+        if not badge:
+            return
+        badge.setText(status_text)
+        apply_pill_badge_style(badge, DesignTokens.COLOR_GREEN if is_valid else DesignTokens.COLOR_RED)
+        badge.show()
+
+    def _open_catalog_dialog(self) -> None:
+        """Ouvre l'explorateur et comparateur de modèles IA pour enrichir le catalogue."""
+        dlg = ModelDiscoveryDialog(picker_mode=False, parent=self)
+        dlg.exec()
+        self.refresh_data()
+
+    def _scan_ollama(self) -> None:
+        """Lance le scan des modèles Ollama : synchrone sous pytest, worker QThreadPool en production."""
+        url = self.le_ollama_url.text().strip().rstrip("/")
+        if not (url.startswith("http://") or url.startswith("https://")):
+            url = f"http://{url}"
+        if not _is_loopback_url(url):
+            self.badge_ollama_status.setText(self.tr("URL non locale (anti-SSRF)"))
+            apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_RED)
+            self.badge_ollama_status.show()
+            return
+
+        if "pytest" in sys.modules or os.environ.get("PYTEST_CURRENT_TEST"):
+            self._scan_ollama_sync(url)
+            return
+
+        worker = OllamaScanWorker(url)
+        worker.signals.scan_ready.connect(self._on_ollama_scan_ready)
+        worker.signals.scan_failed.connect(self._on_ollama_scan_failed)
+        QThreadPool.globalInstance().start(worker)
+
+    def _scan_ollama_sync(self, url: str) -> None:
+        """Chemin synchrone utilisé sous pytest : récupère /api/tags puis persiste immédiatement."""
+        try:
+            models, results = _fetch_ollama_models_and_caps(url)
+            self._on_ollama_scan_ready(models, results)
+        except Exception:
+            self._on_ollama_scan_failed("Hors ligne")
+
+    def _on_ollama_scan_ready(self, models: list[str], results: list[tuple[str, Any]]) -> None:
+        """Reçoit les modèles scannés par le worker (thread principal) et persiste en BDD."""
+        if not models:
+            self.badge_ollama_status.setText(self.tr("En ligne (0 modèle)"))
+            apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_YELLOW)
+            self.badge_ollama_status.show()
+            return
+
+        self.badge_ollama_status.setText(tr("%1 modèle(s) détecté(s)", len(models)))
+        apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_GREEN)
+        self.badge_ollama_status.show()
+
+        caps_by_name = {name: caps for name, caps in results}
+        added_count = 0
+        with db.atomic():
+            for m_name in models:
+                if not LLMConfigModel.select().where(LLMConfigModel.model_id == m_name).exists():
+                    caps = caps_by_name.get(m_name)
+                    if caps is None:
+                        continue
+                    LLMConfigModel.create(
+                        display_name=f"Ollama {m_name}",
+                        provider="ollama",
+                        model_id=m_name,
+                        context_limit=caps.context_window,
+                        api_key="",
+                        is_free=True,
+                        supports_vision=caps.supports_vision,
+                        supports_thinking=caps.supports_thinking,
+                        supports_json=caps.supports_json,
+                        speed_rating=caps.speed_rating,
+                        quality_tier=caps.quality_tier,
+                        recommended_tasks=",".join(caps.recommended_tasks),
+                        description=f"Modèle local Ollama {m_name}",
+                    )
+                    added_count += 1
+        self.refresh_data()
+        show_toast(self, tr("Ollama en ligne : %1 modèles scannés (+%2 importés) !", len(models), added_count))
+
+    def _on_ollama_scan_failed(self, status_text: str) -> None:
+        """Affiche l'état échec du scan Ollama."""
+        self.badge_ollama_status.setText(status_text)
+        apply_pill_badge_style(self.badge_ollama_status, DesignTokens.COLOR_RED)
+        self.badge_ollama_status.show()
+        show_toast(self, self.tr("Serveur Ollama inaccessible sur cette adresse."), is_error=True)
+
+    def refresh_data(self) -> None:
+        """Recharge les moteurs IA et les paramètres de configuration."""
+        engines: list[Any] = []
+        try:
+            self.table_engines.blockSignals(True)
+            self.table_engines.clearContents()
+            engines = list(LLMConfigModel.select().order_by(LLMConfigModel.sort_order.asc(), LLMConfigModel.id.asc()))
+            self.table_engines.setRowCount(len(engines))
+
+            for i, eg in enumerate(engines):
+                # Col 0: Nom
+                item_name = QTableWidgetItem(getattr(eg, "display_name", "Inconnu"))
+                item_name.setData(Qt.ItemDataRole.UserRole, eg.id)
+                self.table_engines.setItem(i, 0, item_name)
+
+                # Col 1: Fournisseur
+                p_text = getattr(eg, "provider", "inconnu").upper()
+                self.table_engines.setItem(i, 1, QTableWidgetItem(p_text))
+
+                # Col 2: Identifiant Modèle
+                item_model = QTableWidgetItem(getattr(eg, "model_id", "default"))
+                self.table_engines.setItem(i, 2, item_model)
+
+                # Col 3: Capacités & Atouts (Badges compacts)
+                spec = eg.to_model_spec()
+                badges_widget = ModelCapabilityBadgesWidget(compact=True)
+                badges_widget.update_for_spec(spec)
+                badges_widget.setStyleSheet("background: transparent;")
+                self.table_engines.setCellWidget(i, 3, badges_widget)
+
+            self.table_engines.blockSignals(False)
+        except Exception as e:
+            logger.warning("Erreur refresh_data table_engines: %s", e)
+
+        # Rafraîchissement et restauration des préférences globales IA
+        try:
+            default_model_id = SettingsService.get("ai/default_model_id", "")
+            self.cb_default_model.blockSignals(True)
+            self.cb_default_model.clear()
+            self.cb_default_model.addItem(self.tr("Automatique (Premier modèle disponible)"), "")
+            sel_idx = 0
+            for idx, eg in enumerate(engines):
+                m_id = getattr(eg, "model_id", "")
+                d_name = getattr(eg, "display_name", m_id)
+                p_name = getattr(eg, "provider", "").upper()
+                self.cb_default_model.addItem(tr("%1 (%2)", d_name, p_name), m_id)
+                if default_model_id and m_id == default_model_id:
+                    sel_idx = idx + 1
+            self.cb_default_model.setCurrentIndex(sel_idx)
+            self.cb_default_model.blockSignals(False)
+
+            # Température
+            saved_temp = float(SettingsService.get("ai/temperature", 0.7))
+            self.slider_temp.setValue(int(round(saved_temp * 100)))
+            self.lbl_temp_val.setText(f"{saved_temp:.2f}")
+
+            # Max tokens
+            saved_max_tokens = int(SettingsService.get("ai/max_tokens", 16384))
+            for i in range(self.cb_max_tokens.count()):
+                if self.cb_max_tokens.itemData(i) == saved_max_tokens:
+                    self.cb_max_tokens.setCurrentIndex(i)
+                    break
+
+            # Thinking / CoT budget
+            saved_thinking = int(SettingsService.get("ai/thinking_budget", 0))
+            for i in range(self.cb_thinking.count()):
+                if self.cb_thinking.itemData(i) == saved_thinking:
+                    self.cb_thinking.setCurrentIndex(i)
+                    break
+
+            # Délai maximal de génération (timeout réseau)
+            saved_timeout = int(SettingsService.get("ai/generation_timeout_seconds", 60000))
+            timeout_idx = None
+            for i in range(self.cb_timeout.count()):
+                if self.cb_timeout.itemData(i) == saved_timeout:
+                    timeout_idx = i
+                    break
+            if timeout_idx is None:
+                self.cb_timeout.addItem(tr("%1 s", saved_timeout), saved_timeout)
+                timeout_idx = self.cb_timeout.count() - 1
+            self.cb_timeout.setCurrentIndex(timeout_idx)
+
+            # Budget Consultant Tokens
+            saved_c_tokens = int(SettingsService.get("ai/consultant_token_budget", 50000))
+            for i in range(self.cb_consultant_token_budget.count()):
+                if self.cb_consultant_token_budget.itemData(i) == saved_c_tokens:
+                    self.cb_consultant_token_budget.setCurrentIndex(i)
+                    break
+
+            # Budget Consultant Coût USD
+            saved_c_cost = float(SettingsService.get("ai/consultant_cost_budget", 0.50))
+            for i in range(self.cb_consultant_cost_budget.count()):
+                if abs(float(self.cb_consultant_cost_budget.itemData(i)) - saved_c_cost) < 0.001:
+                    self.cb_consultant_cost_budget.setCurrentIndex(i)
+                    break
+
+            # Toggles
+            self.toggle_streaming.set_checked(bool(SettingsService.get("ai/streaming", True)))
+            self.toggle_vision.set_checked(bool(SettingsService.get("ai/vision_enabled", True)))
+            self.toggle_autoval.set_checked(bool(SettingsService.get("ai/auto_validation", False)))
+            self.toggle_linter.set_checked(bool(SettingsService.get("ai/auto_linter", True)))
+
+            # Paramètres RAG
+            saved_top_k = int(SettingsService.get("ai/rag_top_k", 5))
+            self.slider_rag_topk.setValue(saved_top_k)
+            self.lbl_rag_topk_val.setText(str(saved_top_k))
+
+            saved_sim = float(SettingsService.get("ai/rag_similarity_threshold", 0.70))
+            sim_pct = int(round(saved_sim * 100))
+            self.slider_rag_sim.setValue(sim_pct)
+            self.lbl_rag_sim_val.setText(tr("%1%%", sim_pct))
+        except Exception as e:
+            logger.warning("Erreur refresh_data global_prefs: %s", e)
+
+        # Rafraîchissement des passerelles
+        try:
+            if hasattr(self, "le_ollama_url"):
+                self.le_ollama_url.setText(str(SettingsService.get("ollama/url", "http://localhost:11434")))
+            if hasattr(self, "le_opencode_url"):
+                self.le_opencode_url.setText(str(SettingsService.get("opencode/base_url", "https://opencode.ai/zen/v1") or "https://opencode.ai/zen/v1"))
+            if hasattr(self, "le_openrouter_url"):
+                self.le_openrouter_url.setText(str(SettingsService.get("openrouter/base_url", "https://openrouter.ai/api/v1") or "https://openrouter.ai/api/v1"))
+        except Exception as e:
+            logger.warning("Erreur refresh_data passerelles: %s", e)
+
+        self._record_initial_state()
+
+    def _quick_add_engine(
+        self,
+        name: str,
+        provider: str,
+        model_id: str,
+        is_free: bool,
+        max_tokens: int = 16384,
+        sort_order: int = 100,
+        context_limit: int | None = None,
+    ) -> None:
+        try:
+            existing = LLMConfigModel.select().where((LLMConfigModel.provider == provider) & (LLMConfigModel.model_id == model_id)).first()
+            if existing:
+                show_toast(self, tr("Le modèle '%1' est déjà configuré.", model_id), is_error=True)
+                return
+
+            spec = ModelCatalog.get_model_spec(provider, model_id)
+            api_key = self.key_edits.get(provider, PasswordLineEdit()).text() if provider != "ollama" else ""
+            if not api_key and provider != "ollama":
+                from ankidraft.utils.secret_store import load_llm_key
+
+                api_key = load_llm_key(provider, provider) or ""
+
+            # Stockage du secret dans le trousseau OS uniquement : jamais en clair en BDD
+            if api_key:
+                from ankidraft.utils.secret_store import store_llm_key
+
+                if store_llm_key(model_id, provider, api_key):
+                    api_key = ""
+                else:
+                    logger.error(
+                        "Trousseau OS (keyring) indisponible : la clé '%s' n'a pas été enregistrée (aucun stockage en clair).",
+                        provider,
+                    )
+                    show_toast(self, tr("Trousseau OS indisponible : clé %1 non enregistrée (sécurité).", provider), is_error=True)
+                    api_key = ""
+
+            effective_context_limit = context_limit if context_limit is not None else (spec.context_window if spec else (1048576 if provider == "gemini" else 128000))
+
+            LLMConfigModel.create(
+                display_name=name,
+                provider=provider,
+                model_id=model_id,
+                context_limit=effective_context_limit,
+                max_tokens=max_tokens,
+                sort_order=sort_order,
+                api_key=api_key,
+                is_free=is_free,
+                # `spec` est une fiche *approchée* (contexte, tarification, affichage) ; la Vision,
+                # elle, ne s'écrit que sur preuve. Écrire une inférence ici produirait un
+                # « Vision native » définitif, affiché tel quel et appliqué à la génération.
+                supports_vision=ModelCatalog.declares_vision(provider, model_id),
+                supports_thinking=spec.supports_thinking if spec else False,
+                supports_json=spec.supports_json if spec else True,
+                speed_rating=spec.speed_rating if spec else "Moyen",
+                quality_tier=spec.quality_tier if spec else "Standard",
+                recommended_tasks=",".join(spec.recommended_tasks) if spec else "",
+                description=spec.description if spec else "",
+            )
+            self.refresh_data()
+            if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+                self.ai_manager.reload_provider()
+
+            from ankidraft.utils.event_bus import LLMModelsChangedEvent, event_bus
+
+            event_bus.publish(
+                LLMModelsChangedEvent(
+                    action="created",
+                    model_id=model_id,
+                    provider=provider,
+                )
+            )
+
+            show_toast(self, tr("Moteur '%1' ajouté au catalogue !", name))
+        except Exception as e:
+            show_toast(self, tr("Erreur lors de l'ajout : %1", e), is_error=True)
+
+    def _add_custom_engine(self) -> None:
+        """Boîte de dialogue unifiée pour ajouter un moteur IA personnalisé."""
+        from ankidraft.ui.widgets.settings_modal.dialogs.model_config_dialog import ModelConfigDialog
+
+        dialog = ModelConfigDialog(config=None, parent=self)
+        if dialog.exec():
+            new_cfg = dialog.get_config()
+            if new_cfg:
+                self.refresh_data()
+                if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+                    self.ai_manager.reload_provider()
+                show_toast(self, tr("Moteur '%1' ajouté au catalogue !", new_cfg.display_name))
+
+    def _edit_selected_engine(self, engine_id: int | None = None) -> None:
+        """Ouvre le dialogue d'édition unifié pour le moteur IA sélectionné ou passé par id."""
+        if engine_id is None:
+            selected = self.table_engines.selectedItems()
+            if not selected:
+                show_toast(self, self.tr("Veuillez sélectionner un moteur IA à modifier."), is_error=True)
+                return
+            row = selected[0].row()
+            item = self.table_engines.item(row, 0)
+            if not item:
+                return
+            engine_id = item.data(Qt.ItemDataRole.UserRole)
+            if not engine_id:
+                return
+
+        config = LLMConfigModel.get_or_none(LLMConfigModel.id == engine_id)
+        if not config:
+            show_toast(self, self.tr("Moteur IA introuvable."), is_error=True)
+            return
+
+        from ankidraft.ui.widgets.settings_modal.dialogs.model_config_dialog import ModelConfigDialog
+
+        dialog = ModelConfigDialog(config=config, parent=self)
+        if dialog.exec():
+            self.refresh_data()
+            if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+                self.ai_manager.reload_provider()
+            show_toast(self, tr("Moteur '%1' mis à jour !", config.display_name))
+
+    def _on_table_item_changed(self, item: QTableWidgetItem) -> None:
+        first_item = self.table_engines.item(item.row(), 0)
+        if not first_item:
+            return
+        engine_id = first_item.data(Qt.ItemDataRole.UserRole)
+        if not engine_id:
+            return
+        try:
+            config = LLMConfigModel.get_by_id(engine_id)
+            if item.column() == 0:
+                config.display_name = item.text().strip()
+            elif item.column() == 1:
+                config.provider = item.text().strip().lower()
+            elif item.column() == 2:
+                config.model_id = item.text().strip()
+            config.save()
+            if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+                self.ai_manager.reload_provider()
+
+            from ankidraft.utils.event_bus import LLMModelsChangedEvent, event_bus
+
+            event_bus.publish(
+                LLMModelsChangedEvent(
+                    action="updated",
+                    model_id=config.model_id,
+                    provider=config.provider,
+                )
+            )
+        except Exception as e:
+            logger.error("Erreur modification moteur: %s", e)
+
+    def _del_engine(self, engine_id: int | None = None, confirm: bool = True) -> None:
+        """Supprime le moteur IA sélectionné (ou passé par id) avec confirmation."""
+        if engine_id is None:
+            selected = self.table_engines.selectedItems()
+            if not selected:
+                show_toast(self, self.tr("Veuillez sélectionner un moteur IA à supprimer."), is_error=True)
+                return
+            row = selected[0].row()
+            item = self.table_engines.item(row, 0)
+            if not item:
+                return
+            engine_id = item.data(Qt.ItemDataRole.UserRole)
+            if not engine_id:
+                return
+
+        config = LLMConfigModel.get_or_none(LLMConfigModel.id == engine_id)
+        if not config:
+            show_toast(self, self.tr("Moteur IA introuvable."), is_error=True)
+            return
+        name = config.display_name or config.model_id
+        deleted_model_id = config.model_id
+        deleted_provider = config.provider
+
+        if confirm:
+            from PySide6.QtWidgets import QMessageBox
+
+            res = QMessageBox.question(
+                self,
+                self.tr("Confirmer la suppression"),
+                tr("Êtes-vous sûr de vouloir supprimer le moteur IA '%1' du catalogue ?", name),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if res != QMessageBox.StandardButton.Yes:
+                return
+
+        try:
+            # Si le modèle supprimé était le modèle par défaut, réinitialiser
+            default_m_id = SettingsService.get("ai/default_model_id", "")
+            if config.model_id == default_m_id:
+                SettingsService.set("ai/default_model_id", "", category="ai")
+
+            LLMConfigModel.delete_by_id(engine_id)
+            self.refresh_data()
+            if self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+                self.ai_manager.reload_provider()
+
+            from ankidraft.utils.event_bus import LLMModelsChangedEvent, event_bus
+
+            event_bus.publish(
+                LLMModelsChangedEvent(
+                    action="deleted",
+                    model_id=deleted_model_id,
+                    provider=deleted_provider,
+                )
+            )
+
+            show_toast(self, tr("Moteur IA '%1' supprimé du catalogue.", name))
+        except Exception as e:
+            show_toast(self, tr("Erreur suppression : %1", e), is_error=True)
+
+    def save_tab(self) -> None:
+        """Sauvegarde les clés d'API, l'URL Ollama, synchronise les LLMConfigModel, sauvegarde les options globales et recharge l'IA."""
+        from ankidraft.utils.secret_store import store_llm_key
+
+        had_ai_changes = self.has_pending_changes()
+
+        for p_id, edit in self.key_edits.items():
+            key_val = edit.text().strip()
+            if not key_val or values_equal(key_val, self._initial_keys.get(p_id, "")):
+                continue
+            if store_llm_key(p_id, p_id, key_val):
+                # Clé dans le trousseau OS : ne plus la persister en clair en BDD
+                try:
+                    LLMConfigModel.update(api_key="").where(LLMConfigModel.provider == p_id).execute()
+                except Exception as e:
+                    logger.warning("Erreur mise à jour clé BDD pour %s: %s", p_id, e)
+                # Synchroniser la variable d'environnement de session
+                os.environ[f"{p_id.upper()}_API_KEY"] = key_val
+            else:
+                # Pas de repli en clair : le trousseau OS est indisponible, la clé n'est pas enregistrée
+                logger.error(
+                    "Trousseau OS (keyring) indisponible : la clé '%s' n'a pas été enregistrée (aucun stockage en clair).",
+                    p_id,
+                )
+
+        SettingsService.set("ollama/url", self.le_ollama_url.text().strip(), category="ai")
+        if hasattr(self, "le_opencode_url"):
+            SettingsService.set(
+                "opencode/base_url",
+                self.le_opencode_url.text().strip() or "https://opencode.ai/zen/v1",
+                category="ai",
+            )
+        if hasattr(self, "le_openrouter_url"):
+            SettingsService.set(
+                "openrouter/base_url",
+                self.le_openrouter_url.text().strip() or "https://openrouter.ai/api/v1",
+                category="ai",
+            )
+
+        # Sauvegarde des préférences globales IA
+        def_model = self.cb_default_model.currentData()
+        SettingsService.set("ai/default_model_id", str(def_model) if def_model else "", category="ai")
+
+        temp_val = round(self.slider_temp.value() / 100.0, 2)
+        SettingsService.set("ai/temperature", temp_val, category="ai")
+
+        max_tokens_val = self.cb_max_tokens.currentData()
+        if max_tokens_val is not None:
+            SettingsService.set("ai/max_tokens", int(max_tokens_val), category="ai")
+
+        thinking_val = self.cb_thinking.currentData()
+        if thinking_val is not None:
+            SettingsService.set("ai/thinking_budget", int(thinking_val), category="ai")
+
+        timeout_val = self.cb_timeout.currentData()
+        if timeout_val is not None:
+            SettingsService.set("ai/generation_timeout_seconds", int(timeout_val), category="ai")
+
+        # Paramètres de génération par défaut (nouvelle section)
+        SettingsService.set("ai/default_temperature", round(self.spn_ai_temperature.value(), 2), category="ai")
+        SettingsService.set("ai/max_tokens_budget", int(self.spn_ai_max_tokens.value()), category="ai")
+        SettingsService.set("ai/request_timeout_sec", int(self.spn_ai_timeout.value()), category="ai")
+
+        c_tokens_val = self.cb_consultant_token_budget.currentData()
+        if c_tokens_val is not None:
+            SettingsService.set("ai/consultant_token_budget", int(c_tokens_val), category="ai")
+
+        c_cost_val = self.cb_consultant_cost_budget.currentData()
+        if c_cost_val is not None:
+            SettingsService.set("ai/consultant_cost_budget", float(c_cost_val), category="ai")
+
+        SettingsService.set("ai/streaming", self.toggle_streaming.is_checked(), category="ai")
+        SettingsService.set("ai/vision_enabled", self.toggle_vision.is_checked(), category="ai")
+        SettingsService.set("ai/auto_validation", self.toggle_autoval.is_checked(), category="ai")
+        SettingsService.set("ai/auto_linter", self.toggle_linter.is_checked(), category="ai")
+
+        SettingsService.set("ai/rag_top_k", self.slider_rag_topk.value(), category="ai")
+        SettingsService.set("ai/rag_similarity_threshold", round(self.slider_rag_sim.value() / 100.0, 2), category="ai")
+
+        # Sauvegarde de la configuration MCP (QSettings)
+        if hasattr(self, "chk_mcp_enabled") and hasattr(self, "spin_mcp_port"):
+            from ankidraft.utils.environment import get_app_qsettings
+
+            q_settings = get_app_qsettings()
+            q_settings.setValue("mcp/enabled", self.chk_mcp_enabled.isChecked())
+            q_settings.setValue("mcp/port", self.spin_mcp_port.value())
+            if hasattr(self, "cb_consultant_default_tab"):
+                q_settings.setValue("consultant/default_tab", str(self.cb_consultant_default_tab.currentData() or "mcp"))
+            if hasattr(self, "cb_consultant_prompt_target"):
+                q_settings.setValue("consultant/external_prompt_target", str(self.cb_consultant_prompt_target.currentData() or "mcp"))
+
+        if had_ai_changes and self.ai_manager and hasattr(self.ai_manager, "reload_provider"):
+            try:
+                self.ai_manager.reload_provider()
+            except Exception as e:
+                logger.warning("Erreur reload_provider lors de save_tab: %s", e)
+
+        self._record_initial_state()
+
+    def _get_current_settings(self) -> dict[str, Any]:
+        """Extrait l'état actuel des contrôles de réglages IA."""
+        return {
+            "ollama_url": self.le_ollama_url.text().strip(),
+            "opencode_url": self.le_opencode_url.text().strip() if hasattr(self, "le_opencode_url") else "",
+            "openrouter_url": self.le_openrouter_url.text().strip() if hasattr(self, "le_openrouter_url") else "",
+            "default_model": str(self.cb_default_model.currentData() or ""),
+            "temp": round(self.slider_temp.value() / 100.0, 2),
+            "max_tokens": int(self.cb_max_tokens.currentData() or 0),
+            "thinking": int(self.cb_thinking.currentData() or 0),
+            "timeout": int(self.cb_timeout.currentData() or 0),
+            "streaming": self.toggle_streaming.is_checked(),
+            "vision": self.toggle_vision.is_checked(),
+            "autoval": self.toggle_autoval.is_checked(),
+            "linter": self.toggle_linter.is_checked(),
+            "rag_top_k": self.slider_rag_topk.value(),
+            "rag_sim": round(self.slider_rag_sim.value() / 100.0, 2),
+            "mcp_enabled": self.chk_mcp_enabled.isChecked() if hasattr(self, "chk_mcp_enabled") else True,
+            "mcp_port": self.spin_mcp_port.value() if hasattr(self, "spin_mcp_port") else 8765,
+            "consultant_default_tab": str(self.cb_consultant_default_tab.currentData() or "mcp") if hasattr(self, "cb_consultant_default_tab") else "mcp",
+            "consultant_prompt_target": str(self.cb_consultant_prompt_target.currentData() or "mcp") if hasattr(self, "cb_consultant_prompt_target") else "mcp",
+            "ai_default_temperature": round(self.spn_ai_temperature.value(), 2),
+            "ai_max_tokens_budget": int(self.spn_ai_max_tokens.value()),
+            "ai_request_timeout_sec": int(self.spn_ai_timeout.value()),
+        }
+
+    def _record_initial_state(self) -> None:
+        """Capture l'état initial des clés et réglages IA en mémoire vive pour la détection dirty à zéro coût BDD."""
+        self._initial_keys = {p_id: edit.text().strip() for p_id, edit in self.key_edits.items()}
+        self._initial_settings = self._get_current_settings()
+
+    def has_pending_changes(self) -> bool:
+        """True si un réglage IA (clés, URL Ollama, modèle, génération, RAG) diffère de sa valeur initiale en mémoire."""
+        if not hasattr(self, "_initial_settings"):
+            return False
+        for p_id, edit in self.key_edits.items():
+            if not values_equal(edit.text().strip(), self._initial_keys.get(p_id, "")):
+                return True
+        current = self._get_current_settings()
+        return any(not values_equal(current[k], self._initial_settings.get(k)) for k in current)
+
+    def refresh_theme(self, profile: Any) -> None:
+        self.lbl_sec_keys.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px;")
+        self.lbl_sec_ollama.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        if hasattr(self, "lbl_sec_mcp"):
+            self.lbl_sec_mcp.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        self.lbl_sec_cat.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 2px;")
+        if hasattr(self, "lbl_sec_global_prefs"):
+            self.lbl_sec_global_prefs.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
+        if hasattr(self, "lbl_sec_gen_defaults"):
+            self.lbl_sec_gen_defaults.setStyleSheet(f"color: {profile.text_muted}; font-size: 10.5px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
+
+        self.card_keys.refresh_theme(profile)
+        self.card_ollama.refresh_theme(profile)
+        if hasattr(self, "card_mcp"):
+            self.card_mcp.refresh_theme(profile)
+        if hasattr(self, "grp_mcp"):
+            self.grp_mcp.refresh_theme(profile)
+        if hasattr(self, "chk_mcp_enabled"):
+            self.chk_mcp_enabled.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "lbl_mcp_port"):
+            self.lbl_mcp_port.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_consultant_default_tab"):
+            self.lbl_consultant_default_tab.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_consultant_prompt_target"):
+            self.lbl_consultant_prompt_target.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "card_global_prefs"):
+            self.card_global_prefs.refresh_theme(profile)
+        if hasattr(self, "sec_advanced_gen"):
+            self.sec_advanced_gen.refresh_theme(profile)
+
+        if hasattr(self, "lbl_ol_url"):
+            self.lbl_ol_url.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "lbl_oc_url"):
+            self.lbl_oc_url.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "lbl_or_url"):
+            self.lbl_or_url.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "lbl_default_model"):
+            self.lbl_default_model.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "lbl_temp_title"):
+            self.lbl_temp_title.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_temp_val"):
+            self.lbl_temp_val.setStyleSheet(f"color: {profile.text_primary}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
+        if hasattr(self, "lbl_tokens_title"):
+            self.lbl_tokens_title.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_thinking_title"):
+            self.lbl_thinking_title.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_timeout_title"):
+            self.lbl_timeout_title.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        if hasattr(self, "lbl_rag_topk_title"):
+            self.lbl_rag_topk_title.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_rag_topk_val"):
+            self.lbl_rag_topk_val.setStyleSheet(f"color: {profile.text_primary}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
+        if hasattr(self, "lbl_rag_sim_title"):
+            self.lbl_rag_sim_title.setStyleSheet(f"color: {profile.text_secondary}; font-size: 11px; font-weight: 500;")
+        if hasattr(self, "lbl_rag_sim_val"):
+            self.lbl_rag_sim_val.setStyleSheet(f"color: {profile.text_primary}; font-family: {DesignTokens.FONT_CODE}; font-size: 11px; font-weight: bold;")
+
+        for lbl in self.lbl_provider_labels:
+            lbl.setStyleSheet(f"color: {profile.text_primary}; font-size: 12px; font-weight: 500;")
+        for edit in self.key_edits.values():
+            edit.refresh_theme(profile)
+        if hasattr(self, "table_engines") and hasattr(self.table_engines, "refresh_theme"):
+            self.table_engines.refresh_theme(profile)
+
+    def _on_rotate_mcp_token(self) -> None:
+        """Demande confirmation et déclenche le renouvellement du jeton MCP."""
+        from PySide6.QtWidgets import QMessageBox
+
+        res = QMessageBox.question(
+            self,
+            self.tr("Renouveler le jeton MCP"),
+            self.tr(
+                "Voulez-vous générer un nouveau jeton d'authentification Bearer pour le serveur MCP ?\n\n"
+                "Tous les clients MCP externes configurés (Claude Desktop, etc.) devront être mis à jour "
+                "avec ce nouveau jeton."
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if res == QMessageBox.StandardButton.Yes:
+            self.rotate_mcp_token_requested.emit()
+
+    def _relayout_toolbar(self, is_narrow: bool) -> None:
+        """Réorganise la barre d'outils du catalogue : 2 lignes sous 700px, 1 ligne au-delà."""
+        for w in (self.btn_browse_catalog, self.btn_add_menu, self.btn_edit_engine, self.btn_del_engine):
+            w.setParent(None)
+
+        while self.toolbar_vlayout.count():
+            item = self.toolbar_vlayout.takeAt(0)
+            if item.layout():
+                while item.layout().count():
+                    item.layout().takeAt(0)
+
+        if is_narrow:
+            row_top = QHBoxLayout()
+            row_top.setContentsMargins(0, 0, 0, 0)
+            row_top.addWidget(self.btn_browse_catalog)
+
+            row_actions = QHBoxLayout()
+            row_actions.setContentsMargins(0, 0, 0, 0)
+            row_actions.setSpacing(8)
+            row_actions.addWidget(self.btn_add_menu)
+            row_actions.addWidget(self.btn_edit_engine)
+            row_actions.addStretch()
+            row_actions.addWidget(self.btn_del_engine)
+
+            self.toolbar_vlayout.addLayout(row_top)
+            self.toolbar_vlayout.addLayout(row_actions)
+        else:
+            row_all = QHBoxLayout()
+            row_all.setContentsMargins(0, 0, 0, 0)
+            row_all.setSpacing(8)
+            row_all.addWidget(self.btn_browse_catalog)
+            row_all.addWidget(self.btn_add_menu)
+            row_all.addWidget(self.btn_edit_engine)
+            row_all.addStretch()
+            row_all.addWidget(self.btn_del_engine)
+
+            self.toolbar_vlayout.addLayout(row_all)
+
+    def _relayout_toggles(self, is_narrow: bool) -> None:
+        """Réorganise la grille des bascules globales : 1 colonne sous 700px, 2 colonnes au-delà."""
+        for t in (self.toggle_streaming, self.toggle_vision, self.toggle_autoval, self.toggle_linter):
+            self.toggles_grid.removeWidget(t)
+
+        if is_narrow:
+            self.toggles_grid.addWidget(self.toggle_streaming, 0, 0)
+            self.toggles_grid.addWidget(self.toggle_vision, 1, 0)
+            self.toggles_grid.addWidget(self.toggle_autoval, 2, 0)
+            self.toggles_grid.addWidget(self.toggle_linter, 3, 0)
+            self.toggles_grid.setColumnStretch(0, 1)
+            self.toggles_grid.setColumnStretch(1, 0)
+        else:
+            self.toggles_grid.addWidget(self.toggle_streaming, 0, 0)
+            self.toggles_grid.addWidget(self.toggle_vision, 0, 1)
+            self.toggles_grid.addWidget(self.toggle_autoval, 1, 0)
+            self.toggles_grid.addWidget(self.toggle_linter, 1, 1)
+            self.toggles_grid.setColumnStretch(0, 1)
+            self.toggles_grid.setColumnStretch(1, 1)
+
+    def _relayout_gen_grid(self, is_narrow: bool) -> None:
+        """Réorganise les paramètres avancés de génération : 2 colonnes sous 700px, 3 colonnes au-delà."""
+        cols = [
+            self.temp_col,
+            self.tokens_col,
+            self.thinking_col,
+            self.consultant_tokens_col,
+            self.consultant_cost_col,
+            self.info_guard_col,
+        ]
+        for c in cols:
+            self.gen_grid.removeItem(c)
+
+        if is_narrow:
+            self.gen_grid.addLayout(self.temp_col, 0, 0)
+            self.gen_grid.addLayout(self.tokens_col, 0, 1)
+            self.gen_grid.addLayout(self.thinking_col, 1, 0)
+            self.gen_grid.addLayout(self.consultant_tokens_col, 1, 1)
+            self.gen_grid.addLayout(self.consultant_cost_col, 2, 0)
+            self.gen_grid.addLayout(self.info_guard_col, 2, 1)
+            self.gen_grid.setColumnStretch(0, 1)
+            self.gen_grid.setColumnStretch(1, 1)
+            self.gen_grid.setColumnStretch(2, 0)
+        else:
+            self.gen_grid.addLayout(self.temp_col, 0, 0)
+            self.gen_grid.addLayout(self.tokens_col, 0, 1)
+            self.gen_grid.addLayout(self.thinking_col, 0, 2)
+            self.gen_grid.addLayout(self.consultant_tokens_col, 1, 0)
+            self.gen_grid.addLayout(self.consultant_cost_col, 1, 1)
+            self.gen_grid.addLayout(self.info_guard_col, 1, 2)
+            self.gen_grid.setColumnStretch(0, 1)
+            self.gen_grid.setColumnStretch(1, 1)
+            self.gen_grid.setColumnStretch(2, 1)
+
+    def _relayout_responsive(self, is_narrow: bool) -> None:
+        """Applique l'adaptation réactive sur l'ensemble des sous-sections de l'onglet."""
+        self._relayout_toolbar(is_narrow)
+        self._relayout_toggles(is_narrow)
+        self._relayout_gen_grid(is_narrow)
+
+    def resizeEvent(self, event: Any) -> None:
+        """Adapte dynamiquement les grilles selon la largeur disponible (seuil à 700px)."""
+        super().resizeEvent(event)
+        is_narrow = self.width() < 700
+        if getattr(self, "_last_is_narrow", None) != is_narrow:
+            self._last_is_narrow = is_narrow
+            self._relayout_responsive(is_narrow)

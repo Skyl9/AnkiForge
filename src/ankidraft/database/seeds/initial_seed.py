@@ -1,0 +1,400 @@
+"""Amorçage des données d'usine : personas, configurations LLM, pipelines et types de notes."""
+
+import json
+import logging
+from pathlib import Path
+
+from ankidraft.database.base import db
+from ankidraft.database.models.ai import LLMConfigModel, PersonaModel
+from ankidraft.database.models.flags import FlagDefinitionModel
+from ankidraft.database.models.pipelines import PipelineModel, PipelineStepModel
+from ankidraft.database.note_type_catalog import seed_default_note_types
+from ankidraft.database.seeds.linter_rules_seed import seed_default_linter_rules
+
+logger = logging.getLogger(__name__)
+
+
+def _repair_empty_prompt(persona: PersonaModel, prompt: str) -> None:
+    """Restaure un prompt d'usine manquant sans écraser une personnalisation."""
+    if not persona.system_prompt.strip() and prompt:
+        persona.system_prompt = prompt
+        persona.save(only=[PersonaModel.system_prompt])
+
+
+def seed_initial_data() -> None:
+    """Peuple la base avec les données métier initiales (Modèles, Prompts, Personas, Pipelines).
+
+    Utilise get_or_create pour être idempotent et permettre les mises à jour sans purger la BDD.
+
+    L'ensemble du seed est propagé dans UNE transaction (audit "writes-outside-atomic") : un échec
+    partiel ne laisse jamais un état hybride en BDD (ex: pipeline orphelin sans son persona).
+    """
+    with db.atomic():
+        _seed_initial_data_inner()
+
+
+def _seed_initial_data_inner() -> None:
+    """Corps interne du seed (idempotent). Exécuté dans la transaction de seed_initial_data()."""
+
+    juge_prompt = (
+        "Tu es l'Agent Juge d'AnkiForge, un fact-checker impitoyable contre les hallucinations.\n"
+        "Je vais te fournir le contenu d'une carte d'apprentissage (Anki) et le fragment de cours (Chunk) dont elle est issue.\n"
+        "Ta mission est de vérifier que la carte ne contredit pas le cours et n'invente aucune information.\n\n"
+        "Format de réponse JSON strict :\n"
+        "{\n"
+        '  "is_hallucinating": false,\n'
+        '  "reason": "La carte reprend exactement la définition du cours sans rien ajouter."\n'
+        "}"
+    )
+    juge, _ = PersonaModel.get_or_create(
+        name="Juge Fact-Checker",
+        defaults={
+            "description": "Vérifie qu'une carte ne dit pas le contraire de son cours source (Anti-Hallucination).",
+            "system_prompt": juge_prompt,
+        },
+    )
+    _repair_empty_prompt(juge, juge_prompt)
+
+    # Chemin vers les ressources de prompts (dossier src/ressources/prompts ou src/ankidraft/ressources/prompts)
+    prompts_dir = Path(__file__).parent.parent.parent / "ressources" / "prompts"
+    if not prompts_dir.exists():
+        prompts_dir = Path(__file__).parent.parent.parent.parent / "ressources" / "prompts"
+
+    # ==========================================
+    # INITIALISATION DES DÉFINITIONS DE DRAPEAUX ANKI
+    # ==========================================
+    flag_definitions = [
+        {"value": 0, "name": "Aucun", "color_hex": "transparent", "is_customizable": False, "sort_order": 0},
+        {"value": 1, "name": "Rouge", "color_hex": "#ef4444", "is_customizable": True, "sort_order": 1},
+        {"value": 2, "name": "Orange", "color_hex": "#f97316", "is_customizable": True, "sort_order": 2},
+        {"value": 3, "name": "Vert", "color_hex": "#10b981", "is_customizable": True, "sort_order": 3},
+        {"value": 4, "name": "Bleu", "color_hex": "#3b82f6", "is_customizable": True, "sort_order": 4},
+        {"value": 5, "name": "Rose", "color_hex": "#ec4899", "is_customizable": True, "sort_order": 5},
+        {"value": 6, "name": "Turquoise", "color_hex": "#06b6d4", "is_customizable": True, "sort_order": 6},
+        {"value": 7, "name": "Violet", "color_hex": "#a855f7", "is_customizable": True, "sort_order": 7},
+    ]
+    for flag_data in flag_definitions:
+        FlagDefinitionModel.get_or_create(value=flag_data["value"], defaults=flag_data)
+
+    # ==========================================
+    # INITIALISATION DU MODÈLE BASIQUE D'USINE
+    # ==========================================
+    # Un profil vierge ne contient qu'un unique modèle « Basique » (ADR 0037).
+    # Les modèles spécialisés (Cloze, Image Occlusion Enhanced) sont activés à la
+    # demande via le Starter Pack ou créés au premier usage.
+    seed_default_note_types()
+
+    # Lecture des prompts depuis les fichiers .jinja2
+    extracteur_prompt = (prompts_dir / "extracteur.jinja2").read_text(encoding="utf-8") if (prompts_dir / "extracteur.jinja2").exists() else ""
+    controleur_prompt = (prompts_dir / "controleur.jinja2").read_text(encoding="utf-8") if (prompts_dir / "controleur.jinja2").exists() else ""
+    cloze_prompt = (prompts_dir / "cloze.jinja2").read_text(encoding="utf-8") if (prompts_dir / "cloze.jinja2").exists() else ""
+
+    # ==========================================
+    # PERSONA 1 : L'ARCHIVISTE PÉDAGOGUE (Extracteur)
+    # ==========================================
+    extracteur, _ = PersonaModel.get_or_create(
+        name="Archiviste Pédagogue",
+        defaults={
+            "description": "Extrait le cours en respectant l'atomicité, la dissimulation des hypothèses et le tout-LaTeX.",
+            "system_prompt": extracteur_prompt,
+        },
+    )
+    _repair_empty_prompt(extracteur, extracteur_prompt)
+
+    # ==========================================
+    # PERSONA 2 : LE CONTRÔLEUR QUALITÉ (Linter)
+    # ==========================================
+    controleur, _ = PersonaModel.get_or_create(
+        name="Linter & Contrôleur Qualité",
+        defaults={
+            "description": "Applique le mapping CSS, audite le LaTeX (ajoute &nbsp;), traque les sauts de ligne et valide le JSON.",
+            "system_prompt": controleur_prompt,
+        },
+    )
+    _repair_empty_prompt(controleur, controleur_prompt)
+
+    cloze_agent, _ = PersonaModel.get_or_create(
+        name="Générateur Auto-Cloze",
+        defaults={
+            "description": "Crée des phrases à trous (c1, c2) optimisées pour la mémorisation d'informations denses.",
+            "system_prompt": cloze_prompt,
+        },
+    )
+    _repair_empty_prompt(cloze_agent, cloze_prompt)
+
+    # ==========================================
+    # PERSONA 4 : L'ASSISTANT GÉNÉRALISTE
+    # ==========================================
+    generaliste_prompt = (
+        "Tu es l'Assistant Généraliste AnkiForge. \n"
+        "Ton rôle est d'accompagner l'utilisateur dans la gestion globale de sa base de connaissances.\n"
+        "Tu es capable d'analyser le contenu, proposer des modifications sur la structure des paquets, "
+        "suggérer des tags pertinents, ou détecter des doublons.\n"
+        "Si tu as besoin d'informations (comme la liste des paquets ou des agents), n'hésite pas à utiliser tes outils SQL pour inspecter la base de données.\n"
+        "Sois toujours clair, proactif, et pédagogue dans tes réponses."
+    )
+    consultant, _ = PersonaModel.get_or_create(
+        name="Consultant Généraliste",
+        defaults={
+            "description": "Assistant polyvalent pour gérer l'application, suggérer des tags et optimiser la structure de la collection.",
+            "system_prompt": generaliste_prompt,
+            "persona_type": "mcp",
+            "allowed_tools": json.dumps(["*"]),
+        },
+    )
+    _repair_empty_prompt(consultant, generaliste_prompt)
+
+    # ==========================================
+    # PERSONAS DÉDIÉS AU SERVEUR MCP
+    # ==========================================
+    from ankidraft.services.ai.tools_catalog import AGENT_PRESETS
+
+    wozniak, _ = PersonaModel.get_or_create(
+        name="Auditeur Wozniak",
+        defaults={
+            "description": "Auditeur expert basé sur les 20 règles de formulation de Piotr Wozniak (atomicité, clarté).",
+            "system_prompt": (
+                "Tu es l'Auditeur Qualité Wozniak d'AnkiForge. Ton rôle exclusif est d'analyser la clarté et la rétention des cartes "
+                "au regard des 20 règles fondamentales de Piotr Wozniak. Tu traques le manque d'atomicité, les listes complexes "
+                "et les interférences. Tu proposes des reformulations précises sous forme de Staged Diffs."
+            ),
+            "persona_type": "mcp",
+            "allowed_tools": json.dumps(AGENT_PRESETS["wozniak_auditor"]["tools"]),
+        },
+    )
+    _repair_empty_prompt(
+        wozniak,
+        (
+            "Tu es l'Auditeur Qualité Wozniak d'AnkiForge. Ton rôle exclusif est d'analyser la clarté et la rétention des cartes "
+            "au regard des 20 règles fondamentales de Piotr Wozniak. Tu traques le manque d'atomicité, les listes complexes "
+            "et les interférences. Tu proposes des reformulations précises sous forme de Staged Diffs."
+        ),
+    )
+
+    css_architect, _ = PersonaModel.get_or_create(
+        name="Architecte Modèles & CSS",
+        defaults={
+            "description": "Spécialiste de la structure des types de cartes, gabarits HTML/KaTeX et personnalisation visuelle CSS.",
+            "system_prompt": (
+                "Tu es l'Architecte Modèles & CSS d'AnkiForge. Ton rôle est de concevoir, auditer et améliorer les types de notes, "
+                "les schémas de champs, les templates Jinja2/KaTeX et les styles CSS. Tu t'assures de l'ergonomie visuelle sur mobile et desktop."
+            ),
+            "persona_type": "mcp",
+            "allowed_tools": json.dumps(AGENT_PRESETS["css_architect"]["tools"]),
+        },
+    )
+    _repair_empty_prompt(
+        css_architect,
+        (
+            "Tu es l'Architecte Modèles & CSS d'AnkiForge. Ton rôle est de concevoir, auditer et améliorer les types de notes, "
+            "les schémas de champs, les templates Jinja2/KaTeX et les styles CSS. Tu t'assures de l'ergonomie visuelle sur mobile et desktop."
+        ),
+    )
+
+    srs_analyst, _ = PersonaModel.get_or_create(
+        name="Analyste SRS & Sangsues",
+        defaults={
+            "description": "Spécialiste de la dynamique d'apprentissage, analyse des taux d'oubli, cartes sangsues et prédictions FSRS.",
+            "system_prompt": (
+                "Tu es l'Analyste SRS d'AnkiForge. Ton rôle est d'examiner en profondeur les métriques d'apprentissage de la collection : "
+                "distribution des intervalles, cartes provoquant des échecs répétés (sangsues), et charge de révision future."
+            ),
+            "persona_type": "mcp",
+            "allowed_tools": json.dumps(AGENT_PRESETS["srs_analyst"]["tools"]),
+        },
+    )
+    _repair_empty_prompt(
+        srs_analyst,
+        (
+            "Tu es l'Analyste SRS d'AnkiForge. Ton rôle est d'examiner en profondeur les métriques d'apprentissage de la collection : "
+            "distribution des intervalles, cartes provoquant des échecs répétés (sangsues), et charge de révision future."
+        ),
+    )
+
+    rag_researcher, _ = PersonaModel.get_or_create(
+        name="Chercheur RAG & Documents",
+        defaults={
+            "description": "Spécialiste de l'interrogation des sources documentaires importées, index sémantiques et analyse de couverture.",
+            "system_prompt": (
+                "Tu es le Chercheur RAG d'AnkiForge. Ton rôle est d'explorer les documents sources importés (PDF, web, transcriptions) "
+                "et la documentation officielle pour vérifier que toutes les notions clés ont été convenablement transformées en flashcards."
+            ),
+            "persona_type": "mcp",
+            "allowed_tools": json.dumps(AGENT_PRESETS["rag_researcher"]["tools"]),
+        },
+    )
+    _repair_empty_prompt(
+        rag_researcher,
+        (
+            "Tu es le Chercheur RAG d'AnkiForge. Ton rôle est d'explorer les documents sources importés (PDF, web, transcriptions) "
+            "et la documentation officielle pour vérifier que toutes les notions clés ont été convenablement transformées en flashcards."
+        ),
+    )
+
+    database_admin, _ = PersonaModel.get_or_create(
+        name="Administrateur BDD Peewee",
+        defaults={
+            "description": "Expert technique habilité à effectuer des diagnostics SQL directs et à exécuter des scripts Python.",
+            "system_prompt": (
+                "Tu es l'Administrateur BDD Peewee d'AnkiForge. Tu disposes des autorisations pour exécuter des requêtes SQL SELECT "
+                "en lecture seule et lancer des outils d'ingénierie Python afin d'extraire des rapports statistiques avancés."
+            ),
+            "persona_type": "mcp",
+            "allowed_tools": json.dumps(AGENT_PRESETS["database_admin"]["tools"]),
+        },
+    )
+    _repair_empty_prompt(
+        database_admin,
+        (
+            "Tu es l'Administrateur BDD Peewee d'AnkiForge. Tu disposes des autorisations pour exécuter des requêtes SQL SELECT "
+            "en lecture seule et lancer des outils d'ingénierie Python afin d'extraire des rapports statistiques avancés."
+        ),
+    )
+    # ==========================================
+    # CRÉATION DES PIPELINES
+    # ==========================================
+    pipeline_complet, _ = PipelineModel.get_or_create(
+        name="Excellence Math/Info (Archiviste + Linter)",
+        defaults={
+            "description": "Pipeline haute-fidélité pour les cours scientifiques. Extrait intelligemment puis formate le LaTeX, les balises CSS et le code.",
+        },
+    )
+    if not PipelineStepModel.select().where((PipelineStepModel.pipeline == pipeline_complet) & (PipelineStepModel.step_order == 1)).exists():
+        PipelineStepModel.create(pipeline=pipeline_complet, persona=extracteur, step_type="LLM_PROMPT", step_order=1)
+    if not PipelineStepModel.select().where((PipelineStepModel.pipeline == pipeline_complet) & (PipelineStepModel.step_order == 2)).exists():
+        PipelineStepModel.create(pipeline=pipeline_complet, persona=controleur, step_type="LLM_PROMPT", step_order=2)
+
+    pipeline_rapide, _ = PipelineModel.get_or_create(
+        name="Extraction Simple (Brouillon)",
+        defaults={
+            "description": "Utilise uniquement l'Archiviste. Rapide et économe, mais sans vérification du formatage HTML/LaTeX.",
+        },
+    )
+    if not PipelineStepModel.select().where((PipelineStepModel.pipeline == pipeline_rapide) & (PipelineStepModel.step_order == 1)).exists():
+        PipelineStepModel.create(pipeline=pipeline_rapide, persona=extracteur, step_type="LLM_PROMPT", step_order=1)
+
+    # ==========================================
+    # CRÉATION DES MOTEURS IA
+    # ==========================================
+    if LLMConfigModel.select().count() == 0:
+        LLMConfigModel.create(
+            display_name="Google Gemini 3.5 Flash Lite",
+            provider="gemini",
+            model_id="gemini-3.5-flash-lite",
+            context_limit=1048576,
+            max_tokens=65536,
+            sort_order=0,
+            prompt_pricing=0.0,
+            completion_pricing=0.0,
+            is_free=True,
+            supports_vision=True,
+            supports_thinking=False,
+            supports_json=True,
+            speed_rating="ultra-fast",
+            quality_tier="economy",
+            recommended_tasks='["flashcards", "batch", "vision"]',
+            description="Le moteur par défaut ultra-rapide et gratuit d'AnkiForge.",
+        )
+        LLMConfigModel.create(
+            display_name="GPT-4o (OpenAI)",
+            provider="openai",
+            model_id="gpt-4o",
+            context_limit=128000,
+            max_tokens=16384,
+            sort_order=10,
+            prompt_pricing=2.5,
+            completion_pricing=10.0,
+            supports_vision=True,
+            supports_thinking=False,
+            supports_json=True,
+            speed_rating="fast",
+            quality_tier="flagship",
+            recommended_tasks='["flashcards", "audit", "vision"]',
+            description="Référence polyvalente pour la formulation et l'audit Wozniak.",
+        )
+        LLMConfigModel.create(
+            display_name="Claude 3.7 Sonnet (Anthropic)",
+            provider="anthropic",
+            model_id="claude-3-7-sonnet-20250219",
+            context_limit=200000,
+            max_tokens=64000,
+            sort_order=15,
+            prompt_pricing=3.0,
+            completion_pricing=15.0,
+            supports_vision=True,
+            supports_thinking=True,
+            supports_json=True,
+            speed_rating="fast",
+            quality_tier="flagship",
+            recommended_tasks='["flashcards", "audit", "reasoning", "vision"]',
+            description="Modèle hybride avec mode Extended Thinking et vision de pointe.",
+        )
+        LLMConfigModel.create(
+            display_name="Mistral Local (Ollama)",
+            provider="ollama",
+            model_id="mistral",
+            context_limit=32768,
+            max_tokens=16384,
+            sort_order=30,
+            prompt_pricing=0.0,
+            completion_pricing=0.0,
+            is_free=True,
+            supports_vision=False,
+            supports_thinking=False,
+            supports_json=True,
+            speed_rating="fast",
+            quality_tier="balanced",
+            recommended_tasks='["flashcards", "batch"]',
+            description="Modèle 100% local hébergé sur votre machine via Ollama.",
+        )
+        LLMConfigModel.create(
+            display_name="OpenCode (DeepSeek V4 Flash)",
+            provider="opencode",
+            model_id="deepseek-v4-flash",
+            context_limit=128000,
+            max_tokens=16384,
+            sort_order=40,
+            prompt_pricing=0.15,
+            completion_pricing=0.60,
+            is_free=False,
+            supports_vision=True,
+            supports_thinking=False,
+            supports_json=True,
+            speed_rating="ultra-fast",
+            quality_tier="flagship",
+            recommended_tasks='["flashcards", "batch", "audit"]',
+            description="Modèle ultra-rapide et économique via la passerelle OpenCode.",
+        )
+        LLMConfigModel.create(
+            display_name="OpenRouter Gratuit (Qwen 3.8 27B)",
+            provider="openrouter",
+            model_id="qwen/qwen3.8-27b:free",
+            context_limit=32768,
+            max_tokens=8192,
+            sort_order=45,
+            prompt_pricing=0.0,
+            completion_pricing=0.0,
+            is_free=True,
+            supports_vision=False,
+            supports_thinking=False,
+            supports_json=True,
+            speed_rating="fast",
+            quality_tier="balanced",
+            recommended_tasks='["flashcards", "batch", "audit"]',
+            description="Modèle open source 27B performant et 100% gratuit via OpenRouter.",
+        )
+
+    # ==========================================
+    # INITIALISATION DES RÈGLES WOZNIAK DU LINTER
+    # ==========================================
+    seed_default_linter_rules()
+
+    # ==========================================
+    # INITIALISATION DES OUTILS PYTHON NATIFS
+    # ==========================================
+    try:
+        from ankidraft.services.tools.tool_service import ToolService
+
+        ToolService.seed_builtin_tools()
+    except Exception as e:
+        logger.warning("Erreur seed_builtin_tools: %s", e)

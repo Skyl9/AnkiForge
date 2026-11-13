@@ -1,0 +1,901 @@
+import logging
+import urllib.parse
+from typing import Any
+
+from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtGui import QColor, QFont
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QCheckBox,
+    QFrame,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QScrollArea,
+    QStackedWidget,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
+from ankidraft.ui.components.buttons import IconButton, PrimaryButton, SecondaryButton
+from ankidraft.ui.components.inputs import StyledComboBox
+from ankidraft.ui.models import SimilarityBadgeDelegate, SrsMasteryDelegate
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.ui.widgets.safe_web_preview import SafeWebEngineView
+from ankidraft.utils.anki_renderer import get_mathjax_script
+from ankidraft.utils.i18n import tr
+from ankidraft.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
+from ankidraft.utils.paths import get_media_dir
+
+logger = logging.getLogger(__name__)
+
+
+class DuplicateMatrixTable(QFrame):
+    """Matrice des doublons détectés (Upper section)."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("DuplicateMatrixTable")
+        self.setStyleSheet(f"""
+            QFrame#DuplicateMatrixTable {{
+                background: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 8px;
+            }}
+            QCheckBox::indicator {{
+                width: 14px;
+                height: 14px;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                background-color: {DesignTokens.BG_INPUT};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {DesignTokens.COLOR_BLUE};
+                border: 1px solid {DesignTokens.COLOR_BLUE};
+                image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyNCAyNCcgZmlsbD0nbm9uZScgc3Ryb2tlPSd3aGl0ZScgc3Ryb2tlLXdpZHRoPSc0JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwb2x5bGluZSBwb2ludHM9JzIwIDYgOSAxNyA0IDEyJz48L3BvbHlsaW5lPjwvc3ZnPg==);
+            }}
+        """)  # noqa: E501
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(10)
+
+        # 1. Title Row
+        h_title = QHBoxLayout()
+        h_title.setContentsMargins(0, 0, 0, 8)
+
+        icon_title = QLabel()
+        icon_title.setPixmap(load_phosphor_icon("ph.git-diff", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+        icon_title.setStyleSheet("border: none; background: transparent;")
+
+        lbl_title = QLabel(self.tr("Matrice de Doublons Détectés"))
+        lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
+        lbl_title.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; border: none; background: transparent;")
+
+        self.badge_count = QLabel(self.tr("0 paire à examiner"))
+        self.badge_count.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+        self.badge_count.setStyleSheet(
+            f"background: {DesignTokens.BG_ACTIVE}; color: {DesignTokens.ACCENT_PRIMARY}; padding: 3px 10px; border-radius: 9999px; border: 1px solid {DesignTokens.BORDER_COLOR};"
+        )
+
+        h_title.addWidget(icon_title)
+        h_title.addWidget(lbl_title)
+        h_title.addStretch()
+        h_title.addWidget(self.badge_count)
+        layout.addLayout(h_title)
+
+        # 1.5 Divider
+        divider = QFrame()
+        divider.setFixedHeight(1)
+        divider.setStyleSheet(f"background-color: {DesignTokens.BORDER_COLOR}; border: none;")
+        layout.addWidget(divider)
+
+        # 2. Action Bar - Ligne 1 (Paquet Cible + Actions)
+        h_line1 = QHBoxLayout()
+        h_line1.setContentsMargins(0, 0, 0, 4)
+        h_line1.setSpacing(10)
+
+        lbl_target = QLabel(self.tr("PAQUET CIBLE :"))
+        lbl_target.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
+        lbl_target.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+
+        self.btn_deck = SecondaryButton("L'ensemble des paquets", tooltip=self.tr("Sélectionner le paquet Anki cible pour la détection de doublons"))
+        self.btn_deck.setIcon(load_phosphor_icon("ph.cards", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_deck.setFixedHeight(28)
+
+        self.btn_auto_merge = PrimaryButton("Auto-fusionner >95%", tooltip=self.tr("Fusionner automatiquement les doublons dont la similarité dépasse 95%"))
+        self.btn_auto_merge.setIcon(load_on_accent_icon("ph.lightning"))
+        self.btn_auto_merge.setFixedHeight(28)
+
+        self.btn_reanalyze = PrimaryButton("Relancer l'analyse", tooltip=self.tr("Relancer le scan de détection vectorielle des doublons sur ce paquet"))
+        self.btn_reanalyze.setIcon(load_on_accent_icon("ph.arrows-clockwise"))
+        self.btn_reanalyze.setFixedHeight(28)
+
+        h_line1.addWidget(lbl_target)
+        h_line1.addWidget(self.btn_deck)
+        h_line1.addStretch()
+        h_line1.addWidget(self.btn_auto_merge)
+        h_line1.addWidget(self.btn_reanalyze)
+
+        layout.addLayout(h_line1)
+
+        # 3. Action Bar - Ligne 2 (Filtres & Seuil)
+        h_line2 = QHBoxLayout()
+        h_line2.setContentsMargins(0, 0, 0, 6)
+        h_line2.setSpacing(8)
+
+        lbl_filters = QLabel(self.tr("FILTRES :"))
+        lbl_filters.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
+        lbl_filters.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+
+        def create_filter_btn(text: str, is_active: bool = False) -> SecondaryButton:
+            btn = SecondaryButton(text)
+            btn.setFixedHeight(26)
+            if is_active:
+                btn.setStyleSheet(
+                    f"background: {DesignTokens.BG_ACTIVE}; border: 1px solid {DesignTokens.ACCENT_PRIMARY}; color: {DesignTokens.ACCENT_PRIMARY}; padding: 3px 10px; border-radius: 5px;"
+                )
+            else:
+                btn.setStyleSheet(f"background: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_SECONDARY}; padding: 3px 10px; border-radius: 5px;")
+            return btn
+
+        self.btn_filter_all = create_filter_btn("Tous (14)", is_active=True)
+        self.btn_filter_95 = create_filter_btn(">95% Identiques (4)")
+        self.btn_filter_katex = create_filter_btn("KaTeX (5)")
+        self.btn_filter_srs = create_filter_btn("Écarts SRS (3)")
+
+        h_line2.addWidget(lbl_filters)
+        h_line2.addWidget(self.btn_filter_all)
+        h_line2.addWidget(self.btn_filter_95)
+        h_line2.addWidget(self.btn_filter_katex)
+        h_line2.addWidget(self.btn_filter_srs)
+
+        h_line2.addSpacing(10)
+        lbl_threshold = QLabel(self.tr("Seuil :"))
+        lbl_threshold.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
+        lbl_threshold.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+
+        self.combo_threshold = StyledComboBox(density="compact")
+        self.combo_threshold.addItems([self.tr("Seuil > 80%"), self.tr("Seuil > 90%"), self.tr("Seuil > 95%")])
+        self.combo_threshold.setCurrentIndex(1)
+
+        h_line2.addWidget(lbl_threshold)
+        h_line2.addWidget(self.combo_threshold)
+        h_line2.addStretch()
+
+        layout.addLayout(h_line2)
+
+        # 3. Table
+        self.table = QTableWidget(0, 6)
+        self.table.setHorizontalHeaderLabels(["", self.tr("Similitude"), self.tr("Carte A (Originale)"), self.tr("Carte B (Duplicata)"), self.tr("Écart de Maîtrise SRS"), self.tr("Statut")])
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.table.setColumnWidth(0, 36)
+        self.table.setColumnWidth(1, 90)
+        self.table.setColumnWidth(4, 250)
+        self.table.setColumnWidth(5, 95)
+
+        self.table.verticalHeader().setDefaultSectionSize(38)
+        self.table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.setShowGrid(False)
+        self.table.verticalHeader().setVisible(False)
+
+        # Attachement des délégués vectoriels haute performance (0 QWidget par ligne)
+        self.similarity_delegate = SimilarityBadgeDelegate(self.table)
+        self.srs_delegate = SrsMasteryDelegate(self.table)
+        self.table.setItemDelegateForColumn(1, self.similarity_delegate)
+        self.table.setItemDelegateForColumn(4, self.srs_delegate)
+
+        # Style the header and table to match the maquette
+        self.table.horizontalHeader().setStyleSheet(f"""
+            QHeaderView::section {{
+                background-color: {DesignTokens.BG_PANEL};
+                color: {DesignTokens.TEXT_MUTED};
+                font-weight: bold;
+                font-size: 10px;
+                text-transform: uppercase;
+                border: none;
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                padding: 8px 10px;
+            }}
+        """)
+        self.table.setStyleSheet(f"""
+            QTableWidget {{
+                background: {DesignTokens.BG_MAIN};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 6px;
+            }}
+            QTableWidget::item {{
+                border-bottom: 1px solid {DesignTokens.BORDER_COLOR};
+                padding: 4px 8px;
+            }}
+            QTableWidget::item:selected {{
+                background: {DesignTokens.BG_ACTIVE};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
+
+        layout.addWidget(self.table)
+
+        self.empty_state = QLabel(self.tr("Aucun doublon détecté dans ce paquet"))
+        self.empty_state.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+        self.empty_state.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent; padding: 18px;")
+        self.empty_state.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_state.setVisible(False)
+        layout.addWidget(self.empty_state)
+
+        # 4. Global "Check All" CheckBox in the Header
+        self.check_all = QCheckBox(self.table.horizontalHeader())
+        self.check_all.setFixedSize(16, 16)
+        self.check_all.move(10, 7)
+        self.check_all.setChecked(True)
+        self.check_all.stateChanged.connect(self._toggle_all_rows)
+
+    def _toggle_all_rows(self, state: int):
+        new_state = Qt.CheckState.Checked if state == Qt.CheckState.Checked.value else Qt.CheckState.Unchecked
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 0)
+            if item:
+                item.setCheckState(new_state)
+
+    def add_row(self, note_a, content_a, note_b, content_b, similarity, row_data):
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+
+        chk = QTableWidgetItem()
+        chk.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+        chk.setCheckState(Qt.CheckState.Checked)
+        self.table.setItem(row, 0, chk)
+
+        # Similitude via SimilarityBadgeDelegate
+        sim_str = f"{similarity * 100:.1f}%"
+        item_sim = QTableWidgetItem(sim_str)
+        self.table.setItem(row, 1, item_sim)
+
+        cardA = content_a.get("Recto", content_a.get("Text", str(note_a.id)))
+        item_a = QTableWidgetItem(cardA[:100] + "..." if len(cardA) > 100 else cardA)
+        item_a.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+        item_a.setData(Qt.ItemDataRole.UserRole, row_data)
+        self.table.setItem(row, 2, item_a)
+
+        cardB = content_b.get("Recto", content_b.get("Text", str(note_b.id)))
+        item_b = QTableWidgetItem(cardB[:100] + "..." if len(cardB) > 100 else cardB)
+        item_b.setForeground(QColor(DesignTokens.TEXT_SECONDARY))
+        self.table.setItem(row, 3, item_b)
+
+        def _get_srs_str_color(note):
+            has_srs = hasattr(note, "srs_ivl") or (hasattr(note, "cards") and len(note.cards) > 0 and hasattr(note.cards[0], "srs_ivl"))
+            if has_srs:
+                reps = getattr(note, "srs_reps", 0)
+                if reps > 21:
+                    return "🟢 Maîtrisée", DesignTokens.COLOR_GREEN
+                elif reps > 5:
+                    return "🟡 Apprentissage", DesignTokens.COLOR_YELLOW
+                else:
+                    return "🔴 Nouvelle", DesignTokens.COLOR_RED
+            else:
+                return "⚪ Non étudiée", DesignTokens.TEXT_MUTED
+
+        str_a, color_a = _get_srs_str_color(note_a)
+        str_b, color_b = _get_srs_str_color(note_b)
+
+        # SRS Mastery via SrsMasteryDelegate
+        item_srs = QTableWidgetItem(f"{str_a} vs {str_b}")
+        item_srs.setData(Qt.ItemDataRole.UserRole, ((str_a, color_a), (str_b, color_b)))
+        self.table.setItem(row, 4, item_srs)
+
+        status = "En attente"
+        item_status = QTableWidgetItem(status)
+        item_status.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.table.setItem(row, 5, item_status)
+
+
+class DuplicateMergeInspector(QFrame):
+    """Inspecteur de fusion à 3 colonnes (Bottom section)."""
+
+    merge_requested = Signal(object, object, dict)  # note_keep, note_delete, merged_content
+    ignore_requested = Signal(object, object)  # note_a, note_b
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        from typing import Any
+
+        self.current_conflict: dict[str, Any] | None = None
+        self.view_modes = {"A": "source", "B": "source", "Fusion": "source"}
+        self.web_a: SafeWebEngineView | None = None
+        self.web_b: SafeWebEngineView | None = None
+        self.web_fusion: SafeWebEngineView | None = None
+        self.setObjectName("DuplicateMergeInspector")
+        self.setStyleSheet(f"QFrame#DuplicateMergeInspector {{ background: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 8px; }}")
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
+
+        # 1. Header with navigation and swap
+        h_header = QHBoxLayout()
+        h_header.setContentsMargins(0, 0, 0, 6)
+        h_header.setSpacing(10)
+
+        icon_merge = QLabel()
+        icon_merge.setPixmap(load_phosphor_icon("ph.git-merge", color=DesignTokens.ACCENT_PRIMARY).pixmap(16, 16))
+        icon_merge.setStyleSheet("border: none; background: transparent;")
+
+        lbl_title = QLabel(self.tr("Inspection & Fusion de Paire"))
+        lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.Bold))
+        lbl_title.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+        h_header.addWidget(icon_merge)
+        h_header.addWidget(lbl_title)
+
+        nav_widget = QFrame()
+        nav_widget.setStyleSheet(f"background: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; padding: 2px;")
+        nav_layout = QHBoxLayout(nav_widget)
+        nav_layout.setContentsMargins(4, 2, 4, 2)
+        nav_layout.setSpacing(4)
+
+        btn_prev = IconButton("ph.caret-left", "", 12)
+        btn_prev.setFixedSize(22, 22)
+        self.lbl_nav = QLabel(self.tr("Paire #1 / 14"))
+        self.lbl_nav.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+        self.lbl_nav.setStyleSheet("border: none; background: transparent;")
+        btn_next = IconButton("ph.caret-right", "", 12)
+        btn_next.setFixedSize(22, 22)
+
+        nav_layout.addWidget(btn_prev)
+        nav_layout.addWidget(self.lbl_nav)
+        nav_layout.addWidget(btn_next)
+        h_header.addWidget(nav_widget)
+
+        self.btn_swap = SecondaryButton("Permuter A ↔ B")
+        self.btn_swap.setIcon(load_phosphor_icon("ph.arrows-left-right", color=DesignTokens.ACCENT_PRIMARY))
+        self.btn_swap.setFixedHeight(26)
+        self.btn_swap.clicked.connect(self.on_swap)
+        h_header.addWidget(self.btn_swap)
+
+        h_header.addStretch()
+
+        self.lbl_sim = QLabel(self.tr("Similitude : --%"))
+        self.lbl_sim.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+        self.lbl_sim.setStyleSheet(
+            f"background: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; padding: 3px 10px; border-radius: 9999px; border: 1px solid {DesignTokens.COLOR_RED_BORDER};"
+        )
+        h_header.addWidget(self.lbl_sim)
+
+        layout.addLayout(h_header)
+
+        # 2. 3 Columns layout
+        h_cols = QHBoxLayout()
+        h_cols.setSpacing(10)
+
+        # Col 1: Card A
+        self.col_a, self.lbl_title_a, self.layout_a, self.stack_a, self.btn_keep_a, self.srs_a = self._create_card_col(
+            "CARTE #1", DesignTokens.COLOR_BLUE, "➔ Injecter", "Conserver Carte #1 (Originale)", "A"
+        )
+        h_cols.addWidget(self.col_a, 1)
+
+        # Col 2: Fusion
+        self.col_fusion = QFrame()
+        self.col_fusion.setObjectName("MergeColFusion")
+        self.col_fusion.setStyleSheet(f"QFrame#MergeColFusion {{ background: {DesignTokens.BG_PANEL}; border: 2px solid {DesignTokens.ACCENT_PRIMARY}; border-radius: 6px; }}")
+        f_layout = QVBoxLayout(self.col_fusion)
+        f_layout.setContentsMargins(10, 10, 10, 10)
+        f_layout.setSpacing(8)
+
+        f_header = QHBoxLayout()
+        f_header.setSpacing(4)
+        icon_sparkle = QLabel()
+        icon_sparkle.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
+        icon_sparkle.setStyleSheet("border: none; background: transparent;")
+        f_title = QLabel(self.tr("FUSION"))
+        f_title.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+        f_title.setStyleSheet(f"color: {DesignTokens.ACCENT_PRIMARY}; border: none; background: transparent;")
+        f_header.addWidget(icon_sparkle)
+        f_header.addWidget(f_title)
+        f_header.addStretch()
+
+        b_src, b_ktx = self._create_view_toggles("Fusion", DesignTokens.ACCENT_PRIMARY)
+        f_header.addWidget(b_src)
+        f_header.addWidget(b_ktx)
+        f_layout.addLayout(f_header)
+
+        self.f_body = QFrame()
+        self.f_body.setObjectName("FusionBodyFrame")
+        self.f_body.setStyleSheet(f"QFrame#FusionBodyFrame {{ background: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; }}")
+        f_body_layout = QVBoxLayout(self.f_body)
+        f_body_layout.setContentsMargins(6, 6, 6, 6)
+
+        self.stack_fusion = QStackedWidget()
+        scroll_fusion = QScrollArea()
+        scroll_fusion.setWidgetResizable(True)
+        scroll_fusion.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        fusion_container = QWidget()
+        fusion_container.setStyleSheet("background: transparent;")
+        self.merged_content_layout = QVBoxLayout(fusion_container)
+        self.merged_content_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_fusion.setWidget(fusion_container)
+
+        self.stack_fusion.addWidget(scroll_fusion)
+        f_body_layout.addWidget(self.stack_fusion)
+        f_layout.addWidget(self.f_body, 1)
+
+        # Actions
+        f_actions = QHBoxLayout()
+        f_actions.setSpacing(4)
+        self.btn_valid = PrimaryButton("Valider")
+        self.btn_valid.setIcon(load_on_accent_icon("ph.check"))
+        self.btn_valid.setFixedHeight(28)
+        self.btn_ignore = SecondaryButton("Ignorer")
+        self.btn_ignore.setFixedHeight(28)
+
+        self.btn_false = SecondaryButton("Faux Doublon")
+        self.btn_false.setIcon(load_phosphor_icon("ph.prohibit", color=DesignTokens.COLOR_RED))
+        self.btn_false.setFixedHeight(28)
+        self.btn_false.setStyleSheet(f"border-color: {DesignTokens.COLOR_RED_BORDER}; color: {DesignTokens.COLOR_RED}; padding: 0 6px;")
+
+        f_actions.addWidget(self.btn_valid, 1)
+        f_actions.addWidget(self.btn_ignore, 1)
+        f_actions.addWidget(self.btn_false, 1)
+        f_layout.addLayout(f_actions)
+
+        h_cols.addWidget(self.col_fusion, 1)
+
+        # Col 3: Card B
+        self.col_b, self.lbl_title_b, self.layout_b, self.stack_b, self.btn_keep_b, self.srs_b = self._create_card_col(
+            "CARTE #2", DesignTokens.SYNTAX_KEYWORD, "⬅ Injecter", "Conserver Carte #2 (Duplicata)", "B"
+        )
+        h_cols.addWidget(self.col_b, 1)
+
+        layout.addLayout(h_cols, 1)
+
+        self.btn_keep_a.clicked.connect(lambda: self.set_merged_content("A"))
+        self.btn_keep_b.clicked.connect(lambda: self.set_merged_content("B"))
+        self.btn_valid.clicked.connect(self.on_validate)
+        self.btn_ignore.clicked.connect(self.on_ignore)
+        self.btn_false.clicked.connect(self.on_ignore)
+
+    def _create_card_col(self, title: str, color: str, btn_text: str, action_text: str, source_key: str) -> tuple:
+        col = QFrame()
+        col.setObjectName("CardCol" + title.replace(" ", "").replace("#", "").replace("(", "").replace(")", ""))
+        col.setStyleSheet(f"QFrame#{col.objectName()} {{ background: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 6px; }}")
+        layout_col = QVBoxLayout(col)
+        layout_col.setContentsMargins(10, 10, 10, 10)
+        layout_col.setSpacing(6)
+
+        title_layout = QHBoxLayout()
+        icon = "ph.cards" if "CARTE #1" in title else "ph.copy"
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(load_phosphor_icon(icon, color=color).pixmap(14, 14))
+        icon_lbl.setStyleSheet("border: none; background: transparent;")
+
+        lbl_title = QLabel(title)
+        lbl_title.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+        lbl_title.setStyleSheet(f"color: {color}; border: none; background: transparent;")
+        title_layout.addWidget(icon_lbl)
+        title_layout.addWidget(lbl_title)
+        title_layout.addStretch()
+
+        b_src, b_ktx = self._create_view_toggles(source_key, color)
+        title_layout.addWidget(b_src)
+        title_layout.addWidget(b_ktx)
+
+        header_container = QWidget()
+        header_container.setLayout(title_layout)
+        header_container.setStyleSheet(f"border-bottom: 1px solid {DesignTokens.BORDER_COLOR}; margin-bottom: 4px; background: transparent;")
+        layout_col.addWidget(header_container)
+
+        # SRS Badges
+        srs_layout = QHBoxLayout()
+        srs_layout.setContentsMargins(0, 0, 0, 4)
+        srs_layout.setSpacing(4)
+
+        lbl_srs_state = QLabel(self.tr("🟢 Maîtrisée"))
+        lbl_srs_state.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
+        lbl_srs_state.setStyleSheet(f"background: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; padding: 2px 6px; border-radius: 4px;")
+
+        lbl_srs_ivl = QLabel(self.tr("35 j"))
+        lbl_srs_ivl.setFont(QFont(DesignTokens.FONT_MAIN, 8))
+        lbl_srs_ivl.setStyleSheet(f"background: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_SECONDARY}; padding: 2px 6px; border-radius: 4px;")
+
+        lbl_srs_ease = QLabel(self.tr("250%"))
+        lbl_srs_ease.setFont(QFont(DesignTokens.FONT_MAIN, 8))
+        lbl_srs_ease.setStyleSheet(f"background: {DesignTokens.BG_PANEL}; color: {DesignTokens.TEXT_MUTED}; padding: 2px 6px; border-radius: 4px;")
+
+        srs_layout.addWidget(lbl_srs_state)
+        srs_layout.addWidget(lbl_srs_ivl)
+        srs_layout.addWidget(lbl_srs_ease)
+        srs_layout.addStretch()
+
+        layout_col.addLayout(srs_layout)
+
+        body = QFrame()
+        body.setObjectName("CardColBody")
+        body.setStyleSheet(f"QFrame#CardColBody {{ background: {DesignTokens.BG_PANEL}; border: 1px solid {DesignTokens.BORDER_COLOR}; border-radius: 4px; }}")
+        b_layout = QVBoxLayout(body)
+        b_layout.setContentsMargins(6, 6, 6, 6)
+
+        stack = QStackedWidget()
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        source_container = QWidget()
+        source_container.setStyleSheet("background: transparent;")
+        source_layout = QVBoxLayout(source_container)
+        source_layout.setContentsMargins(0, 0, 0, 0)
+        scroll.setWidget(source_container)
+
+        stack.addWidget(scroll)
+        b_layout.addWidget(stack)
+
+        btn_action = SecondaryButton(action_text)
+        btn_action.setFixedHeight(28)
+        btn_action.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        layout_col.addWidget(body, 1)
+        layout_col.addWidget(btn_action)
+        return col, lbl_title, source_layout, stack, btn_action, {"state": lbl_srs_state, "ivl": lbl_srs_ivl, "ease": lbl_srs_ease}
+
+    def _create_view_toggles(self, source: str, active_color: str):
+        btn_source = SecondaryButton("Source")
+        btn_source.setFixedHeight(20)
+        btn_source.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
+
+        btn_katex = SecondaryButton("KaTeX")
+        btn_katex.setFixedHeight(20)
+        btn_katex.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
+
+        def _update_styles():
+            mode = self.view_modes.get(source, "source")
+            rgba_bg = DesignTokens._with_alpha(active_color, 0.25)
+
+            if mode == "source":
+                btn_source.setStyleSheet(f"background: {rgba_bg}; color: {active_color}; border: 1px solid {active_color}; padding: 0 6px;")
+                btn_katex.setStyleSheet(f"background: transparent; color: {DesignTokens.TEXT_SECONDARY}; border: 1px solid {DesignTokens.BORDER_COLOR}; padding: 0 6px;")
+            else:
+                btn_source.setStyleSheet(f"background: transparent; color: {DesignTokens.TEXT_SECONDARY}; border: 1px solid {DesignTokens.BORDER_COLOR}; padding: 0 6px;")
+                btn_katex.setStyleSheet(f"background: {rgba_bg}; color: {active_color}; border: 1px solid {active_color}; padding: 0 6px;")
+
+        _update_styles()
+
+        def _on_source():
+            self.view_modes[source] = "source"
+            _update_styles()
+            self._refresh_col(source)
+
+        def _on_katex():
+            self.view_modes[source] = "katex"
+            _update_styles()
+            self._refresh_col(source)
+
+        btn_source.clicked.connect(_on_source)
+        btn_katex.clicked.connect(_on_katex)
+
+        return btn_source, btn_katex
+
+    def _get_or_create_web_view(self, source: str) -> SafeWebEngineView:
+        """Instancie ou réutilise la vue WebEngine unique de la colonne spécifiée."""
+        if source == "A":
+            if self.web_a is None:
+                self.web_a = SafeWebEngineView()
+                self.web_a.action_requested.connect(self._on_web_action)
+                self.stack_a.addWidget(self.web_a)
+            return self.web_a
+        elif source == "B":
+            if self.web_b is None:
+                self.web_b = SafeWebEngineView()
+                self.web_b.action_requested.connect(self._on_web_action)
+                self.stack_b.addWidget(self.web_b)
+            return self.web_b
+        else:
+            if self.web_fusion is None:
+                self.web_fusion = SafeWebEngineView()
+                self.web_fusion.action_requested.connect(self._on_web_action)
+                self.stack_fusion.addWidget(self.web_fusion)
+            return self.web_fusion
+
+    def _on_web_action(self, action: str, params: dict[str, str]) -> None:
+        """Gère les actions déclenchées depuis le rendu HTML KaTeX."""
+        if action == "inject":
+            source = params.get("source", "")
+            field_name = params.get("field_name", "")
+            if source and field_name:
+                self._inject_field(field_name, source)
+
+    def _build_unified_katex_html(self, content_dict: dict[str, Any], color: str, btn_text: str, source: str) -> str:
+        """Génère un document HTML complet unique encapsulant tous les champs d'une carte avec KaTeX."""
+        fields_html_parts: list[str] = []
+        idx = 1
+        for field_name, field_val in content_dict.items():
+            inject_btn_html = ""
+            if btn_text:
+                url = f"ankiforge://inject/{source}/{urllib.parse.quote(str(field_name))}"
+                inject_btn_html = f'<a href="{url}" class="inject-btn">{btn_text}</a>'
+
+            val_str = str(field_val) if field_val is not None else ""
+            fields_html_parts.append(
+                f"""<div class="field-card">
+                    <div class="field-header">
+                        <span class="field-title" style="color: {color};">{idx}. {field_name.upper()} :</span>
+                        {inject_btn_html}
+                    </div>
+                    <div class="field-val">{val_str}</div>
+                </div>"""
+            )
+            idx += 1
+
+        fields_html = "\n".join(fields_html_parts)
+        mathjax_script = get_mathjax_script()
+
+        return f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {{
+            background-color: transparent;
+            margin: 0;
+            padding: 8px;
+            font-family: {DesignTokens.FONT_MAIN}, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 13px;
+            color: {DesignTokens.TEXT_PRIMARY};
+            line-height: 1.5;
+            word-wrap: break-word;
+        }}
+        ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
+        ::-webkit-scrollbar-track {{ background: transparent; }}
+        ::-webkit-scrollbar-thumb {{ background: {DesignTokens.BORDER_COLOR}; border-radius: 3px; }}
+        ::-webkit-scrollbar-thumb:hover {{ background: {DesignTokens.TEXT_MUTED}; }}
+        .field-card {{
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed {DesignTokens.BORDER_COLOR};
+        }}
+        .field-card:last-child {{
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }}
+        .field-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }}
+        .field-title {{
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }}
+        .inject-btn {{
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 8px;
+            background: {DesignTokens.BG_MAIN};
+            border: 1px solid {DesignTokens.BORDER_COLOR};
+            border-radius: 4px;
+            color: {DesignTokens.TEXT_PRIMARY};
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }}
+        .inject-btn:hover {{
+            background: {color}25;
+            border-color: {color};
+            color: {color};
+        }}
+        .field-val {{
+            font-size: 13px;
+            color: {DesignTokens.TEXT_PRIMARY};
+            line-height: 1.5;
+        }}
+    </style>
+</head>
+<body>
+    {fields_html}
+    {mathjax_script}
+</body>
+</html>"""
+
+    def _populate_source_fields(self, layout: QVBoxLayout, content_dict: dict, color: str, btn_text: str, source: str) -> None:
+        """Affiche les champs au format texte brut ultra-léger avec labels natifs Qt."""
+        self._clear_layout(layout)
+        idx = 1
+        for field_name, field_val in content_dict.items():
+            field_header = QHBoxLayout()
+            field_lbl = QLabel(tr("%1. %2 :", idx, field_name.upper()))
+            field_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+            field_lbl.setStyleSheet(f"color: {color};")
+            field_header.addWidget(field_lbl)
+
+            field_header.addStretch()
+            if btn_text:
+                btn_inject = SecondaryButton(btn_text)
+                btn_inject.setFixedHeight(22)
+                btn_inject.setFont(QFont(DesignTokens.FONT_MAIN, 8, QFont.Weight.Bold))
+                btn_inject.setStyleSheet(
+                    f"background: {DesignTokens.BG_MAIN}; border: 1px solid {DesignTokens.BORDER_COLOR}; color: {DesignTokens.TEXT_PRIMARY}; padding: 1px 6px; border-radius: 4px;"
+                )
+                btn_inject.clicked.connect(lambda _, f=field_name, s=source: self._inject_field(f, s))
+                field_header.addWidget(btn_inject)
+
+            layout.addLayout(field_header)
+
+            lbl_val = QLabel()
+            lbl_val.setWordWrap(True)
+            lbl_val.setAlignment(Qt.AlignmentFlag.AlignTop)
+            lbl_val.setFont(QFont(DesignTokens.FONT_CODE, 10))
+            lbl_val.setText(str(field_val) if field_val is not None else "")
+            lbl_val.setTextFormat(Qt.TextFormat.PlainText)
+            layout.addWidget(lbl_val)
+
+            if idx < len(content_dict):
+                sep = QFrame()
+                sep.setFrameShape(QFrame.Shape.HLine)
+                sep.setStyleSheet(f"border: none; border-top: 1px dashed {DesignTokens.BORDER_COLOR}; margin: 6px 0;")
+                layout.addWidget(sep)
+
+            idx += 1
+        layout.addStretch()
+
+    def _refresh_col(self, source: str) -> None:
+        if not self.current_conflict:
+            return
+        if source == "A":
+            content = self.current_conflict["content_a"]
+            color = DesignTokens.COLOR_BLUE
+            btn_text = "➔ Injecter"
+            stack = self.stack_a
+            layout = self.layout_a
+        elif source == "B":
+            content = self.current_conflict["content_b"]
+            color = DesignTokens.SYNTAX_KEYWORD
+            btn_text = "⬅ Injecter"
+            stack = self.stack_b
+            layout = self.layout_b
+        else:
+            content = self.current_conflict.get("merged_content", {})
+            color = DesignTokens.ACCENT_PRIMARY
+            btn_text = ""
+            stack = self.stack_fusion
+            layout = self.merged_content_layout
+
+        mode = self.view_modes.get(source, "source")
+        if mode == "katex":
+            web_view = self._get_or_create_web_view(source)
+            html = self._build_unified_katex_html(content, color, btn_text, source)
+            media_dir = get_media_dir()
+            media_dir.mkdir(exist_ok=True)
+            base_url = QUrl.fromLocalFile(str(media_dir) + "/")
+            web_view.setHtmlSafe(html, base_url)
+            stack.setCurrentIndex(1)
+        else:
+            self._populate_source_fields(layout, content, color, btn_text, source)
+            stack.setCurrentIndex(0)
+
+    def _clear_layout(self, layout) -> None:
+        if layout is not None:
+            while layout.count():
+                item = layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
+                elif item.layout() is not None:
+                    self._clear_layout(item.layout())
+
+    def _inject_field(self, field_name: str, source: str) -> None:
+        if not self.current_conflict:
+            return
+        if "merged_content" not in self.current_conflict:
+            self.current_conflict["merged_content"] = self.current_conflict["content_a"].copy()
+
+        src_dict = self.current_conflict["content_a"] if source == "A" else self.current_conflict["content_b"]
+        self.current_conflict["merged_content"][field_name] = src_dict.get(field_name, "")
+
+        # Refresh the merged column
+        self._refresh_col("Fusion")
+
+    def _update_srs(self, note: Any, srs_dict: dict[str, QLabel]) -> None:
+        has_srs = hasattr(note, "srs_ivl") or (hasattr(note, "cards") and len(note.cards) > 0 and hasattr(note.cards[0], "srs_ivl"))
+        if has_srs:
+            reps = getattr(note, "srs_reps", 0)
+            if reps > 21:
+                srs_dict["state"].setText(self.tr("🟢 Maîtrisée"))
+                srs_dict["state"].setStyleSheet(f"background: {DesignTokens.COLOR_GREEN_BG}; color: {DesignTokens.COLOR_GREEN}; padding: 2px 6px; border-radius: 4px;")
+            elif reps > 5:
+                srs_dict["state"].setText(self.tr("🟡 Apprentissage"))
+                srs_dict["state"].setStyleSheet(f"background: {DesignTokens.COLOR_YELLOW_BG}; color: {DesignTokens.COLOR_YELLOW}; padding: 2px 6px; border-radius: 4px;")
+            else:
+                srs_dict["state"].setText(self.tr("🔴 Nouvelle"))
+                srs_dict["state"].setStyleSheet(f"background: {DesignTokens.COLOR_RED_BG}; color: {DesignTokens.COLOR_RED}; padding: 2px 6px; border-radius: 4px;")
+
+            srs_dict["ivl"].setText(tr("%1 j", getattr(note, "srs_ivl", 0)))
+            srs_dict["ease"].setText(tr("%1%%", getattr(note, "srs_ease", 250)))
+        else:
+            srs_dict["state"].setText(self.tr("⚪ Non synchronisé"))
+            srs_dict["state"].setStyleSheet(
+                f"background: {DesignTokens.BG_MAIN}; color: {DesignTokens.TEXT_MUTED}; padding: 2px 6px; border-radius: 4px; border: 1px dashed {DesignTokens.BORDER_COLOR};"
+            )
+            srs_dict["ivl"].setText(self.tr("Non étudiée"))
+            srs_dict["ease"].setText(self.tr("N/A"))
+
+    def load_conflict(self, row_data: dict) -> None:
+        self.current_conflict = row_data
+        sim = row_data.get("sim", 0.0)
+        self.lbl_sim.setText(tr("Similitude : %1%%", f"{sim * 100:.1f}"))
+
+        note_a = row_data["note_a"]
+        note_b = row_data["note_b"]
+
+        self.lbl_title_a.setText(self.tr("CARTE #1"))
+        self.lbl_title_b.setText(self.tr("CARTE #2"))
+
+        self._update_srs(note_a, self.srs_a)
+        self._update_srs(note_b, self.srs_b)
+
+        if "merged_content" not in self.current_conflict:
+            self.current_conflict["merged_content"] = self.current_conflict["content_a"].copy()
+
+        self._refresh_col("A")
+        self._refresh_col("B")
+        self._refresh_col("Fusion")
+
+    def set_merged_content(self, source: str) -> None:
+        if not self.current_conflict:
+            return
+        content = self.current_conflict["content_a"].copy() if source == "A" else self.current_conflict["content_b"].copy()
+        self.current_conflict["merged_content"] = content
+        self._refresh_col("Fusion")
+
+    def on_validate(self) -> None:
+        if not self.current_conflict:
+            return
+        note_keep = self.current_conflict["note_a"]
+        note_del = self.current_conflict["note_b"]
+        merged = self.current_conflict.get("merged_content", self.current_conflict["content_a"])
+        self.merge_requested.emit(note_keep, note_del, merged)
+
+    def on_swap(self) -> None:
+        if not self.current_conflict:
+            return
+
+        note_a = self.current_conflict["note_a"]
+        content_a = self.current_conflict["content_a"]
+
+        self.current_conflict["note_a"] = self.current_conflict["note_b"]
+        self.current_conflict["content_a"] = self.current_conflict["content_b"]
+
+        self.current_conflict["note_b"] = note_a
+        self.current_conflict["content_b"] = content_a
+
+        self.load_conflict(self.current_conflict)
+
+    def on_ignore(self) -> None:
+        if not self.current_conflict:
+            return
+        self.ignore_requested.emit(self.current_conflict["note_a"], self.current_conflict["note_b"])
+
+    def reset_inspector(self) -> None:
+        """Réinitialise l'inspecteur lorsqu'aucun conflit n'est sélectionné."""
+        self.current_conflict = None
+        self.lbl_title_a.setText(self.tr("CARTE #1"))
+        self.lbl_title_b.setText(self.tr("CARTE #2"))
+        self.lbl_sim.setText(self.tr("Similitude : --%"))
+        self._clear_layout(self.layout_a)
+        self._clear_layout(self.layout_b)
+        self._clear_layout(self.merged_content_layout)
+        self.stack_a.setCurrentIndex(0)
+        self.stack_b.setCurrentIndex(0)
+        self.stack_fusion.setCurrentIndex(0)
+        self.cleanup()
+
+    def cleanup(self) -> None:
+        """Décharge les vues WebEngine et libère la mémoire lors du démontage ou masquage."""
+        for web_view in (self.web_a, self.web_b, self.web_fusion):
+            if web_view is not None:
+                web_view.cleanup()

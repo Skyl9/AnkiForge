@@ -1,0 +1,243 @@
+"""Exécution confinée des scripts Python personnalisés des outils DAG (sandbox défensive).
+
+Les scripts d'outils sont du code Python arbitraire exécuté sur la machine de l'utilisateur.
+Un sandboxing Python pur ne peut jamais garantir une isolation totale (le langage est
+Turing-complet et permet la réflexion sur les classes), aussi cette couche applique-t-elle
+les meilleures pratiques défensives applicables à une application desktop locale :
+
+1. Restriction des ``__builtins__`` : retrait de ``__import__``, ``open``, ``eval``,
+   ``exec``, ``compile``, ``globals``, ``locals``, ``input``, ... (pas d'import, pas d'I/O
+   fichier direct, pas d'évaluation dynamique).
+2. Timeout d'exécution strict : un traceur ``sys.settrace`` installé dans la thread
+   sandbox interrompt coopérativement les boucles infinies et les calculs lourds en
+   levant ``TimeoutError`` à la frontière du bytecode — la thread se termine alors au
+   lieu de rester vivante (« thread zombie ») pendant toute la durée du processus.
+   Seul un blocage pure-C résiduel (impossible avec les builtins restreints : pas de
+   ``time``/``os``) échapperait à l'interruption coopérative.
+3. Exécution dans un thread ``daemon`` pour ne jamais bloquer la sortie du processus.
+
+Menace modélisée : un script d'outil défectueux ou malveillant (par ex. fourni par un
+tiers) ne doit pas pouvoir bloquer l'application ou accéder accidentellement au
+système de fichiers. L'exécution reste volontaire et est réalisée sous l'identité de
+l'utilisateur lui-même — la restriction anti-escalade complète (sous-processus réduit,
+OS sandbox) est hors périmètre d'une application desktop.
+"""
+
+from __future__ import annotations
+
+import builtins
+import datetime
+import json
+import logging
+import queue
+import re
+import sys
+import threading
+import time
+from collections.abc import Callable
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_TOOL_TIMEOUT_SECONDS = 10.0
+
+# Grâce octroyée au traceur coopératif pour lever son TimeoutError AVANT que le
+# join direct ne force le rejet : on préfère le chemin propre (via la queue).
+_TIMEOUT_GRACE_SECONDS = 0.5
+
+_NAME = "<custom_tool>"
+
+# Sous-ensemble sûr des builtins Python pour l'exécution des outils :
+# pas d'import, pas d'I/O, pas d'accès à l'interpréteur ou au scope global.
+_SAFE_BUILTINS: dict[str, Any] = {
+    name: getattr(builtins, name)
+    for name in (
+        "abs",
+        "all",
+        "any",
+        "ascii",
+        "bin",
+        "bool",
+        "bytearray",
+        "bytes",
+        "callable",
+        "chr",
+        "complex",
+        "dict",
+        "divmod",
+        "enumerate",
+        "filter",
+        "float",
+        "format",
+        "frozenset",
+        "hasattr",
+        "hash",
+        "hex",
+        "id",
+        "int",
+        "isinstance",
+        "issubclass",
+        "iter",
+        "len",
+        "list",
+        "map",
+        "max",
+        "min",
+        "next",
+        "oct",
+        "ord",
+        "pow",
+        "range",
+        "repr",
+        "reversed",
+        "round",
+        "set",
+        "setattr",
+        "slice",
+        "sorted",
+        "str",
+        "sum",
+        "tuple",
+        "zip",
+    )
+    if name
+    not in (
+        # Interdits : accès à l'interpréteur, aux imports, à l'I/O et au scope.
+        "__import__",
+        "open",
+        "eval",
+        "exec",
+        "compile",
+        "globals",
+        "locals",
+        "input",
+        "exit",
+        "quit",
+        "breakpoint",
+        "memoryview",
+    )
+}
+
+
+def _make_deadline_tracer(deadline: float, check_every: int = 512) -> Callable[[Any, str, Any], Any]:
+    """Crée un traceur d'interruption coopérative fondé sur une échéance ``perf_counter``.
+
+    Installé via ``sys.settrace`` dans la thread sandbox, il s'exécute à chaque
+    événement ligne/retour du bytecode Python et lève ``TimeoutError`` dès que
+    l'échéance est dépassée : les boucles infinies ``while True`` et les calculs
+    lourds sont ainsi interrompus à la frontière du bytecode et la thread termine
+    proprement au lieu de rester zombie.
+    """
+    tick = 0
+
+    def tracer(frame: Any, event: str, arg: Any) -> Any:
+        nonlocal tick
+        tick += 1
+        if tick % check_every == 0 and time.perf_counter() >= deadline:
+            raise TimeoutError("Le script de l'outil a dépassé le délai maximal et a été interrompu.")
+        return tracer
+
+    return tracer
+
+
+def _extract_run_fn(global_scope: dict[str, Any], local_scope: dict[str, Any]) -> Any:
+    """Retourne la fonction 'run' définie par le script (local d'abord, puis global)."""
+    run_fn = local_scope.get("run") or global_scope.get("run")
+    if not callable(run_fn):
+        raise ValueError("Le script de l'outil doit définir une fonction 'def run(state):'.")
+    return run_fn
+
+
+def _exec_and_run(
+    code: str,
+    state: Any,
+    global_scope: dict[str, Any],
+    local_scope: dict[str, Any],
+    result_queue: queue.SimpleQueue[tuple[str, Any]],
+    deadline: float | None,
+) -> None:
+    """Exécute le script puis la fonction 'run(state)' dans le thread sandbox."""
+    previous_trace = sys.gettrace()
+    tracer = _make_deadline_tracer(deadline) if deadline is not None else None
+    if tracer is not None:
+        sys.settrace(tracer)
+    try:
+        # exec volontaire du code d'un outil utilisateur dans une sandbox restreinte
+        # (builtins réduits + timeout) — voir docstring du module.
+        exec(code, global_scope, local_scope)  # nosec B102
+        run_fn = _extract_run_fn(global_scope, local_scope)
+        result_queue.put(("ok", run_fn(state)))
+    except BaseException as exc:
+        result_queue.put(("error", exc))
+    finally:
+        # Restaure le traceur précédent (ex. celui de coverage) s'il existait.
+        if previous_trace is not None:
+            sys.settrace(previous_trace)
+        else:
+            sys.settrace(None)
+
+
+def run_python_tool(
+    code: str,
+    state: Any,
+    args: dict[str, Any] | None = None,
+    timeout: float = DEFAULT_TOOL_TIMEOUT_SECONDS,
+    *,
+    log_name: str = "custom_tool",
+) -> Any:
+    """Exécute un script d'outil Python dans un environnement restreint avec timeout.
+
+    Args:
+        code: Source Python du script (doit définir ``def run(state):``).
+        state: État pipeline injecté sous le nom ``state``.
+        args: Arguments optionnels injectés sous le nom ``args``.
+        timeout: Délai maximal d'exécution en secondes (<= 0 : illimité).
+        log_name: Nom du logger injecté sous le nom ``logger``.
+
+    Returns:
+        La valeur renvoyée par ``run(state)``.
+
+    Raises:
+        TimeoutError: si le script dépasse le délai imparti.
+        ValueError: si le script ne définit pas de fonction ``run``.
+        L'exception propagée par le script lui-même sinon.
+    """
+    compile(code, _NAME, "exec")
+
+    safe_builtins: dict[str, Any] = dict(_SAFE_BUILTINS)
+    local_scope: dict[str, Any] = {}
+    global_scope: dict[str, Any] = {
+        "__builtins__": safe_builtins,
+        "state": state,
+        "args": args or {},
+        "json": json,
+        "re": re,
+        "datetime": datetime,
+        "logging": logging,
+        "logger": logging.getLogger(log_name),
+    }
+
+    deadline = time.perf_counter() + timeout if timeout and timeout > 0 else None
+    result_queue: queue.SimpleQueue[tuple[str, Any]] = queue.SimpleQueue()
+    worker = threading.Thread(
+        target=_exec_and_run,
+        args=(code, state, global_scope, local_scope, result_queue, deadline),
+        name=f"tool-sandbox-{log_name}",
+        daemon=True,
+    )
+    worker.start()
+
+    if deadline is not None:
+        # Grâce de 0.5 s : le traceur coopératif lève d'abord son TimeoutError
+        # (re-rapporté proprement via la queue) et la thread SE TERMINE. Le join
+        # direct n'intervient que pour les blocages pure-C résiduels.
+        worker.join(timeout=timeout + _TIMEOUT_GRACE_SECONDS)
+        if worker.is_alive():
+            raise TimeoutError(f"Le script de l'outil a dépassé le délai maximal de {timeout:g}s et a été interrompu.")
+    else:
+        worker.join()
+
+    kind, payload = result_queue.get()
+    if kind == "error":
+        raise payload
+    return payload

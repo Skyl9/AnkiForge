@@ -1,0 +1,16 @@
+<!-- ankiforge-guide-version: sha256:{{ version_hash }} -->
+
+# AnkiForge — Guide d'amorçage d'agent (universel)
+
+Tu disposes du serveur MCP AnkiForge (~56 outils) pour piloter une collection Anki/AnkiForge.
+Ce fichier est un guide méthodologique universel (ANKIFORGE_GUIDE.md) pour tout client MCP.
+
+{% include "mcp_init_shared_workflows.md.j2" %}
+
+{% include "mcp_init_shared_guardrails.md.j2" %}
+
+{% if include_catalogue %}
+{% include "mcp_init_shared_catalogue.md.j2" %}
+{% endif %}
+
+> ℹ️ Source canonique : serveur MCP AnkiForge. Ré-génère via `init_agent_workspace(agent_type="generic")`.

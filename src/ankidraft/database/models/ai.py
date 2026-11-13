@@ -1,0 +1,193 @@
+"""Modèles Peewee des fournisseurs LLM, personas et patchs en attente."""
+
+from __future__ import annotations
+
+import datetime
+import logging
+from typing import Any
+
+from peewee import (
+    SQL,
+    BooleanField,
+    CharField,
+    DateTimeField,
+    FloatField,
+    ForeignKeyField,
+    IntegerField,
+    TextField,
+)
+
+from ankidraft.database.base import BaseModel
+
+logger = logging.getLogger(__name__)
+
+
+class LLMConfigModel(BaseModel):
+    """Stocke les configurations physiques des modèles d'IA (Le 'Moteur')."""
+
+    display_name = CharField(unique=True)
+    provider = CharField()
+    model_id = CharField()
+    context_limit = IntegerField(default=128000)
+    max_tokens = IntegerField(default=16384)
+    sort_order = IntegerField(default=100)
+    temperature = FloatField(default=0.7)
+    api_key = CharField(null=True)
+    prompt_pricing = FloatField(default=0.0)
+    completion_pricing = FloatField(default=0.0)
+    is_free = BooleanField(default=False)
+    supports_vision = BooleanField(default=False)
+    supports_thinking = BooleanField(default=False)
+    supports_json = BooleanField(default=True)
+    speed_rating = CharField(default="fast")
+    quality_tier = CharField(default="balanced")
+    recommended_tasks = CharField(default="[]")
+    description = TextField(default="")
+
+    class Meta:
+        table_name = "llm_configs"
+
+    @property
+    def recommended_tasks_list(self) -> list[str]:
+        """Retourne la liste des tâches recommandées sous forme de liste Python."""
+        try:
+            import json
+
+            return list(json.loads(self.recommended_tasks or "[]"))
+        except Exception:
+            return []
+
+    @property
+    def formatted_context_window(self) -> str:
+        """Retourne la taille de contexte lisible (ex: '128k', '1M', '2M')."""
+        ctx = int(self.context_limit or 128000)
+        if ctx >= 1_000_000:
+            val = ctx / 1_000_000
+            return f"{val:.1f}M" if val % 1 else f"{int(val)}M"
+        if ctx >= 1_000:
+            return f"{ctx // 1_000}k"
+        return str(ctx)
+
+    @property
+    def formatted_pricing(self) -> str:
+        """Retourne l'étiquette de prix formatée."""
+        if self.is_free or self.provider == "ollama":
+            return "100% Gratuit"
+        if self.prompt_pricing == 0.0 and self.completion_pricing == 0.0:
+            return "Tier Gratuit"
+        return f"${self.prompt_pricing:.2f} / ${self.completion_pricing:.2f} (1M)"
+
+    def to_model_spec(self) -> Any:
+        """Convertit l'enregistrement SQLite en ModelSpec du catalogue."""
+        from ankidraft.services.ai.model_catalog import ModelSpec
+
+        return ModelSpec(
+            provider=str(self.provider),
+            model_id=str(self.model_id),
+            display_name=str(self.display_name or self.model_id),
+            context_window=int(self.context_limit or 128000),
+            max_tokens=int(self.max_tokens or 16384),
+            supports_vision=bool(self.supports_vision),
+            supports_thinking=bool(self.supports_thinking),
+            supports_json=bool(self.supports_json),
+            speed_rating=str(self.speed_rating or "fast"),
+            quality_tier=str(self.quality_tier or "balanced"),
+            is_free=bool(self.is_free or self.provider == "ollama"),
+            prompt_pricing=float(self.prompt_pricing or 0.0),
+            completion_pricing=float(self.completion_pricing or 0.0),
+            recommended_tasks=self.recommended_tasks_list,
+            description=str(self.description or ""),
+        )
+
+
+class PersonaFolderModel(BaseModel):
+    """Dossier et sous-dossier de classification pour organiser les Personas et Agents IA."""
+
+    name = CharField()
+    parent = ForeignKeyField("self", backref="subfolders", null=True, on_delete="CASCADE")
+    created_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = "persona_folders"
+
+    def get_full_path(self) -> str:
+        """Retourne le chemin complet du dossier (ex: 'Création / Mathématiques / Algèbre')."""
+        parts = [str(self.name)]
+        curr = self.parent
+        visited = {self.id}
+        while curr is not None and curr.id not in visited:
+            parts.append(str(curr.name))
+            visited.add(curr.id)
+            curr = curr.parent
+        return " / ".join(reversed(parts))
+
+
+class PersonaModel(BaseModel):
+    """Définit un agent IA unique (ex: Créateur, Linteur, Contrôleur) augmenté de capacités."""
+
+    name = CharField(unique=True)
+    description = TextField(null=True)
+    system_prompt = TextField()  # Stockera le contenu du prompt Jinja2
+    output_format = CharField(default="json")
+    persona_type = CharField(default="pipeline")  # 'pipeline', 'mcp', 'universal'
+    folder = ForeignKeyField(PersonaFolderModel, backref="personas", null=True, on_delete="SET NULL")
+    allowed_tools = TextField(default="[]")  # JSON: ["query_peewee", "rag_retrieval"]
+    llm_config = ForeignKeyField(LLMConfigModel, null=True, on_delete="SET NULL")
+    created_at = DateTimeField(default=datetime.datetime.now, constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
+
+    class Meta:
+        table_name = "personas"
+
+
+class PersonaVersionModel(BaseModel):
+    """Historique des versions et snapshots de configuration pour chaque Persona/Agent IA."""
+
+    persona = ForeignKeyField(PersonaModel, backref="versions", on_delete="CASCADE")
+    version_number = IntegerField(default=1)
+    system_prompt = TextField()
+    description = TextField(null=True)
+    output_format = CharField(default="json")
+    persona_type = CharField(default="pipeline")
+    allowed_tools = TextField(default="[]")
+    llm_config = ForeignKeyField(LLMConfigModel, null=True, on_delete="SET NULL")
+    commit_message = CharField(default="Mise à jour du prompt")
+    created_at = DateTimeField(default=datetime.datetime.now)
+    is_active = BooleanField(default=True)
+
+    class Meta:
+        table_name = "persona_versions"
+
+
+class StagedBundleModel(BaseModel):
+    """Regroupement transactionnel d'opérations staged ordonnées."""
+
+    bundle_id = CharField(unique=True, index=True)
+    title = CharField(max_length=255)
+    explanation = TextField(default="")
+    status = CharField(default="pending", index=True)  # "building", "pending", "applied", "rejected", "partial"
+    total_steps = IntegerField(default=0)
+    current_step = IntegerField(default=1)
+    created_at = DateTimeField(default=datetime.datetime.now)
+    applied_at = DateTimeField(null=True)
+
+    class Meta:
+        table_name = "staged_bundles"
+
+
+class StagedPatchModel(BaseModel):
+    """Patch chirurgical en attente de validation humaine (Two-Phase Commit)."""
+
+    patch_id = CharField(unique=True, index=True)
+    bundle = ForeignKeyField(StagedBundleModel, backref="patches", null=True, on_delete="CASCADE")
+    step_order = IntegerField(default=1)
+    patch_type = CharField()  # "card", "split", "css", "model", etc.
+    target_id = IntegerField(default=0)
+    original_version_id = IntegerField(null=True)
+    diff_payload = TextField()  # JSON sérialisé
+    status = CharField(default="pending", index=True)  # "pending", "applied", "rejected", "aborted"
+    reason = TextField(default="")  # Motif d'abandon (aborted) saisi par l'agent
+    created_at = DateTimeField(default=datetime.datetime.now)
+    applied_at = DateTimeField(null=True)
+
+    class Meta:
+        table_name = "staged_patches"

@@ -1,0 +1,573 @@
+"""Dialogue de gestion et de bascule des espaces de travail / profils AnkiForge.
+
+Architecture moderne conforme aux DesignTokens et au référentiel DESIGN.md.
+"""
+
+import logging
+import re
+from typing import Any
+
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QCheckBox,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QVBoxLayout,
+    QWidget,
+)
+
+from ankidraft.services.profile_manager import ProfileManager
+from ankidraft.ui.components.buttons import DangerButton, PrimaryButton, SecondaryButton, apply_compact_style
+from ankidraft.ui.components.inputs import GlowLineEdit, StyledLineEdit
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.utils.i18n import tr
+from ankidraft.utils.icon_loader import load_logo_icon, load_on_accent_icon, load_phosphor_icon
+
+logger = logging.getLogger(__name__)
+
+
+class ProfileItemWidget(QFrame):
+    """Tuile personnalisée moderne représentant un profil / espace de travail."""
+
+    def __init__(
+        self,
+        name: str,
+        is_current: bool = False,
+        is_selected: bool = False,
+        is_locked: bool = False,
+        lock_pid: int | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.name = name
+        self.is_current = is_current
+        self.is_selected = is_selected
+        self.is_locked = is_locked
+        self.lock_pid = lock_pid
+        self.setObjectName("ProfileItemCard")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setFixedHeight(58)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(14, 8, 14, 8)
+        layout.setSpacing(12)
+        layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+
+        # 1. Icône Phosphor
+        self.icon_lbl = QLabel()
+        icon_name = "cards" if is_current else "folder"
+        icon_color = DesignTokens.ACCENT_PRIMARY if is_current else DesignTokens.TEXT_SECONDARY
+        self.icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(22, 22))
+        self.icon_lbl.setStyleSheet("border: none; background: transparent;")
+        layout.addWidget(self.icon_lbl)
+
+        # 2. Textes (Nom + Chemin relatif)
+        text_layout = QVBoxLayout()
+        text_layout.setContentsMargins(0, 0, 0, 0)
+        text_layout.setSpacing(2)
+
+        self.name_lbl = QLabel(name)
+        self.name_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 11, QFont.Weight.DemiBold))
+        self.name_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+
+        from ankidraft.utils.environment import is_development
+
+        base_name = ".ankidraft-dev" if is_development() else ".ankidraft"
+        path_hint = f"~/{base_name}/profiles/{name}"
+        self.path_lbl = QLabel(path_hint)
+        self.path_lbl.setFont(QFont(DesignTokens.FONT_CODE, 9))
+        self.path_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+
+        text_layout.addWidget(self.name_lbl)
+        text_layout.addWidget(self.path_lbl)
+        layout.addLayout(text_layout, 1)
+
+        # 3. Badge Actif / Verrouillé
+        if is_current:
+            self.active_badge = QLabel(self.tr("ACTIF"))
+            self.active_badge.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+            self.active_badge.setStyleSheet(f"""
+                QLabel {{
+                    background-color: {DesignTokens.BG_ACTIVE};
+                    color: {DesignTokens.COLOR_GREEN};
+                    border: 1px solid {DesignTokens.COLOR_GREEN};
+                    border-radius: 9px;
+                    padding: 2px 8px;
+                }}
+            """)
+            layout.addWidget(self.active_badge)
+        elif is_locked:
+            badge_text = f"EN COURS (PID {lock_pid})" if lock_pid else "VERROUILLÉ"
+            self.active_badge = QLabel(badge_text)
+            self.active_badge.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+            self.active_badge.setStyleSheet(f"""
+                QLabel {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    color: {DesignTokens.COLOR_YELLOW};
+                    border: 1px solid {DesignTokens.COLOR_YELLOW};
+                    border-radius: 9px;
+                    padding: 2px 8px;
+                }}
+            """)
+            layout.addWidget(self.active_badge)
+        else:
+            self.active_badge = None
+
+        self._update_style()
+
+    def set_selected_state(self, selected: bool) -> None:
+        self.is_selected = selected
+        self._update_style()
+
+    def _update_style(self) -> None:
+        if self.is_selected:
+            self.setStyleSheet(f"""
+                QFrame#ProfileItemCard {{
+                    background-color: {DesignTokens.BG_ACTIVE};
+                    border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
+                    border-radius: {DesignTokens.RADIUS_MD}px;
+                }}
+            """)
+        else:
+            self.setStyleSheet(f"""
+                QFrame#ProfileItemCard {{
+                    background-color: {DesignTokens.BG_PANEL};
+                    border: 1px solid {DesignTokens.BORDER_COLOR};
+                    border-radius: {DesignTokens.RADIUS_MD}px;
+                }}
+                QFrame#ProfileItemCard:hover {{
+                    border-color: {DesignTokens.ACCENT_PRIMARY};
+                    background-color: {DesignTokens.BG_HOVER};
+                }}
+            """)
+
+    def refresh_theme(self, profile: Any) -> None:
+        icon_name = "cards" if self.is_current else "folder"
+        icon_color = profile.accent_primary if self.is_current else profile.text_secondary
+        self.icon_lbl.setPixmap(load_phosphor_icon(icon_name, color=icon_color).pixmap(22, 22))
+        self._update_style()
+
+
+class ProfileSelectorDialog(QDialog):
+    """Dialogue de gestion et de bascule des espaces de travail / profils AnkiForge.
+
+    Permet de sélectionner un profil existant, d'en créer un nouveau ou de supprimer un profil inutilisé.
+    """
+
+    def __init__(
+        self,
+        profiles: list[str],
+        current_profile: str = "default",
+        parent: QWidget | None = None,
+        is_startup: bool = False,
+    ) -> None:
+        super().__init__(parent)
+        self.is_startup = is_startup
+        self.setWindowTitle(self.tr("Espaces de Travail & Profils — AnkiForge"))
+        self.setFixedSize(560, 660)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {DesignTokens.BG_MAIN};
+                color: {DesignTokens.TEXT_PRIMARY};
+            }}
+        """)
+
+        self.pm = ProfileManager()
+        self.profiles: list[str] = sorted(set(profiles)) if profiles else [current_profile or "default"]
+        self.current_profile = current_profile if current_profile in self.profiles else self.profiles[0]
+        self.selected_profile: str = self.current_profile
+        self._card_widgets: list[ProfileItemWidget] = []
+
+        self._setup_ui()
+        self._populate_profiles()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(22, 20, 22, 20)
+        layout.setSpacing(14)
+
+        # ── 1. En-tête avec Logo et Description ──
+        header_card = QFrame()
+        header_card.setObjectName("ProfileHeaderCard")
+        header_card.setStyleSheet(f"""
+            QFrame#ProfileHeaderCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+                padding: 12px;
+            }}
+        """)
+        header_layout = QHBoxLayout(header_card)
+        header_layout.setContentsMargins(14, 12, 14, 12)
+        header_layout.setSpacing(14)
+        header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+
+        self.logo_lbl = QLabel()
+        self.logo_lbl.setPixmap(load_logo_icon(DesignTokens.ACCENT_PRIMARY).pixmap(38, 38))
+        self.logo_lbl.setStyleSheet("border: none; background: transparent;")
+        header_layout.addWidget(self.logo_lbl)
+
+        title_layout = QVBoxLayout()
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(2)
+
+        self.title_lbl = QLabel(self.tr("Espaces de Travail & Profils"))
+        self.title_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 13, QFont.Weight.Bold))
+        self.title_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_PRIMARY}; border: none; background: transparent;")
+
+        self.subtitle_lbl = QLabel(self.tr("Chaque profil possède sa propre base SQLite et ses médias isolés."))
+        self.subtitle_lbl.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+        self.subtitle_lbl.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; border: none; background: transparent;")
+        self.subtitle_lbl.setWordWrap(True)
+
+        title_layout.addWidget(self.title_lbl)
+        title_layout.addWidget(self.subtitle_lbl)
+        header_layout.addLayout(title_layout, 1)
+
+        # Badge total de profils
+        self.count_badge = QLabel(tr("%1 profil%2", len(self.profiles), "s" if len(self.profiles) > 1 else ""))
+        self.count_badge.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+        self.count_badge.setStyleSheet(f"""
+            QLabel {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_SECONDARY};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 9px;
+                padding: 2px 8px;
+            }}
+        """)
+        header_layout.addWidget(self.count_badge)
+
+        layout.addWidget(header_card)
+
+        # ── 2. Barre de recherche ──
+        self.search_input = GlowLineEdit(placeholder=self.tr("Filtrer les espaces de travail..."))
+        self.search_input.setFixedHeight(36)
+        self.search_input.textChanged.connect(self._filter_profiles)
+        layout.addWidget(self.search_input)
+
+        # ── 3. Liste des profils ──
+        self.list_widget = QListWidget()
+        self.list_widget.setObjectName("ProfileListWidget")
+        self.list_widget.setFrameShape(QFrame.Shape.NoFrame)
+        self.list_widget.setSpacing(6)
+        self.list_widget.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.list_widget.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.list_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.list_widget.setStyleSheet("""
+            QListWidget#ProfileListWidget {
+                background-color: transparent;
+                border: none;
+                outline: none;
+            }
+            QListWidget#ProfileListWidget::item {
+                background-color: transparent;
+                border: none;
+                padding: 0px;
+            }
+        """)
+        self.list_widget.currentItemChanged.connect(self._on_selection_changed)
+        self.list_widget.itemDoubleClicked.connect(lambda _item: self.accept())
+        layout.addWidget(self.list_widget, 1)
+
+        # ── 3b. Barre d'actions secondaires (gestion du profil) ──
+        actions_bar = QHBoxLayout()
+        actions_bar.setContentsMargins(0, 0, 0, 0)
+        actions_bar.setSpacing(8)
+
+        self.delete_btn = DangerButton(tr("Supprimer cet espace"), tooltip="Supprimer définitivement cet espace et toutes ses données associées")
+        apply_compact_style(self.delete_btn, height=32)
+        self.delete_btn.setIcon(load_phosphor_icon("trash", color=DesignTokens.COLOR_RED))
+        self.delete_btn.clicked.connect(self._on_delete_profile)
+        self.delete_btn.setEnabled(False)
+        actions_bar.addWidget(self.delete_btn)
+
+        self.btn_transfer = SecondaryButton("Transférer...", tooltip=self.tr("Transférer du contenu depuis un autre profil"))
+        apply_compact_style(self.btn_transfer, height=32)
+        self.btn_transfer.setIcon(load_phosphor_icon("arrows-left-right", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_transfer.clicked.connect(self._on_open_transfer)
+        actions_bar.addWidget(self.btn_transfer)
+
+        actions_bar.addStretch()
+        layout.addLayout(actions_bar)
+
+        # ── 4. Formulaire de création d'un nouvel espace ──
+        create_frame = QFrame()
+        create_frame.setObjectName("ProfileCreateCard")
+        create_frame.setStyleSheet(f"""
+            QFrame#ProfileCreateCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+                padding: 10px;
+            }}
+        """)
+        create_layout = QVBoxLayout(create_frame)
+        create_layout.setContentsMargins(12, 10, 12, 10)
+        create_layout.setSpacing(8)
+
+        lbl_create_title = QLabel(self.tr("CRÉER UN NOUVEL ESPACE DE TRAVAIL"))
+        lbl_create_title.setFont(QFont(DesignTokens.FONT_MAIN, 9, QFont.Weight.Bold))
+        lbl_create_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; letter-spacing: 0.5px; border: none; background: transparent;")
+        create_layout.addWidget(lbl_create_title)
+
+        input_box = QHBoxLayout()
+        input_box.setSpacing(8)
+
+        self.new_profile_input = StyledLineEdit(icon_name="folder-plus", placeholder=self.tr("Nom du nouvel espace (ex: droit, medecine)..."))
+        self.new_profile_input.setFixedHeight(34)
+        self.new_profile_input.returnPressed.connect(self._on_create_profile)
+
+        self.btn_create = SecondaryButton("+ Créer", tooltip=self.tr("Créer un nouvel espace de profil indépendant"))
+        self.btn_create.setFixedHeight(34)
+        self.btn_create.clicked.connect(self._on_create_profile)
+
+        input_box.addWidget(self.new_profile_input, 1)
+        input_box.addWidget(self.btn_create)
+        create_layout.addLayout(input_box)
+
+        layout.addWidget(create_frame)
+
+        # ── 5. Option : Bascule automatique au démarrage ──
+        auto_box = QHBoxLayout()
+        auto_box.setContentsMargins(4, 2, 4, 2)
+        auto_box.setSpacing(8)
+
+        self.chk_auto_open = QCheckBox(self.tr("Toujours ouvrir automatiquement cet espace au démarrage"))
+        self.chk_auto_open.setFont(QFont(DesignTokens.FONT_MAIN, 10))
+        self.chk_auto_open.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.chk_auto_open.setStyleSheet(f"""
+            QCheckBox {{
+                color: {DesignTokens.TEXT_SECONDARY};
+                spacing: 8px;
+            }}
+            QCheckBox::indicator {{
+                width: 16px;
+                height: 16px;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: 4px;
+                background-color: {DesignTokens.BG_INPUT};
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {DesignTokens.ACCENT_PRIMARY};
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+
+        # Initialiser l'état depuis QSettings
+        from ankidraft.utils.environment import get_app_qsettings
+
+        settings = get_app_qsettings()
+        auto_open_val = settings.value("profiles/auto_open_startup", False, type=bool)
+        default_prof = str(settings.value("profiles/default_startup_profile", "default"))
+        self.chk_auto_open.setChecked(bool(auto_open_val and (self.selected_profile == default_prof)))
+
+        auto_box.addWidget(self.chk_auto_open)
+        auto_box.addStretch()
+        layout.addLayout(auto_box)
+
+        # ── 6. Pied de boîte & Actions de validation ──
+        bottom_layout = QHBoxLayout()
+        bottom_layout.setContentsMargins(0, 4, 0, 0)
+        bottom_layout.setSpacing(10)
+
+        bottom_layout.addStretch()
+
+        if self.is_startup:
+            cancel_text = "Quitter"
+            cancel_tooltip = "Quitter l'application"
+            select_text = "Ouvrir cet Espace"
+            select_tooltip = "Ouvrir le profil sélectionné et lancer AnkiForge"
+        else:
+            cancel_text = "Annuler"
+            cancel_tooltip = "Fermer sans changer d'espace"
+            select_text = "Basculer vers cet Espace"
+            select_tooltip = "Ouvrir le profil sélectionné et charger ses données"
+
+        self.btn_cancel = SecondaryButton(cancel_text, tooltip=cancel_tooltip)
+        self.btn_cancel.setFixedHeight(36)
+        self.btn_cancel.clicked.connect(self.reject)
+        bottom_layout.addWidget(self.btn_cancel)
+
+        self.btn_select = PrimaryButton(select_text, tooltip=select_tooltip)
+        self.btn_select.setFixedHeight(36)
+        self.btn_select.setIcon(load_on_accent_icon("arrow-right"))
+        self.btn_select.clicked.connect(self.accept)
+        bottom_layout.addWidget(self.btn_select)
+
+        layout.addLayout(bottom_layout)
+
+    def accept(self) -> None:
+        """Enregistre les préférences de bascule automatique avant d'accepter si le profil n'est pas verrouillé."""
+        if self.selected_profile and self.selected_profile != self.current_profile:
+            from ankidraft.services.profile_lock_service import ProfileLockService
+
+            is_locked, lock_info = ProfileLockService.is_locked(self.selected_profile, profiles_dir=self.pm.profiles_dir)
+            if is_locked:
+                pid_hint = f" (PID {lock_info.pid})" if lock_info else ""
+                QMessageBox.warning(
+                    self,
+                    self.tr("Profil en cours d'utilisation"),
+                    tr(
+                        "Le profil « %1 » est déjà ouvert par une autre instance%2.\n\nL'accès simultané au même profil est bloqué pour protéger vos données contre les "
+                        "corruptions.\nVeuillez fermer l'autre instance ou sélectionner un autre espace de travail.",
+                        self.selected_profile,
+                        pid_hint,
+                    ),
+                )
+                return
+
+        from ankidraft.utils.environment import get_app_qsettings
+
+        settings = get_app_qsettings()
+        if hasattr(self, "chk_auto_open") and self.chk_auto_open.isChecked():
+            settings.setValue("profiles/auto_open_startup", True)
+            settings.setValue("profiles/default_startup_profile", self.selected_profile)
+        else:
+            settings.setValue("profiles/auto_open_startup", False)
+        super().accept()
+
+    def _populate_profiles(self) -> None:
+        """Remplit la liste avec tous les profils disponibles."""
+        from ankidraft.services.profile_lock_service import ProfileLockService
+
+        self.list_widget.clear()
+        self._card_widgets.clear()
+        target_row = 0
+
+        for idx, p in enumerate(self.profiles):
+            is_cur = p == self.current_profile
+            is_sel = p == self.selected_profile
+            is_locked = False
+            lock_pid: int | None = None
+            if not is_cur:
+                is_locked, lock_info = ProfileLockService.is_locked(p, profiles_dir=self.pm.profiles_dir)
+                if is_locked and lock_info:
+                    lock_pid = lock_info.pid
+
+            item = QListWidgetItem(self.list_widget)
+            item.setSizeHint(QSize(0, 58))
+            item.setData(Qt.ItemDataRole.UserRole, p)
+
+            card = ProfileItemWidget(
+                name=p,
+                is_current=is_cur,
+                is_selected=is_sel,
+                is_locked=is_locked,
+                lock_pid=lock_pid,
+            )
+            self.list_widget.addItem(item)
+            self.list_widget.setItemWidget(item, card)
+            self._card_widgets.append(card)
+
+            if is_sel:
+                target_row = idx
+
+        if self.profiles:
+            self.list_widget.setCurrentRow(target_row)
+
+        if hasattr(self, "count_badge"):
+            self.count_badge.setText(tr("%1 profil%2", len(self.profiles), "s" if len(self.profiles) > 1 else ""))
+
+    def _filter_profiles(self, query: str) -> None:
+        """Filtre les profils selon la requête textuelle."""
+        q = query.strip().lower()
+        for i in range(self.list_widget.count()):
+            item = self.list_widget.item(i)
+            raw_name = item.data(Qt.ItemDataRole.UserRole) or ""
+            item.setHidden(bool(q and q not in raw_name.lower()))
+
+    def _on_selection_changed(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
+        if not current:
+            self.delete_btn.setEnabled(False)
+            return
+
+        raw_name = current.data(Qt.ItemDataRole.UserRole)
+        if raw_name:
+            self.selected_profile = raw_name
+            # Mise à jour de l'apparence des cartes
+            for i in range(self.list_widget.count()):
+                item = self.list_widget.item(i)
+                card = self.list_widget.itemWidget(item)
+                if isinstance(card, ProfileItemWidget):
+                    card.set_selected_state(card.name == raw_name)
+
+            # La suppression est interdite sur le profil actif courant et s'il ne reste qu'1 seul profil
+            can_delete = (raw_name != self.current_profile) and (len(self.profiles) > 1)
+            self.delete_btn.setEnabled(can_delete)
+
+    def _on_create_profile(self) -> None:
+        raw_name = self.new_profile_input.text().strip()
+        if not raw_name:
+            return
+
+        # Sanitize profile name
+        clean_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", raw_name)
+        if clean_name in self.profiles:
+            QMessageBox.warning(self, self.tr("Profil existant"), tr("L'espace de travail « %1 » existe déjà.", clean_name))
+            return
+
+        try:
+            self.pm.create_profile(clean_name)
+            self.profiles = self.pm.list_profiles()
+            self.selected_profile = clean_name
+            self.new_profile_input.clear()
+            self._populate_profiles()
+        except Exception as e:
+            logger.error("Erreur lors de la création du profil '%s': %s", clean_name, e, exc_info=True)
+            QMessageBox.critical(self, self.tr("Erreur"), tr("Impossible de créer le profil : %1", e))
+
+    def _on_delete_profile(self) -> None:
+        if not self.selected_profile or self.selected_profile == self.current_profile:
+            return
+
+        res = QMessageBox.question(
+            self,
+            self.tr("Confirmation de suppression"),
+            tr(
+                "Êtes-vous sûr de vouloir supprimer définitivement l'espace de travail « %1 » ?\n\nToutes les cartes, documents, personas et médias associés seront définitivement effacés.",
+                self.selected_profile,
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if res == QMessageBox.StandardButton.Yes:
+            try:
+                self.pm.delete_profile(self.selected_profile)
+                self.profiles = self.pm.list_profiles()
+                self.selected_profile = self.current_profile
+                self._populate_profiles()
+            except Exception as e:
+                logger.error("Erreur lors de la suppression du profil '%s': %s", self.selected_profile, e, exc_info=True)
+                QMessageBox.critical(self, self.tr("Erreur"), tr("Impossible de supprimer le profil : %1", e))
+
+    def _on_open_transfer(self) -> None:
+        """Ouvre le dialogue de transfert inter-profils."""
+        from ankidraft.ui.dialogs.profile_transfer_dialog import ProfileTransferDialog
+
+        dialog = ProfileTransferDialog(profiles_dir=self.pm.profiles_dir, parent=self)
+        dialog.exec()
+
+    def get_selected_profile(self) -> str:
+        return self.selected_profile
+
+    def refresh_theme(self, profile: Any) -> None:
+        if hasattr(self, "logo_lbl"):
+            self.logo_lbl.setPixmap(load_logo_icon(profile.accent_primary).pixmap(38, 38))
+        if hasattr(self, "delete_btn"):
+            self.delete_btn.setIcon(load_phosphor_icon("trash", color=profile.color_red))
+        if hasattr(self, "btn_transfer"):
+            self.btn_transfer.setIcon(load_phosphor_icon("arrows-left-right", color=profile.text_primary))
+        for card in self._card_widgets:
+            card.refresh_theme(profile)

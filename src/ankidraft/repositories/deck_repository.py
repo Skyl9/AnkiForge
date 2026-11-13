@@ -1,0 +1,132 @@
+"""Dépôt pour les modèles de paquets et la gestion de la hiérarchie des sous-paquets."""
+
+from __future__ import annotations
+
+import logging
+
+from ankidraft.database.models import CardModel, DeckModel
+from ankidraft.repositories.base import BaseRepository
+from ankidraft.utils.hierarchy import descendants_prefix, join_hierarchy, split_hierarchy
+
+logger = logging.getLogger(__name__)
+
+
+class DeckRepository(BaseRepository):
+    """Dépôt d'accès aux données des paquets Anki et de leurs sous-paquets hiérarchiques."""
+
+    def get_all_decks(self) -> list[DeckModel]:
+        """Retourne tous les paquets triés par ordre alphabétique sur le nom."""
+        return list(DeckModel.select().order_by(DeckModel.name.asc()))
+
+    def get_deck_by_id(self, deck_id: int) -> DeckModel | None:
+        """Récupère un paquet par sa clé primaire."""
+        try:
+            return DeckModel.get_or_none(DeckModel.id == deck_id)
+        except Exception as e:
+            logger.error("Failed to retrieve deck %s: %s", deck_id, e)
+            return None
+
+    def get_deck_by_name(self, name: str) -> DeckModel | None:
+        """Retourne un paquet par son nom exact."""
+        try:
+            return DeckModel.get_or_none(DeckModel.name == name)
+        except Exception as e:
+            logger.error("Failed to retrieve deck by name '%s': %s", name, e)
+            return None
+
+    def get_or_create_deck(self, name: str, description: str = "") -> DeckModel:
+        """Récupère un paquet existant ou en crée un nouveau."""
+        existing = self.get_deck_by_name(name)
+        if existing:
+            return existing
+        return self.create_deck(name=name, description=description)
+
+    def get_or_create_deck_hierarchical(self, name: str, description: str = "") -> DeckModel:
+        """Retourne ou crée un paquet, en créant et reliant tous les paquets parents de la hiérarchie « Parent::Enfant » via parent_deck."""
+        parts = split_hierarchy(name) or ["Par défaut"]
+
+        current_deck: DeckModel | None = None
+
+        with self.atomic():
+            for i in range(len(parts)):
+                accumulated_name = join_hierarchy(parts[: i + 1])
+                existing = self.get_deck_by_name(accumulated_name)
+                if existing:
+                    # Répare un lien parent manquant/obsolète (ex: paquet créé à plat)
+                    # afin que la hiérarchie DB (parent_deck) reste cohérente avec le nom.
+                    expected_parent: DeckModel | None = current_deck if i > 0 else None
+                    expected_parent_id = expected_parent.id if expected_parent else None
+                    existing_parent_id = existing.parent_deck.id if existing.parent_deck else None
+                    if existing_parent_id != expected_parent_id:
+                        existing.parent_deck = expected_parent
+                        existing.save()
+                    current_deck = existing
+                else:
+                    current_deck = DeckModel.create(
+                        name=accumulated_name,
+                        description=description if i == len(parts) - 1 else "",
+                        parent_deck=current_deck,
+                    )
+        if current_deck is None:
+            raise ValueError(f"Impossible de créer ou récupérer le paquet : {name}")
+        return current_deck
+
+    def create_deck(
+        self,
+        name: str,
+        description: str = "",
+        parent_deck: DeckModel | None = None,
+    ) -> DeckModel:
+        """Crée un nouveau paquet."""
+        with self.atomic():
+            return DeckModel.create(
+                name=name,
+                description=description,
+                parent_deck=parent_deck,
+            )
+
+    def rename_deck(self, deck_id: int, new_name: str) -> DeckModel | None:
+        """Renomme un paquet existant et met à jour les préfixes de ses sous-paquets si nécessaire."""
+        deck = self.get_deck_by_id(deck_id)
+        if not deck:
+            return None
+
+        old_name = deck.name
+        with self.atomic():
+            deck.name = new_name
+            deck.save()
+
+            # Update child subdecks prefix
+            old_prefix = descendants_prefix(old_name)
+            new_prefix = descendants_prefix(new_name)
+            children = list(DeckModel.select().where(DeckModel.name.startswith(old_prefix)))
+            for child in children:
+                child.name = new_prefix + child.name[len(old_prefix) :]
+                child.save()
+
+            return deck
+
+    def delete_deck(self, deck_id: int) -> bool:
+        """Supprime un paquet en cascade sur ses sous-paquets et ses cartes."""
+        deck = self.get_deck_by_id(deck_id)
+        if not deck:
+            return False
+
+        # L'identité d'un sous-paquet est son préfixe hiérarchique (ex: "Science::"),
+        # pas la FK `parent_deck` — cf. `get_descendant_decks` (l'identité de référence).
+        # `delete_instance(recursive=True)` ne descend pas dans cette FK auto-référentielle :
+        # on supprime donc explicitement la sous-arborescence et leurs cartes, en une transaction.
+        target_ids = [d.id for d in self.get_descendant_decks(deck.name)]
+
+        with self.atomic():
+            CardModel.delete().where(CardModel.deck.in_(target_ids)).execute()
+            DeckModel.delete().where(DeckModel.id.in_(target_ids)).execute()
+            return True
+
+    def get_descendant_decks(self, deck_name: str) -> list[DeckModel]:
+        """Retourne un paquet et tous ses sous-paquets d'après leur préfixe hiérarchique."""
+        return list(DeckModel.select().where((DeckModel.name == deck_name) | (DeckModel.name.startswith(descendants_prefix(deck_name)))))
+
+    def get_card_count(self, deck_id: int) -> int:
+        """Retourne le nombre total de cartes rattachées à un paquet donné."""
+        return int(CardModel.select().where(CardModel.deck == deck_id).count())

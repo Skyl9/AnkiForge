@@ -1,0 +1,420 @@
+import re
+from typing import Any
+
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QSize, Qt, Signal
+from PySide6.QtGui import QCursor, QIcon
+from PySide6.QtWidgets import QFrame, QGraphicsDropShadowEffect, QLabel, QPushButton, QVBoxLayout, QWidget
+
+from ankidraft.ui.theme import DesignTokens, apply_shadow
+from ankidraft.utils.icon_loader import load_phosphor_icon
+
+
+def _escape_ampersand(text: str) -> str:
+    """Remplace les '&' isolés par '&&' pour éviter que Qt ne les interprète comme raccourci clavier (mnémonique)."""
+    return re.sub(r"(?<!&)&(?!&)", "&&", text)
+
+
+COMPACT_BUTTON_HEIGHT = 32
+"""Hauteur d'un bouton compact inline (pied de carte, barre d'outils).
+
+Le QSS global impose `padding: 8px 16px` à `QPushButton` : sous cette règle, un bouton
+contraint à 26px écrase verticalement son texte et son icône (besoin réel ≈ 39px). La densité
+`compact` (cf. `StyleEngine.generate_stylesheet`) ramène le padding vertical à 2px et la police
+à `font_size_sm`, ce qui rend 32px confortable : le contenu (texte + icône) tient sans rognage.
+"""
+
+
+def apply_compact_style(button: QPushButton, *, height: int = COMPACT_BUTTON_HEIGHT) -> None:
+    """Bascule un bouton en densité compacte et lui réserve une hauteur adaptée.
+
+    Aucun style local n'est écrit : couleurs, anneau de focus et survol restent portés par le
+    QSS global (règle `role` + règle `density`). La propriété dynamique étant fixée après la
+    construction, le widget doit être re-polishé pour que la règle s'applique.
+    """
+    button.setFixedHeight(height)
+    button.setProperty("density", "compact")
+    button.style().unpolish(button)
+    button.style().polish(button)
+
+
+class PrimaryButton(QPushButton):
+    """Bouton principal avec glow et affordance tactile. Usage: actions primaires."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        tooltip = kwargs.pop("tooltip", None)
+        args_list = list(args)
+        if args_list and isinstance(args_list[0], str):
+            args_list[0] = _escape_ampersand(args_list[0])
+        super().__init__(*args_list, **kwargs)
+        if tooltip:
+            self.setToolTip(tooltip)
+        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.setFixedHeight(36)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self.setProperty("role", "primary")
+
+        apply_shadow(self, blur=10, offset_y=0, color=DesignTokens.ACCENT_GLOW)
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            self.anim = QPropertyAnimation(effect, b"blurRadius", self)
+            self.anim.setDuration(150)
+            self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+            self.default_blur = 10
+            self.hover_blur = 16
+
+    def setText(self, text: str) -> None:
+        super().setText(_escape_ampersand(text))
+
+    def _start_blur_anim(self, end_val: float) -> None:
+        if not hasattr(self, "anim"):
+            return
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            if self.anim.targetObject() is not effect:
+                self.anim.setTargetObject(effect)
+            if self.anim.targetObject() is None:
+                return
+            self.anim.stop()
+            self.anim.setEndValue(end_val)
+            self.anim.start()
+
+    def enterEvent(self, event: Any) -> None:
+        self._start_blur_anim(self.hover_blur)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event: Any) -> None:
+        self._start_blur_anim(self.default_blur)
+        super().leaveEvent(event)
+
+    def hideEvent(self, event: Any) -> None:
+        if hasattr(self, "anim"):
+            self.anim.stop()
+        super().hideEvent(event)
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        pass
+
+
+class SecondaryButton(QPushButton):
+    """Bouton secondaire avec relief, contour d'accentuation au survol et affordance tactile."""
+
+    #: Relief de repos : flou et décalage du halo porté par la bordure du bouton.
+    RELIEF_BLUR = 2
+    RELIEF_OFFSET_Y = 1
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        tooltip = kwargs.pop("tooltip", None)
+        args_list = list(args)
+        if args_list and isinstance(args_list[0], str):
+            args_list[0] = _escape_ampersand(args_list[0])
+        super().__init__(*args_list, **kwargs)
+        if tooltip:
+            self.setToolTip(tooltip)
+        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.setFixedHeight(36)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self.setProperty("role", "secondary")
+
+        self._apply_relief(DesignTokens.SHADOW_COLOR)
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            self.anim = QPropertyAnimation(effect, b"blurRadius", self)
+            self.anim.setDuration(150)
+            self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+            self.default_blur = self.RELIEF_BLUR
+            self.hover_blur = 10
+
+    def _apply_relief(self, color: str) -> None:
+        """(Re)pose le halo de relief avec la couleur d'ombre du thème actif.
+
+        `apply_shadow` met à jour l'effet en place quand il existe déjà : la cible de
+        l'animation de survol survit donc au changement de thème.
+        """
+        apply_shadow(self, blur=self.RELIEF_BLUR, offset_y=self.RELIEF_OFFSET_Y, color=color)
+
+    def setText(self, text: str) -> None:
+        super().setText(_escape_ampersand(text))
+
+    def _start_blur_anim(self, end_val: float) -> None:
+        if not hasattr(self, "anim"):
+            return
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            if self.anim.targetObject() is not effect:
+                self.anim.setTargetObject(effect)
+            if self.anim.targetObject() is None:
+                return
+            self.anim.stop()
+            self.anim.setEndValue(end_val)
+            self.anim.start()
+
+    def enterEvent(self, event: Any) -> None:
+        self._start_blur_anim(self.hover_blur)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event: Any) -> None:
+        self._start_blur_anim(self.default_blur)
+        super().leaveEvent(event)
+
+    def hideEvent(self, event: Any) -> None:
+        if hasattr(self, "anim"):
+            self.anim.stop()
+        super().hideEvent(event)
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        """Re-teint le halo après un changement de thème.
+
+        La couleur d'ombre est lue dans `DesignTokens` et non dans `profile` : aucun profil ne
+        porte de token d'ombre (`DesignTokens.apply_theme_profile` le dérive de `IS_DARK`).
+        `StyleEngine.apply_theme` applique le profil **puis** re-polish, donc `refresh_theme` est
+        le moment où la nouvelle valeur est disponible — c'est aussi pourquoi le paramètre est
+        volontairement ignoré ici.
+        """
+        self._apply_relief(DesignTokens.SHADOW_COLOR)
+
+
+class ActionButton(SecondaryButton):
+    """Bouton d'action avec icône Phosphor/FA optionnelle et libellé textuel."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        icon_name = ""
+        parent = kwargs.pop("parent", None)
+
+        if len(args) >= 2 and isinstance(args[0], str) and isinstance(args[1], str):
+            icon_name = args[0]
+            text = args[1]
+            if len(args) > 2 and isinstance(args[2], QWidget):
+                parent = args[2]
+            super().__init__(text, parent, **kwargs)
+        elif len(args) == 1 and isinstance(args[0], str):
+            text = args[0]
+            super().__init__(text, parent, **kwargs)
+        else:
+            super().__init__(*args, **kwargs)
+
+        self.icon_name = icon_name
+        if icon_name:
+            self.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        super().refresh_theme(profile)
+        if hasattr(self, "icon_name") and self.icon_name:
+            color = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+            self.setIcon(load_phosphor_icon(self.icon_name, color=color))
+
+
+class DangerButton(QPushButton):
+    """Bouton danger rouge avec halo lumineux au survol. Variantes: filled et ghost."""
+
+    def __init__(self, text: str, ghost: bool = False, tooltip: str = "", parent: QWidget | None = None) -> None:
+        super().__init__(_escape_ampersand(text), parent)
+        if tooltip:
+            self.setToolTip(tooltip)
+        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.setFixedHeight(36)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self.setProperty("role", "danger")
+
+        apply_shadow(self, blur=2, offset_y=1, color=DesignTokens.COLOR_RED_BORDER)
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            self.anim = QPropertyAnimation(effect, b"blurRadius", self)
+            self.anim.setDuration(150)
+            self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+            self.default_blur = 2
+            self.hover_blur = 12
+
+    def setText(self, text: str) -> None:
+        super().setText(_escape_ampersand(text))
+
+    def _start_blur_anim(self, end_val: float) -> None:
+        if not hasattr(self, "anim"):
+            return
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            if self.anim.targetObject() is not effect:
+                self.anim.setTargetObject(effect)
+            if self.anim.targetObject() is None:
+                return
+            self.anim.stop()
+            self.anim.setEndValue(end_val)
+            self.anim.start()
+
+    def enterEvent(self, event: Any) -> None:
+        self._start_blur_anim(self.hover_blur)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event: Any) -> None:
+        self._start_blur_anim(self.default_blur)
+        super().leaveEvent(event)
+
+    def hideEvent(self, event: Any) -> None:
+        if hasattr(self, "anim"):
+            self.anim.stop()
+        super().hideEvent(event)
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        pass
+
+
+class IconButton(QPushButton):
+    """Bouton icône carré avec relief et affordance tactile."""
+
+    def __init__(self, icon_name: str, tooltip: str = "", size: int = 32, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.icon_name = icon_name
+        self.setFixedSize(size, size)
+        self.setToolTip(tooltip)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self.setProperty("role", "icon")
+
+        if icon_name:
+            self.setIcon(load_phosphor_icon(icon_name, color=DesignTokens.TEXT_PRIMARY))
+            self.setIconSize(self.size() * 0.6)
+            self.setText("")
+
+        apply_shadow(self, blur=2, offset_y=1, color=DesignTokens.SHADOW_COLOR)
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            self.anim = QPropertyAnimation(effect, b"blurRadius", self)
+            self.anim.setDuration(150)
+            self.anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+            self.default_blur = 2
+            self.hover_blur = 8
+
+    def _start_blur_anim(self, end_val: float) -> None:
+        if not hasattr(self, "anim"):
+            return
+        effect = self.graphicsEffect()
+        if isinstance(effect, QGraphicsDropShadowEffect):
+            if self.anim.targetObject() is not effect:
+                self.anim.setTargetObject(effect)
+            if self.anim.targetObject() is None:
+                return
+            self.anim.stop()
+            self.anim.setEndValue(end_val)
+            self.anim.start()
+
+    def enterEvent(self, event: Any) -> None:
+        self._start_blur_anim(self.hover_blur)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event: Any) -> None:
+        self._start_blur_anim(self.default_blur)
+        super().leaveEvent(event)
+
+    def hideEvent(self, event: Any) -> None:
+        if hasattr(self, "anim"):
+            self.anim.stop()
+        super().hideEvent(event)
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        if self.icon_name:
+            color = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+            self.setIcon(load_phosphor_icon(self.icon_name, color=color))
+
+
+class PremiumActionCard(QFrame):
+    """Grande carte d'action avec icône + titre + description. Usage: Dashboard."""
+
+    clicked = Signal()
+
+    def __init__(self, icon_name: str, title: str, description: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.icon_name = icon_name
+        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.setMinimumHeight(100)
+        self.setProperty("card-style", "elevated")
+        apply_shadow(self, blur=12, offset_y=4)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+
+        self.icon_label = QLabel()
+        pixmap = load_phosphor_icon(icon_name, color=DesignTokens.ACCENT_PRIMARY).pixmap(24, 24)
+        self.icon_label.setPixmap(pixmap)
+
+        self.title_label = QLabel(title)
+        self.title_label.setStyleSheet(f"font-weight: bold; color: {DesignTokens.TEXT_PRIMARY};")
+
+        self.desc_label = QLabel(description)
+        self.desc_label.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY};")
+        self.desc_label.setWordWrap(True)
+
+        layout.addWidget(self.icon_label)
+        layout.addWidget(self.title_label)
+        layout.addWidget(self.desc_label)
+        layout.addStretch()
+
+    def refresh_theme(self, profile: Any) -> None:
+        if hasattr(self, "icon_name") and self.icon_name:
+            pixmap = load_phosphor_icon(self.icon_name, color=profile.accent_primary).pixmap(24, 24)
+            self.icon_label.setPixmap(pixmap)
+        if hasattr(self, "title_label"):
+            self.title_label.setStyleSheet(f"font-weight: bold; color: {profile.text_primary};")
+        if hasattr(self, "desc_label"):
+            self.desc_label.setStyleSheet(f"color: {profile.text_secondary};")
+
+    def mouseReleaseEvent(self, event) -> None:
+        from PySide6.QtGui import QMouseEvent
+
+        if isinstance(event, QMouseEvent) and event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
+
+
+class FilterChipButton(QPushButton):
+    """Bouton style 'chip' basculable pour les filtres rapides de capacités et catégories."""
+
+    def __init__(
+        self,
+        text: str,
+        icon_name: str | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(_escape_ampersand(text), parent)
+        self.icon_name: str | None = icon_name
+        self._profile: Any = None
+        self._toggled_connected: bool = False
+        self.setCheckable(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(26)
+        if icon_name:
+            self.setIconSize(QSize(14, 14))
+            self.toggled.connect(self._on_toggled)
+            self._toggled_connected = True
+            self._update_icon()
+
+    def setText(self, text: str) -> None:
+        super().setText(_escape_ampersand(text))
+
+    def set_icon_name(self, icon_name: str | None) -> None:
+        self.icon_name = icon_name
+        if icon_name:
+            self.setIconSize(QSize(14, 14))
+            if not self._toggled_connected:
+                self.toggled.connect(self._on_toggled)
+                self._toggled_connected = True
+            self._update_icon()
+        else:
+            self.setIcon(QIcon())
+
+    def _update_icon(self, profile: Any = None) -> None:
+        if not getattr(self, "icon_name", None):
+            return
+        active_profile = profile or getattr(self, "_profile", None)
+        if active_profile is not None:
+            if isinstance(active_profile, dict):
+                color = active_profile.get("accent_primary", DesignTokens.ACCENT_PRIMARY) if self.isChecked() else active_profile.get("text_secondary", DesignTokens.TEXT_SECONDARY)
+            else:
+                color = getattr(active_profile, "accent_primary", DesignTokens.ACCENT_PRIMARY) if self.isChecked() else getattr(active_profile, "text_secondary", DesignTokens.TEXT_SECONDARY)
+        else:
+            color = DesignTokens.ACCENT_PRIMARY if self.isChecked() else DesignTokens.TEXT_SECONDARY
+        self.setIcon(load_phosphor_icon(self.icon_name, color=color))
+
+    def _on_toggled(self, _checked: bool) -> None:
+        self._update_icon()
+
+    def refresh_theme(self, profile: Any = None) -> None:
+        self._profile = profile
+        self._update_icon(profile)

@@ -1,0 +1,24 @@
+# Glossaire et Internes — AnkiForge
+
+Ce fichier rassemble le glossaire de domaine (`CONTEXT.md`) et le schéma
+relationnel SQLite introspecté depuis les modèles Peewee (`ankiforge.database.models`).
+Il constitue l'identité durable du workspace agentique.
+
+## Profil actif
+
+{{ active_profile }}
+
+## Glossaire de domaine
+
+Les termes du domaine AnkiForge (paquet, note, carte, type de note, fil d'Ariane,
+fragment, couverture, provenance...) sont définis dans `CONTEXT.md` à la racine du
+projet et partagés entre l'application, les agents et la documentation.
+
+## Schéma relationnel (Peewee)
+
+Les tables de la collection AnkiForge sont déclarées sous `../../../../..`
+et incluent, notamment : `DeckModel`, `NoteTypeModel`, `NoteModel`, `CardModel`,
+`NoteVersionModel`, `DocumentModel`, `DocumentChunkModel`, `PersonaModel`,
+`PipelineModel`, `MediaModel`, `SettingModel`.
+
+> Ce fichier est informatif ; le schéma de référence reste le code Python des modèles.

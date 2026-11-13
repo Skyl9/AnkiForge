@@ -1,0 +1,1619 @@
+import json
+import logging
+from typing import Any
+
+from PySide6.QtCore import QPoint, QSize, Qt, Slot
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QMessageBox,
+    QScrollArea,
+    QSplitter,
+    QStackedWidget,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
+from ankidraft.database.models import (
+    LLMConfigModel,
+    PersonaFolderModel,
+    PersonaModel,
+    db,
+)
+from ankidraft.services.ai.persona_templates import (
+    PROMPT_STARTER_FRAMEWORKS,
+    PromptStarter,
+)
+from ankidraft.services.ai.persona_version_service import PersonaVersionService
+from ankidraft.services.profile_content_transfer import ProfileContentTransfer
+from ankidraft.services.profile_manager import ProfileManager
+from ankidraft.services.tools.tool_service import ToolService
+from ankidraft.ui.components import (
+    AutoExpandingTextEdit,
+    Badge,
+    FilterChipButton,
+    FlowWidget,
+    GlowLineEdit,
+    IconButton,
+    IdePanel,
+    ModelSelectorWidget,
+    PrimaryButton,
+    SecondaryButton,
+    StyledComboBox,
+    StyledLineEdit,
+    StyledTextEdit,
+    apply_compact_style,
+)
+from ankidraft.ui.dialogs.persona_history_dialog import PersonaHistoryDialog
+from ankidraft.ui.shortcuts import (
+    ShortcutId,
+    ShortcutManager,
+    ShortcutScope,
+    get_shortcut_sequence,
+)
+from ankidraft.ui.theme import DesignTokens, StyledMenu, apply_shadow
+from ankidraft.ui.views.agents_view.constants import (
+    JINJA2_SNIPPETS,
+    PERSONA_TYPE_SPECS,
+)
+from ankidraft.ui.views.agents_view.dialogs import (
+    AgentPromptPreviewDialog,
+    AgentTestDialog,
+    PersonaCreationWizardDialog,
+    VariableHelperDialog,
+)
+from ankidraft.ui.views.agents_view.widgets import (
+    FolderHeaderWidget,
+    PersonaEmptyStateWidget,
+    PersonaItemWidget,
+    ResponsiveAgentTopActionBar,
+    SubTabButton,
+    TagPillButton,
+    ToolPermissionCard,
+)
+from ankidraft.ui.widgets.toast import show_toast
+from ankidraft.utils.i18n import tr
+from ankidraft.utils.icon_loader import load_on_accent_icon, load_phosphor_icon
+from ankidraft.utils.logger import log_and_notify_error
+
+logger = logging.getLogger(__name__)
+
+
+class AgentsView(QWidget):
+    """Vue Atelier d'Agents IA — Architecture Maître-Détail avec dossiers et sous-dossiers récursifs."""
+
+    def __init__(
+        self,
+        ai_manager: Any | None = None,
+        profile_name: str = "default",
+        parent: QWidget | None = None,
+        shortcut_manager: ShortcutManager | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.ai_manager = ai_manager
+        self.profile_name = profile_name
+        self._shortcut_manager: ShortcutManager = shortcut_manager or ShortcutManager(self)
+        if shortcut_manager is None:
+            self._shortcut_manager.set_active_view(self)
+        self._current_agent: PersonaModel | None = None
+        self._current_folder: PersonaFolderModel | None = None
+        self._tool_cards: dict[str, ToolPermissionCard] = {}
+        self._tool_checkboxes: dict[str, QCheckBox] = {}  # Rétrocompatibilité tests
+        self._cached_personas: list[PersonaModel] = []
+        self._cached_folders: list[PersonaFolderModel] = []
+        self._current_scope_filter: str = "all"  # 'all', 'pipeline', 'mcp', 'universal'
+
+        self._setup_ui()
+        self._setup_shortcuts()
+        self._connect_signals()
+        self.refresh_data()
+
+    @property
+    def shortcut_manager(self) -> ShortcutManager:
+        """Manager des raccourcis clavier associé aux agents."""
+        return self._shortcut_manager
+
+    def set_shortcut_manager(self, manager: ShortcutManager) -> None:
+        """Injecte le ShortcutManager central et re-lie tous les raccourcis."""
+        if self._shortcut_manager is not manager:
+            if self._shortcut_manager is not None:
+                self._shortcut_manager.unbind(self)
+            self._shortcut_manager = manager
+            self._setup_shortcuts()
+
+    def _setup_shortcuts(self) -> None:
+        """Configure les raccourcis déclaratifs de AgentsView via ShortcutManager."""
+        if not hasattr(self, "_shortcut_manager") or self._shortcut_manager is None:
+            return
+
+        vue_bindings = {
+            ShortcutId.AGENTS_NEW: lambda: self._on_new_agent(),
+            ShortcutId.AGENTS_DUPLICATE: lambda: self._on_clone_agent(),
+            ShortcutId.VIEW_HISTORY: lambda: self._on_open_history(),
+        }
+        self._shortcut_manager.bind(self, vue_bindings, scope=ShortcutScope.VUE)
+
+    def save(self) -> None:
+        """Enregistre l'agent en cours d'édition (routeur Ctrl+S)."""
+        self._on_save_agent()
+
+    def run_primary_action(self) -> None:
+        """Lance le test de l'agent actif (routeur Ctrl+Entrée)."""
+        self._on_test_agent()
+
+    def _setup_ui(self) -> None:
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_layout.addWidget(self.main_splitter)
+
+        # ── 1. Panneau Gauche : Arborescence Dossiers & Personas ───────────────
+        self.list_panel = IdePanel(detachable=True)
+        self.list_panel.setMinimumWidth(320)
+
+        list_content = QWidget()
+        list_layout = QVBoxLayout(list_content)
+        list_layout.setContentsMargins(10, 10, 10, 10)
+        list_layout.setSpacing(8)
+
+        # Ligne 1 : Titre + Compteur
+        h_row = QHBoxLayout()
+        h_row.setContentsMargins(0, 0, 0, 0)
+        lbl_list_title = QLabel(self.tr("AGENTS & DOSSIERS :"))
+        lbl_list_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px;")
+        h_row.addWidget(lbl_list_title)
+        h_row.addStretch()
+
+        self.lbl_count_badge = Badge(tr("0 agents"), variant="neutral")
+        self.lbl_count_badge.setFixedHeight(18)
+        h_row.addWidget(self.lbl_count_badge)
+        list_layout.addLayout(h_row)
+
+        # Ligne 2 : Recherche + Bouton Nouvel Agent
+        search_row = QHBoxLayout()
+        search_row.setContentsMargins(0, 0, 0, 0)
+        search_row.setSpacing(6)
+
+        self.edit_search = GlowLineEdit(placeholder=self.tr("Filtrer par nom, rôle..."))
+        self.edit_search.setFixedHeight(30)
+        self.edit_search.textChanged.connect(self._apply_filters)
+        search_row.addWidget(self.edit_search, 1)
+
+        self.btn_new = PrimaryButton(
+            self.tr("Nouvel Agent"),
+            tooltip=tr("Créer un nouveau persona d'agent IA (%1)", get_shortcut_sequence(ShortcutId.AGENTS_NEW)),
+        )
+        self.btn_new.setIcon(load_on_accent_icon("ph.plus"))
+        self.btn_new.setIconSize(QSize(14, 14))
+        apply_compact_style(self.btn_new, height=30)
+        search_row.addWidget(self.btn_new)
+        list_layout.addLayout(search_row)
+
+        # Ligne 3 : Filtres Segmented par Portée (Pills)
+        filter_bar = QHBoxLayout()
+        filter_bar.setContentsMargins(0, 0, 0, 0)
+        filter_bar.setSpacing(4)
+
+        self.btn_filter_all = FilterChipButton(tr("Tous"), icon_name="ph.sparkle")
+        self.btn_filter_all.setToolTip(self.tr("Afficher tous les agents enregistrés"))
+        self.btn_filter_pipe = FilterChipButton(tr("Pipeline"), icon_name="ph.lightning")
+        self.btn_filter_pipe.setToolTip(self.tr("Filtrer les agents utilisables dans les étapes de pipelines DAG"))
+        self.btn_filter_mcp = FilterChipButton("MCP", icon_name="ph.handshake")
+        self.btn_filter_mcp.setToolTip(self.tr("Filtrer les agents connectés au protocole MCP et outils autonomes"))
+        self.btn_filter_univ = FilterChipButton(tr("Universel"), icon_name="ph.globe")
+        self.btn_filter_univ.setToolTip(self.tr("Filtrer les agents polyvalents universels"))
+
+        self._filter_buttons: list[tuple[FilterChipButton, str]] = [
+            (self.btn_filter_all, "all"),
+            (self.btn_filter_pipe, "pipeline"),
+            (self.btn_filter_mcp, "mcp"),
+            (self.btn_filter_univ, "universal"),
+        ]
+
+        for btn, scope in self._filter_buttons:
+            btn.clicked.connect(lambda _, s=scope: self._set_scope_filter(s))
+            filter_bar.addWidget(btn)
+
+        filter_bar.addStretch()
+        self.btn_filter_all.setChecked(True)
+        list_layout.addLayout(filter_bar)
+
+        # Arbre des dossiers et personas (QTreeWidget)
+        self.persona_tree = QTreeWidget()
+        self.persona_tree.setHeaderHidden(True)
+        self.persona_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.persona_tree.customContextMenuRequested.connect(self._on_tree_context_menu)
+        self.persona_tree.setStyleSheet(f"""
+            QTreeWidget {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                outline: none;
+                padding: 4px;
+            }}
+            QTreeWidget::item {{
+                padding: 2px 2px;
+                border-radius: 4px;
+                margin-bottom: 2px;
+            }}
+            QTreeWidget::item:hover {{
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+            QTreeWidget::item:selected {{
+                background-color: {DesignTokens.BG_ACTIVE};
+                border-left: 2px solid {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        list_layout.addWidget(self.persona_tree, 1)
+
+        # Barre d'actions inférieure
+        list_toolbar = QHBoxLayout()
+        list_toolbar.setSpacing(6)
+
+        self.btn_new_folder = SecondaryButton(
+            self.tr("Nouveau Dossier"),
+            tooltip=self.tr("Créer un dossier pour organiser l'arborescence d'agents"),
+        )
+        self.btn_new_folder.setIcon(load_phosphor_icon("ph.folder-plus", color=DesignTokens.TEXT_PRIMARY))
+        self.btn_new_folder.setIconSize(QSize(14, 14))
+        apply_compact_style(self.btn_new_folder, height=30)
+
+        self.btn_clone = IconButton(
+            "ph.copy",
+            tooltip=tr("Dupliquer l'agent sélectionné (%1)", get_shortcut_sequence(ShortcutId.AGENTS_DUPLICATE)),
+            size=30,
+        )
+        self.btn_del = IconButton("ph.trash", tooltip=self.tr("Supprimer l'élément sélectionné"), size=30)
+
+        list_toolbar.addWidget(self.btn_new_folder, 1)
+        list_toolbar.addWidget(self.btn_clone)
+        list_toolbar.addWidget(self.btn_del)
+        list_layout.addLayout(list_toolbar)
+
+        self.list_panel.add_tab("Arborescence d'Agents", list_content, "ph.folder-simple", closable=False)
+        self.main_splitter.addWidget(self.list_panel)
+
+        # ── 2. Panneau Droit : Éditeur Riche à Sous-Onglets IDE ────────────────
+        self.editor_panel = IdePanel(detachable=True)
+
+        self.editor_content = QWidget()
+        self.editor_content.setObjectName("agentEditorContent")
+        self.editor_content.setStyleSheet(f"""
+            QWidget#agentEditorContent {{
+                background-color: {DesignTokens.BG_PANEL};
+            }}
+        """)
+        editor_layout = QVBoxLayout(self.editor_content)
+        editor_layout.setContentsMargins(10, 10, 10, 10)
+        editor_layout.setSpacing(10)
+
+        # ResponsiveTopActionBar
+        self.top_action_bar = ResponsiveAgentTopActionBar()
+        self.lbl_agent_icon = self.top_action_bar.lbl_agent_icon
+        self.lbl_agent_title = self.top_action_bar.lbl_agent_title
+        self.scope_badge = self.top_action_bar.scope_badge
+        self.format_badge = self.top_action_bar.format_badge
+        self.btn_history = self.top_action_bar.btn_history
+        self.btn_history.setToolTip(tr("Historique des versions (%1)", get_shortcut_sequence(ShortcutId.VIEW_HISTORY)))
+        self.btn_test = self.top_action_bar.btn_test
+        self.btn_test.setToolTip(tr("Tester l'agent (%1)", get_shortcut_sequence(ShortcutId.APP_RUN_PRIMARY)))
+        self.btn_import = self.top_action_bar.btn_import
+        self.btn_save = self.top_action_bar.btn_save
+        self.btn_save.setToolTip(tr("Enregistrer les modifications (%1)", get_shortcut_sequence(ShortcutId.APP_SAVE)))
+
+        self.btn_history.clicked.connect(self._on_open_history)
+        self.btn_test.clicked.connect(self._on_test_agent)
+        self.btn_import.clicked.connect(self._on_import_agent_from_profile)
+
+        editor_layout.addWidget(self.top_action_bar)
+
+        # Barre de Sous-Onglets style IDE rattachée
+        self.subtabs_container = QWidget()
+        self.subtabs_container.setStyleSheet(f"background: transparent; border-bottom: 1px solid {DesignTokens.BORDER_COLOR};")
+        subtabs_bar = QHBoxLayout(self.subtabs_container)
+        subtabs_bar.setContentsMargins(0, 0, 0, 0)
+        subtabs_bar.setSpacing(0)
+
+        self.btn_subtab_identity = SubTabButton(tr("Identité && Moteur IA"), "ph.gear")
+        self.btn_subtab_prompt = SubTabButton(tr("Instructions && Prompt"), "ph.sparkle")
+        self.btn_subtab_tools = SubTabButton(tr("Permissions d'Outils"), "ph.wrench")
+
+        self.btn_subtab_identity.clicked.connect(lambda: self._switch_subtab(0))
+        self.btn_subtab_prompt.clicked.connect(lambda: self._switch_subtab(1))
+        self.btn_subtab_tools.clicked.connect(lambda: self._switch_subtab(2))
+
+        subtabs_bar.addWidget(self.btn_subtab_identity)
+        subtabs_bar.addWidget(self.btn_subtab_prompt)
+        subtabs_bar.addWidget(self.btn_subtab_tools)
+        subtabs_bar.addStretch()
+
+        # Stack de contenu en cartes surélevées aérées (Style Accueil / Dashboard)
+        self.tabs = QStackedWidget()
+        self.tabs.setObjectName("agentSubtabsStack")
+        self.tabs.setStyleSheet("QStackedWidget#agentSubtabsStack { background: transparent; border: none; }")
+
+        tabs_container = QWidget()
+        tabs_layout = QVBoxLayout(tabs_container)
+        tabs_layout.setContentsMargins(0, 0, 0, 0)
+        tabs_layout.setSpacing(10)
+        tabs_layout.addWidget(self.subtabs_container)
+        tabs_layout.addWidget(self.tabs, 1)
+        editor_layout.addWidget(tabs_container, 1)
+
+        input_field_style = f"""
+            QLineEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                color: {DesignTokens.TEXT_PRIMARY};
+                padding: 6px 10px;
+                font-size: 12px;
+                font-weight: 500;
+            }}
+            QLineEdit:hover {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+                background-color: {DesignTokens.BG_HOVER};
+            }}
+            QLineEdit:focus {{
+                border: 1.5px solid {DesignTokens.ACCENT_PRIMARY};
+                background-color: {DesignTokens.BG_PANEL};
+            }}
+        """
+
+        # ── ONGLET 1 : Identité & Moteur IA ──
+        tab_identity = QWidget()
+        tab_identity.setStyleSheet("background: transparent;")
+        layout_identity = QVBoxLayout(tab_identity)
+        layout_identity.setContentsMargins(0, 4, 0, 8)
+        layout_identity.setSpacing(12)
+
+        # Carte 1: Identité
+        identity_card = QFrame()
+        identity_card.setObjectName("agentIdentityCard")
+        identity_card.setStyleSheet(f"""
+            QFrame#agentIdentityCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        apply_shadow(identity_card, blur=8, offset_y=2, color=DesignTokens.SHADOW_COLOR)
+        id_card_layout = QVBoxLayout(identity_card)
+        id_card_layout.setContentsMargins(16, 14, 16, 16)
+        id_card_layout.setSpacing(8)
+
+        id_top = QHBoxLayout()
+        id_top.setContentsMargins(0, 0, 0, 0)
+        id_top.setSpacing(6)
+        id_ico = QLabel()
+        id_ico.setPixmap(load_phosphor_icon("ph.user-focus", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
+        id_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_id_section = QLabel(self.tr("IDENTITÉ DU PERSONA"))
+        lbl_id_section.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        id_top.addWidget(id_ico)
+        id_top.addWidget(lbl_id_section)
+        id_top.addStretch()
+        id_card_layout.addLayout(id_top)
+
+        lbl_name = QLabel(self.tr("NOM DU PERSONA :"))
+        lbl_name.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none; background: transparent;")
+        id_card_layout.addWidget(lbl_name)
+        self.name_edit = StyledLineEdit(icon_name="ph.pencil-simple")
+        self.name_edit.setStyleSheet(input_field_style)
+        self.name_edit.setFixedHeight(34)
+        self.name_edit.setPlaceholderText(self.tr("ex: Architecte de Cours, Linteur Wozniak, Consultant SRS..."))
+        id_card_layout.addWidget(self.name_edit)
+
+        lbl_desc = QLabel(self.tr("DESCRIPTION & RÔLE :"))
+        lbl_desc.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none; background: transparent;")
+        id_card_layout.addWidget(lbl_desc)
+        self.desc_edit = AutoExpandingTextEdit(placeholder="ex: Découpe le cours en concepts atomiques selon la règle de formulation minimale.")
+        id_card_layout.addWidget(self.desc_edit)
+        layout_identity.addWidget(identity_card)
+
+        # Carte 2: Portée & Rattachement
+        scope_card = QFrame()
+        scope_card.setObjectName("agentScopeCard")
+        scope_card.setStyleSheet(f"""
+            QFrame#agentScopeCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        apply_shadow(scope_card, blur=8, offset_y=2, color=DesignTokens.SHADOW_COLOR)
+        scope_card_layout = QVBoxLayout(scope_card)
+        scope_card_layout.setContentsMargins(16, 14, 16, 16)
+        scope_card_layout.setSpacing(8)
+
+        scope_top = QHBoxLayout()
+        scope_top.setContentsMargins(0, 0, 0, 0)
+        scope_top.setSpacing(6)
+        scope_ico = QLabel()
+        scope_ico.setPixmap(load_phosphor_icon("ph.share-network", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
+        scope_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_scope_section = QLabel(self.tr("RATTACHEMENT & PORTÉE"))
+        lbl_scope_section.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        scope_top.addWidget(scope_ico)
+        scope_top.addWidget(lbl_scope_section)
+        scope_top.addStretch()
+        scope_card_layout.addLayout(scope_top)
+
+        row_props = QHBoxLayout()
+        row_props.setSpacing(12)
+
+        col_folder = QVBoxLayout()
+        col_folder.setSpacing(4)
+        lbl_folder_title = QLabel(self.tr("DOSSIER D'APPARTENANCE :"))
+        lbl_folder_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none; background: transparent;")
+        col_folder.addWidget(lbl_folder_title)
+        self.folder_combo = StyledComboBox()
+        self.folder_combo.currentIndexChanged.connect(self._on_folder_combo_changed)
+        col_folder.addWidget(self.folder_combo)
+        row_props.addLayout(col_folder, 1)
+
+        col_scope = QVBoxLayout()
+        col_scope.setSpacing(4)
+        lbl_scope_title = QLabel(self.tr("PORTÉE / USAGE DE L'AGENT :"))
+        lbl_scope_title.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none; background: transparent;")
+        col_scope.addWidget(lbl_scope_title)
+        self.scope_combo = StyledComboBox()
+        for s_key, s_spec in PERSONA_TYPE_SPECS.items():
+            ico = load_phosphor_icon(s_spec.get("icon", "ph.lightning"), color=s_spec.get("badge_color", DesignTokens.TEXT_PRIMARY))
+            self.scope_combo.addItem(ico, s_spec["label"], userData=s_key)
+        self.scope_combo.currentIndexChanged.connect(self._on_scope_changed)
+        col_scope.addWidget(self.scope_combo)
+        row_props.addLayout(col_scope, 1)
+
+        col_fmt = QVBoxLayout()
+        col_fmt.setSpacing(4)
+        lbl_format = QLabel(self.tr("FORMAT DE SORTIE :"))
+        lbl_format.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border: none; background: transparent;")
+        col_fmt.addWidget(lbl_format)
+        self.format_combo = StyledComboBox()
+        self.format_combo.addItem(load_phosphor_icon("ph.code", color=DesignTokens.COLOR_YELLOW), self.tr("json"))
+        self.format_combo.addItem(load_phosphor_icon("ph.brackets-curly", color=DesignTokens.COLOR_BLUE), self.tr("cloze"))
+        self.format_combo.addItem(load_phosphor_icon("ph.article", color=DesignTokens.COLOR_PURPLE), self.tr("markdown"))
+        self.format_combo.addItem(load_phosphor_icon("ph.text-t", color=DesignTokens.TEXT_SECONDARY), self.tr("text"))
+        col_fmt.addWidget(self.format_combo)
+        row_props.addLayout(col_fmt, 1)
+
+        scope_card_layout.addLayout(row_props)
+
+        self.scope_info_card = QFrame()
+        self.scope_info_card.setObjectName("scope_info_card")
+        self.scope_info_card.setStyleSheet(f"""
+            QFrame#scope_info_card {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px;
+            }}
+        """)
+        layout_scope_info = QHBoxLayout(self.scope_info_card)
+        layout_scope_info.setContentsMargins(10, 8, 10, 8)
+        self.lbl_scope_info = QLabel(PERSONA_TYPE_SPECS["pipeline"]["desc"])
+        self.lbl_scope_info.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-size: 11px; background: transparent; border: none;")
+        self.lbl_scope_info.setWordWrap(True)
+        layout_scope_info.addWidget(self.lbl_scope_info)
+        scope_card_layout.addWidget(self.scope_info_card)
+        layout_identity.addWidget(scope_card)
+
+        # Carte 3: Moteur IA
+        engine_card = QFrame()
+        engine_card.setObjectName("agentEngineCard")
+        engine_card.setStyleSheet(f"""
+            QFrame#agentEngineCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        apply_shadow(engine_card, blur=8, offset_y=2, color=DesignTokens.SHADOW_COLOR)
+        engine_card_layout = QVBoxLayout(engine_card)
+        engine_card_layout.setContentsMargins(16, 14, 16, 16)
+        engine_card_layout.setSpacing(8)
+
+        engine_top = QHBoxLayout()
+        engine_top.setContentsMargins(0, 0, 0, 0)
+        engine_top.setSpacing(6)
+        engine_ico = QLabel()
+        engine_ico.setPixmap(load_phosphor_icon("ph.cpu", color=DesignTokens.COLOR_YELLOW).pixmap(14, 14))
+        engine_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_engine_section = QLabel(self.tr("MOTEUR IA DÉDIÉ (OPTIONNEL)"))
+        lbl_engine_section.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        engine_top.addWidget(engine_ico)
+        engine_top.addWidget(lbl_engine_section)
+        engine_top.addStretch()
+        engine_card_layout.addLayout(engine_top)
+
+        self.engine_combo = ModelSelectorWidget(allow_inherit=True, parent=self)
+        engine_card_layout.addWidget(self.engine_combo)
+
+        self.engine_info_card = QFrame()
+        self.engine_info_card.setObjectName("engine_info_card")
+        self.engine_info_card.setStyleSheet(f"""
+            QFrame#engine_info_card {{
+                background-color: {DesignTokens.BG_INPUT};
+                border: none;
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 4px;
+            }}
+        """)
+        layout_engine_info = QHBoxLayout(self.engine_info_card)
+        layout_engine_info.setContentsMargins(10, 8, 10, 8)
+        layout_engine_info.setSpacing(6)
+        self.lbl_engine_icon = QLabel()
+        self.lbl_engine_icon.setStyleSheet("background: transparent; border: none;")
+        self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.gear", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
+        layout_engine_info.addWidget(self.lbl_engine_icon)
+        self.lbl_engine_info = QLabel(self.tr("Cet agent utilisera le modèle IA global par défaut défini dans les Paramètres."))
+        self.lbl_engine_info.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; background: transparent; border: none;")
+        layout_engine_info.addWidget(self.lbl_engine_info, 1)
+        engine_card_layout.addWidget(self.engine_info_card)
+        layout_identity.addWidget(engine_card)
+
+        layout_identity.addStretch()
+
+        self.scroll_identity = QScrollArea()
+        self.scroll_identity.setWidgetResizable(True)
+        self.scroll_identity.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_identity.setStyleSheet("background: transparent; border: none;")
+        self.scroll_identity.setWidget(tab_identity)
+        self.tabs.addWidget(self.scroll_identity)
+
+        # ── ONGLET 2 : Instructions & Prompt Jinja2 ──
+        tab_prompt = QWidget()
+        tab_prompt.setStyleSheet("background: transparent;")
+        layout_prompt = QVBoxLayout(tab_prompt)
+        layout_prompt.setContentsMargins(0, 4, 0, 8)
+        layout_prompt.setSpacing(10)
+
+        prompt_card = QFrame()
+        prompt_card.setObjectName("agentPromptCard")
+        prompt_card.setStyleSheet(f"""
+            QFrame#agentPromptCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        apply_shadow(prompt_card, blur=8, offset_y=2, color=DesignTokens.SHADOW_COLOR)
+        prompt_card_layout = QVBoxLayout(prompt_card)
+        prompt_card_layout.setContentsMargins(16, 14, 16, 16)
+        prompt_card_layout.setSpacing(10)
+
+        snippets_header = QHBoxLayout()
+        snippets_header.setContentsMargins(0, 0, 0, 0)
+        snippets_header.setSpacing(6)
+        prompt_ico = QLabel()
+        prompt_ico.setPixmap(load_phosphor_icon("ph.sparkle", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
+        prompt_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_prompt_title = QLabel(self.tr("INSTRUCTIONS & PROMPT"))
+        lbl_prompt_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        snippets_header.addWidget(prompt_ico)
+        snippets_header.addWidget(lbl_prompt_title)
+        snippets_header.addStretch()
+
+        self.btn_prompt_framework = SecondaryButton(
+            self.tr("Canevas..."),
+            tooltip=self.tr("Insérer un canevas de prompt prêt à l'emploi (Cloze, Wozniak, Langues...)"),
+        )
+        self.btn_prompt_framework.setIcon(load_phosphor_icon("ph.clipboard-text", color=DesignTokens.TEXT_PRIMARY))
+        apply_compact_style(self.btn_prompt_framework, height=32)
+        self.btn_prompt_framework.clicked.connect(self._on_open_prompt_frameworks_menu)
+        snippets_header.addWidget(self.btn_prompt_framework)
+
+        self.btn_var_help = SecondaryButton(
+            self.tr("Variables"),
+            tooltip=self.tr("Guide des variables Jinja2 disponibles au runtime"),
+        )
+        self.btn_var_help.setIcon(load_phosphor_icon("ph.question", color=DesignTokens.TEXT_PRIMARY))
+        apply_compact_style(self.btn_var_help, height=32)
+        self.btn_var_help.clicked.connect(self._on_open_variable_helper)
+        snippets_header.addWidget(self.btn_var_help)
+
+        self.btn_preview_prompt = SecondaryButton(
+            self.tr("Aperçu"),
+            tooltip=self.tr("Aperçu du prompt interpolé avec des données réelles"),
+        )
+        self.btn_preview_prompt.setIcon(load_phosphor_icon("ph.eye", color=DesignTokens.TEXT_PRIMARY))
+        apply_compact_style(self.btn_preview_prompt, height=32)
+        self.btn_preview_prompt.clicked.connect(self._on_preview_prompt)
+        snippets_header.addWidget(self.btn_preview_prompt)
+        prompt_card_layout.addLayout(snippets_header)
+
+        palette_box = QVBoxLayout()
+        palette_box.setSpacing(4)
+        lbl_snip = QLabel(self.tr("Insérer au curseur :"))
+        lbl_snip.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-weight: bold; border: none; background: transparent;")
+        palette_box.addWidget(lbl_snip)
+
+        self.snippets_flow = FlowWidget(margin=0, h_spacing=6, v_spacing=6)
+        snippet_variants = ["field", "condition", "structure", "css", "cloze", "field", "condition"]
+        for i, (template_code, display_name, tooltip) in enumerate(JINJA2_SNIPPETS):
+            var_type = snippet_variants[i % len(snippet_variants)]
+            btn_snip = TagPillButton(display_name, template_code=template_code, tooltip=tooltip, variant=var_type)
+            btn_snip.clicked.connect(lambda _, code=template_code: self._insert_jinja_snippet(code))
+            self.snippets_flow.addWidget(btn_snip)
+
+        palette_box.addWidget(self.snippets_flow)
+        prompt_card_layout.addLayout(palette_box)
+
+        self.prompt_edit = StyledTextEdit()
+        self.prompt_edit.setPlaceholderText(self.tr("Tu es un agent expert en création de flashcards Anki...\nUtilisez {{ text_source }} et les variables Jinja2."))
+        self.prompt_edit.setMinimumHeight(240)
+        self.prompt_edit.setStyleSheet(f"""
+            QPlainTextEdit {{
+                background-color: {DesignTokens.BG_INPUT};
+                color: {DesignTokens.TEXT_PRIMARY};
+                font-family: '{DesignTokens.FONT_CODE}';
+                font-size: 12px;
+                line-height: 1.5;
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_SM}px;
+                padding: 12px;
+            }}
+            QPlainTextEdit:focus {{
+                border-color: {DesignTokens.ACCENT_PRIMARY};
+            }}
+        """)
+        self.prompt_edit.textChanged.connect(self._update_tokens_count)
+        prompt_card_layout.addWidget(self.prompt_edit, 1)
+
+        self.lbl_tokens = QLabel(self.tr("Aa 0 caractères  |  ~0 Tokens estimés"))
+        self.lbl_tokens.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 11px; font-family: '{DesignTokens.FONT_CODE}'; border: none; background: transparent;")
+        prompt_card_layout.addWidget(self.lbl_tokens)
+
+        layout_prompt.addWidget(prompt_card, 1)
+        self.tabs.addWidget(tab_prompt)
+
+        # ── ONGLET 3 : Permissions d'Outils MCP & Python ──
+        tab_tools = QWidget()
+        tab_tools.setStyleSheet("background: transparent;")
+        layout_tools = QVBoxLayout(tab_tools)
+        layout_tools.setContentsMargins(0, 4, 0, 8)
+        layout_tools.setSpacing(10)
+
+        tools_card = QFrame()
+        tools_card.setObjectName("agentToolsCard")
+        tools_card.setStyleSheet(f"""
+            QFrame#agentToolsCard {{
+                background-color: {DesignTokens.BG_PANEL};
+                border: 1px solid {DesignTokens.BORDER_COLOR};
+                border-radius: {DesignTokens.RADIUS_MD}px;
+            }}
+        """)
+        apply_shadow(tools_card, blur=8, offset_y=2, color=DesignTokens.SHADOW_COLOR)
+        tools_card_layout = QVBoxLayout(tools_card)
+        tools_card_layout.setContentsMargins(16, 14, 16, 16)
+        tools_card_layout.setSpacing(10)
+
+        tools_header = QHBoxLayout()
+        tools_header.setContentsMargins(0, 0, 0, 0)
+        tools_header.setSpacing(6)
+        tools_ico = QLabel()
+        tools_ico.setPixmap(load_phosphor_icon("ph.wrench", color=DesignTokens.COLOR_BLUE).pixmap(14, 14))
+        tools_ico.setStyleSheet("border: none; background: transparent;")
+        lbl_tools_title = QLabel(self.tr("PERMISSIONS D'OUTILS"))
+        lbl_tools_title.setStyleSheet(f"color: {DesignTokens.TEXT_SECONDARY}; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border: none; background: transparent;")
+        tools_header.addWidget(tools_ico)
+        tools_header.addWidget(lbl_tools_title)
+        tools_header.addStretch()
+
+        self.preset_combo = StyledComboBox()
+        self.preset_combo.setFixedHeight(30)
+        self.preset_combo.addItem(self.tr("Presets d'outils..."), userData="")
+        self.preset_combo.addItem(load_phosphor_icon("ph.shield-check"), self.tr("Auditeur Wozniak"), userData="wozniak_auditor")
+        self.preset_combo.addItem(load_phosphor_icon("ph.paint-brush"), self.tr("Architecte Modèles & CSS"), userData="css_architect")
+        self.preset_combo.addItem(load_phosphor_icon("ph.chart-line-up"), self.tr("Analyste SRS & Sangsues"), userData="srs_analyst")
+        self.preset_combo.addItem(load_phosphor_icon("ph.books"), self.tr("Chercheur RAG & Documents"), userData="rag_researcher")
+        self.preset_combo.addItem(load_phosphor_icon("ph.lightning"), self.tr("Administrateur BDD & Scripts"), userData="database_admin")
+        self.preset_combo.addItem(load_phosphor_icon("ph.globe"), self.tr("Consultant Universel (Tout)"), userData="universal")
+        self.preset_combo.currentIndexChanged.connect(self._on_preset_combo_changed)
+        tools_header.addWidget(self.preset_combo)
+
+        self.btn_select_all = SecondaryButton("Tout Cocher")
+        apply_compact_style(self.btn_select_all, height=30)
+        self.btn_select_all.clicked.connect(lambda: self._set_all_tools(True))
+
+        self.btn_deselect_all = SecondaryButton("Tout Décocher")
+        apply_compact_style(self.btn_deselect_all, height=30)
+        self.btn_deselect_all.clicked.connect(lambda: self._set_all_tools(False))
+
+        tools_header.addWidget(self.btn_select_all)
+        tools_header.addWidget(self.btn_deselect_all)
+        tools_card_layout.addLayout(tools_header)
+
+        tools_scroll = QScrollArea()
+        tools_scroll.setWidgetResizable(True)
+        tools_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        tools_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+
+        self.tools_container = QWidget()
+        self.tools_container.setStyleSheet("background: transparent;")
+        self.tools_layout = QVBoxLayout(self.tools_container)
+        self.tools_layout.setContentsMargins(0, 0, 0, 0)
+        self.tools_layout.setSpacing(8)
+
+        self._build_tools_cards()
+
+        tools_scroll.setWidget(self.tools_container)
+        tools_card_layout.addWidget(tools_scroll, 1)
+
+        layout_tools.addWidget(tools_card, 1)
+        self.tabs.addWidget(tab_tools)
+
+        self._switch_subtab(0)
+
+        # Master Stack du Panneau Droit (Empty State vs Éditeur)
+        self.editor_master_stack = QStackedWidget()
+        self.editor_master_stack.setObjectName("agentEditorMasterStack")
+        self.editor_master_stack.setStyleSheet(f"""
+            QStackedWidget#agentEditorMasterStack {{
+                background-color: {DesignTokens.BG_PANEL};
+            }}
+        """)
+
+        self.empty_state_widget = PersonaEmptyStateWidget()
+        self.empty_state_widget.create_from_template_requested.connect(self._on_new_agent)
+        self.empty_state_widget.create_custom_requested.connect(self._on_new_agent_custom)
+        self.editor_master_stack.addWidget(self.empty_state_widget)
+        self.editor_master_stack.addWidget(self.editor_content)
+
+        self.editor_panel.add_tab("Éditeur de Persona", self.editor_master_stack, "ph.sparkle", closable=False)
+        self.main_splitter.addWidget(self.editor_panel)
+        self.main_splitter.setSizes([340, 660])
+
+    def _switch_subtab(self, index: int) -> None:
+        self.tabs.setCurrentIndex(index)
+        self.btn_subtab_identity.set_active(index == 0)
+        self.btn_subtab_prompt.set_active(index == 1)
+        self.btn_subtab_tools.set_active(index == 2)
+
+    def _on_preset_combo_changed(self) -> None:
+        preset_key = self.preset_combo.currentData()
+        if preset_key:
+            self._apply_tool_preset(str(preset_key))
+
+    def _apply_tool_preset(self, preset_key: str) -> None:
+        from ankidraft.services.ai.tools_catalog import AGENT_PRESETS
+
+        spec = AGENT_PRESETS.get(preset_key)
+        if not spec:
+            return
+        tools = spec["tools"]
+        if "*" in tools or "all" in tools:
+            self._set_all_tools(True)
+        else:
+            for key, card in self._tool_cards.items():
+                card.setChecked(key in tools)
+
+    def _build_tools_cards(self) -> None:
+        while self.tools_layout.count() > 0:
+            item = self.tools_layout.takeAt(0)
+            if item:
+                w = item.widget()
+                if w:
+                    w.setParent(None)
+                    w.deleteLater()
+
+        self._tool_cards.clear()
+        self._tool_checkboxes.clear()
+
+        from ankidraft.services.ai.tools_catalog import get_tools_by_category
+
+        tools_by_cat = get_tools_by_category()
+        for cat_name, cat_tools in tools_by_cat.items():
+            lbl_cat = QLabel(tr("%1 :", cat_name.upper()))
+            lbl_cat.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; margin-top: 6px;")
+            self.tools_layout.addWidget(lbl_cat)
+
+            for t_spec in cat_tools:
+                card = ToolPermissionCard(
+                    tool_key=t_spec.key,
+                    label=t_spec.label,
+                    description=t_spec.description,
+                    category=t_spec.category,
+                    category_color=t_spec.color,
+                )
+                self._tool_cards[t_spec.key] = card
+                self._tool_checkboxes[t_spec.key] = card.checkbox
+                self.tools_layout.addWidget(card)
+
+        lbl_py = QLabel(self.tr("OUTILS PYTHON DÉTERMINISTES (MOTEUR DAG) :"))
+        lbl_py.setStyleSheet(f"color: {DesignTokens.TEXT_MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; margin-top: 10px;")
+        self.tools_layout.addWidget(lbl_py)
+
+        try:
+            tools = ToolService.list_tools()
+            for t in tools:
+                cat = "Natif" if t.is_builtin else "Script Custom"
+                col = DesignTokens.COLOR_BLUE if t.is_builtin else DesignTokens.COLOR_YELLOW
+                card = ToolPermissionCard(
+                    tool_key=t.name,
+                    label=t.display_name,
+                    description=t.description or "Script Python utilitaire.",
+                    category=cat,
+                    category_color=col,
+                )
+                self._tool_cards[t.name] = card
+                self._tool_checkboxes[t.name] = card.checkbox
+                self.tools_layout.addWidget(card)
+        except Exception as e:
+            logger.warning("Erreur chargement des outils Python : %s", e)
+
+        self.tools_layout.addStretch()
+
+    def _set_all_tools(self, state: bool) -> None:
+        for card in self._tool_cards.values():
+            card.setChecked(state)
+
+    def _connect_signals(self) -> None:
+        self.persona_tree.currentItemChanged.connect(self._on_tree_item_selected)
+        self.btn_new.clicked.connect(self._on_new_agent)
+        self.btn_new_folder.clicked.connect(self._on_new_folder)
+        self.btn_clone.clicked.connect(self._on_clone_agent)
+        self.btn_del.clicked.connect(self._on_delete_selected)
+        self.btn_save.clicked.connect(self._on_save_agent)
+        self.engine_combo.model_changed.connect(self._on_engine_changed)
+
+    def refresh_theme(self, profile: Any) -> None:
+        """Met à jour les icônes et widgets réactifs lors d'un changement de thème."""
+        for btn, _ in self._filter_buttons:
+            if hasattr(btn, "refresh_theme"):
+                btn.refresh_theme(profile)
+        if hasattr(self, "btn_new_folder"):
+            color = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+            self.btn_new_folder.setIcon(load_phosphor_icon("ph.folder-plus", color=color))
+        if hasattr(self, "btn_var_help"):
+            color = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+            self.btn_var_help.setIcon(load_phosphor_icon("ph.question", color=color))
+        if hasattr(self, "btn_preview_prompt"):
+            color = profile.text_primary if profile else DesignTokens.TEXT_PRIMARY
+            self.btn_preview_prompt.setIcon(load_phosphor_icon("ph.eye", color=color))
+        if hasattr(self, "engine_info_card"):
+            bg_input = profile.bg_input if profile and hasattr(profile, "bg_input") else DesignTokens.BG_INPUT
+            border_col = profile.border_color if profile and hasattr(profile, "border_color") else DesignTokens.BORDER_COLOR
+            radius_sm = profile.radius_sm if profile and hasattr(profile, "radius_sm") else DesignTokens.RADIUS_SM
+            self.engine_info_card.setStyleSheet(f"""
+                QFrame#engine_info_card {{
+                    background-color: {bg_input};
+                    border: none;
+                    border-radius: {radius_sm}px;
+                    padding: 4px;
+                }}
+            """)
+        if hasattr(self, "lbl_engine_info"):
+            text_muted = profile.text_muted if profile and hasattr(profile, "text_muted") else DesignTokens.TEXT_MUTED
+            self.lbl_engine_info.setStyleSheet(f"color: {text_muted}; font-size: 11px; background: transparent; border: none;")
+        if hasattr(self, "lbl_engine_icon"):
+            self.lbl_engine_icon.setStyleSheet("background: transparent; border: none;")
+            text_muted = profile.text_muted if profile and hasattr(profile, "text_muted") else DesignTokens.TEXT_MUTED
+            self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.gear", color=text_muted).pixmap(14, 14))
+        if hasattr(self, "desc_edit") and hasattr(self.desc_edit, "refresh_theme"):
+            self.desc_edit.refresh_theme(profile)
+        bg_panel = profile.bg_panel if profile and hasattr(profile, "bg_panel") else DesignTokens.BG_PANEL
+        if hasattr(self, "editor_master_stack"):
+            self.editor_master_stack.setStyleSheet(f"""
+                QStackedWidget#agentEditorMasterStack {{
+                    background-color: {bg_panel};
+                }}
+            """)
+        if hasattr(self, "editor_content"):
+            self.editor_content.setStyleSheet(f"""
+                QWidget#agentEditorContent {{
+                    background-color: {bg_panel};
+                }}
+            """)
+        if hasattr(self, "empty_state_widget") and hasattr(self.empty_state_widget, "refresh_theme"):
+            self.empty_state_widget.refresh_theme(profile)
+        if hasattr(self, "subtabs_container"):
+            border_col = profile.border_color if profile and hasattr(profile, "border_color") else DesignTokens.BORDER_COLOR
+            self.subtabs_container.setStyleSheet(f"background: transparent; border-bottom: 1px solid {border_col};")
+        if hasattr(self, "top_action_bar") and hasattr(self.top_action_bar, "refresh_theme"):
+            self.top_action_bar.refresh_theme(profile)
+        if hasattr(self, "tabs"):
+            bg_panel = profile.bg_panel if profile and hasattr(profile, "bg_panel") else DesignTokens.BG_PANEL
+            border_col = profile.border_color if profile and hasattr(profile, "border_color") else DesignTokens.BORDER_COLOR
+            radius_sm = profile.radius_sm if profile and hasattr(profile, "radius_sm") else DesignTokens.RADIUS_SM
+            radius_md = profile.radius_md if profile and hasattr(profile, "radius_md") else DesignTokens.RADIUS_MD
+            self.tabs.setStyleSheet("QStackedWidget#agentSubtabsStack { background: transparent; border: none; }")
+            card_style = f"""
+                background-color: {bg_panel};
+                border: 1px solid {border_col};
+                border-radius: {radius_md}px;
+            """
+            for card_name in ("agentIdentityCard", "agentScopeCard", "agentEngineCard", "agentPromptCard", "agentToolsCard"):
+                card_widget = self.findChild(QFrame, card_name)
+                if card_widget is not None:
+                    card_widget.setStyleSheet(f"QFrame#{card_name} {{ {card_style} }}")
+            input_style = f"""
+                QLineEdit {{
+                    background-color: {profile.bg_input if profile else DesignTokens.BG_INPUT};
+                    border: 1px solid {border_col};
+                    border-radius: {radius_sm}px;
+                    color: {profile.text_primary if profile else DesignTokens.TEXT_PRIMARY};
+                    padding: 6px 10px;
+                    font-size: 12px;
+                    font-weight: 500;
+                }}
+                QLineEdit:hover {{
+                    border-color: {profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY};
+                    background-color: {profile.bg_hover if profile else DesignTokens.BG_HOVER};
+                }}
+                QLineEdit:focus {{
+                    border: 1.5px solid {profile.accent_primary if profile else DesignTokens.ACCENT_PRIMARY};
+                    background-color: {bg_panel};
+                }}
+            """
+            if hasattr(self, "name_edit"):
+                self.name_edit.setStyleSheet(input_style)
+        if hasattr(self, "persona_tree"):
+            bg_panel = profile.bg_panel if profile and hasattr(profile, "bg_panel") else DesignTokens.BG_PANEL
+            border_col = profile.border_color if profile and hasattr(profile, "border_color") else DesignTokens.BORDER_COLOR
+            radius_sm = profile.radius_sm if profile and hasattr(profile, "radius_sm") else DesignTokens.RADIUS_SM
+            text_pri = profile.text_primary if profile and hasattr(profile, "text_primary") else DesignTokens.TEXT_PRIMARY
+            bg_hov = profile.bg_hover if profile and hasattr(profile, "bg_hover") else DesignTokens.BG_HOVER
+            bg_act = profile.bg_active if profile and hasattr(profile, "bg_active") else DesignTokens.BG_ACTIVE
+            accent_pri = profile.accent_primary if profile and hasattr(profile, "accent_primary") else DesignTokens.ACCENT_PRIMARY
+            self.persona_tree.setStyleSheet(f"""
+                QTreeWidget {{
+                    background-color: {bg_panel};
+                    border: 1px solid {border_col};
+                    border-radius: {radius_sm}px;
+                    color: {text_pri};
+                    outline: none;
+                    padding: 4px;
+                }}
+                QTreeWidget::item {{
+                    padding: 2px 2px;
+                    border-radius: 4px;
+                    margin-bottom: 2px;
+                }}
+                QTreeWidget::item:hover {{
+                    background-color: {bg_hov};
+                }}
+                QTreeWidget::item:selected {{
+                    background-color: {bg_act};
+                    border-left: 2px solid {accent_pri};
+                }}
+            """)
+
+    def refresh_data(self) -> None:
+        try:
+            self.engine_combo.refresh_models()
+
+            self._cached_folders = list(PersonaFolderModel.select().order_by(PersonaFolderModel.name.asc()))
+            self._populate_folder_combo()
+
+            self._build_tools_cards()
+
+            self._cached_personas = list(PersonaModel.select().order_by(PersonaModel.name.asc()))
+            self._apply_filters()
+
+            if self._cached_personas and not self._current_agent:
+                self._select_first_persona_in_tree()
+            elif not self._cached_personas:
+                self._current_agent = None
+                if hasattr(self, "editor_master_stack"):
+                    self.editor_master_stack.setCurrentIndex(0)
+
+        except Exception as e:
+            logger.warning("Erreur refresh_data agents_view: %s", e)
+
+    def _populate_folder_combo(self) -> None:
+        self.folder_combo.blockSignals(True)
+        self.folder_combo.clear()
+        self.folder_combo.addItem(
+            load_phosphor_icon("ph.folder", color=DesignTokens.TEXT_MUTED),
+            self.tr("Aucun dossier (Racine)"),
+            userData=None,
+        )
+
+        def _add_folders_recursive(parent_id: int | None, prefix: str = "") -> None:
+            children = [f for f in self._cached_folders if (f.parent.id if f.parent else None) == parent_id]
+            for child in children:
+                self.folder_combo.addItem(
+                    load_phosphor_icon("ph.folder", color=DesignTokens.COLOR_YELLOW),
+                    tr("%1%2", prefix, child.name),
+                    userData=child.id,
+                )
+                _add_folders_recursive(child.id, prefix=prefix + "   ")
+
+        _add_folders_recursive(None)
+
+        self.folder_combo.addItem(
+            load_phosphor_icon("ph.folder-plus", color=DesignTokens.ACCENT_PRIMARY),
+            self.tr("Créer un nouveau dossier racine..."),
+            userData="__NEW_ROOT__",
+        )
+        self.folder_combo.addItem(
+            load_phosphor_icon("ph.folder-simple-plus", color=DesignTokens.ACCENT_PRIMARY),
+            self.tr("Créer un sous-dossier ici..."),
+            userData="__NEW_SUB__",
+        )
+        self.folder_combo.blockSignals(False)
+
+    @Slot(int)
+    def _on_folder_combo_changed(self, idx: int) -> None:
+        val = self.folder_combo.currentData()
+        if val in ("__NEW_ROOT__", "__NEW_SUB__"):
+            parent_folder = self._current_folder if val == "__NEW_SUB__" else None
+            prompt_title = f"Nouveau sous-dossier dans '{parent_folder.name}'" if parent_folder else "Nouveau Dossier Racine"
+            name, ok = QInputDialog.getText(self, "Création de Dossier", f"{prompt_title} :")
+            if ok and name.strip():
+                try:
+                    new_f = PersonaFolderModel.create(name=name.strip(), parent=parent_folder)
+                    self._cached_folders = list(PersonaFolderModel.select().order_by(PersonaFolderModel.name.asc()))
+                    self._populate_folder_combo()
+                    idx_f = self.folder_combo.findData(new_f.id)
+                    if idx_f != -1:
+                        self.folder_combo.setCurrentIndex(idx_f)
+                    self.refresh_data()
+                    show_toast(self, tr("Dossier '%1' créé !", name.strip()))
+                except Exception as e:
+                    log_and_notify_error(e, context="Création de dossier", parent=self, title="Erreur de dossier")
+                    self.folder_combo.setCurrentIndex(0)
+            else:
+                self.folder_combo.setCurrentIndex(0)
+
+    def _set_scope_filter(self, scope: str) -> None:
+        self._current_scope_filter = scope
+        for btn, s in self._filter_buttons:
+            btn.setChecked(s == scope)
+        self._apply_filters()
+
+    def _apply_filters(self) -> None:
+        q = self.edit_search.text().strip().lower()
+        scope = self._current_scope_filter
+
+        filtered: list[PersonaModel] = []
+        for ag in self._cached_personas:
+            p_type = getattr(ag, "persona_type", "pipeline") or "pipeline"
+            if scope != "all" and p_type != scope:
+                continue
+            folder_path = ag.folder.get_full_path().lower() if getattr(ag, "folder", None) else ""
+            if q and (q not in str(ag.name).lower() and q not in str(ag.description or "").lower() and q not in folder_path):
+                continue
+            filtered.append(ag)
+
+        self._render_tree(filtered)
+
+    def _render_tree(self, personas: list[PersonaModel]) -> None:
+        self.persona_tree.blockSignals(True)
+        self.persona_tree.clear()
+
+        self.lbl_count_badge.setText(tr("%1 agent%2", len(personas), "s" if len(personas) > 1 else ""))
+
+        personas_by_folder: dict[int | None, list[PersonaModel]] = {}
+        for p in personas:
+            f_id = p.folder.id if getattr(p, "folder", None) else None
+            personas_by_folder.setdefault(f_id, []).append(p)
+
+        active_filter = self._current_scope_filter != "all" or bool(self.edit_search.text().strip())
+
+        def _count_total_personas_in_folder_subtree(folder: PersonaFolderModel) -> int:
+            cnt = len(personas_by_folder.get(folder.id, []))
+            subfolders = [f for f in self._cached_folders if (f.parent.id if f.parent else None) == folder.id]
+            for sf in subfolders:
+                cnt += _count_total_personas_in_folder_subtree(sf)
+            return cnt
+
+        def _render_folder_recursive(parent_id: int | None, parent_tree_item: QTreeWidgetItem | None) -> None:
+            children_folders = [f for f in self._cached_folders if (f.parent.id if f.parent else None) == parent_id]
+            for folder in children_folders:
+                direct_personas = personas_by_folder.get(folder.id, [])
+                total_cnt = _count_total_personas_in_folder_subtree(folder)
+
+                if active_filter and total_cnt == 0:
+                    continue
+
+                folder_item = QTreeWidgetItem(self.persona_tree) if parent_tree_item is None else QTreeWidgetItem(parent_tree_item)
+
+                folder_item.setData(0, Qt.ItemDataRole.UserRole, ("folder", folder))
+                folder_item.setSizeHint(0, QSize(0, 32))
+                is_sub = folder.parent is not None
+                folder_widget = FolderHeaderWidget(folder.name, total_cnt, is_root=False, is_subfolder=is_sub)
+                self.persona_tree.setItemWidget(folder_item, 0, folder_widget)
+                folder_item.setExpanded(True)
+
+                _render_folder_recursive(folder.id, folder_item)
+
+                for p in direct_personas:
+                    child_item = QTreeWidgetItem(folder_item)
+                    child_item.setData(0, Qt.ItemDataRole.UserRole, ("persona", p))
+                    child_item.setSizeHint(0, QSize(0, 36))
+                    p_widget = PersonaItemWidget(p)
+                    self.persona_tree.setItemWidget(child_item, 0, p_widget)
+
+        _render_folder_recursive(None, None)
+
+        unfiled_personas = personas_by_folder.get(None, [])
+        if unfiled_personas:
+            root_item = QTreeWidgetItem(self.persona_tree)
+            root_item.setData(0, Qt.ItemDataRole.UserRole, ("folder", None))
+            root_item.setSizeHint(0, QSize(0, 32))
+            root_widget = FolderHeaderWidget("Sans dossier", len(unfiled_personas), is_root=True)
+            self.persona_tree.setItemWidget(root_item, 0, root_widget)
+            root_item.setExpanded(True)
+
+            for p in unfiled_personas:
+                child_item = QTreeWidgetItem(root_item)
+                child_item.setData(0, Qt.ItemDataRole.UserRole, ("persona", p))
+                child_item.setSizeHint(0, QSize(0, 36))
+                p_widget = PersonaItemWidget(p)
+                self.persona_tree.setItemWidget(child_item, 0, p_widget)
+
+        self.persona_tree.blockSignals(False)
+
+    def _select_first_persona_in_tree(self) -> None:
+        def _find_first_persona(item: QTreeWidgetItem) -> QTreeWidgetItem | None:
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            if data and data[0] == "persona":
+                return item
+            for i in range(item.childCount()):
+                res = _find_first_persona(item.child(i))
+                if res:
+                    return res
+            return None
+
+        for i in range(self.persona_tree.topLevelItemCount()):
+            top_item = self.persona_tree.topLevelItem(i)
+            found = _find_first_persona(top_item)
+            if found:
+                self.persona_tree.setCurrentItem(found)
+                return
+
+    def _select_persona_in_tree(self, persona_id: int) -> None:
+        def _find_item(item: QTreeWidgetItem) -> QTreeWidgetItem | None:
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            if data and data[0] == "persona" and getattr(data[1], "id", None) == persona_id:
+                return item
+            for i in range(item.childCount()):
+                res = _find_item(item.child(i))
+                if res:
+                    return res
+            return None
+
+        for i in range(self.persona_tree.topLevelItemCount()):
+            top_item = self.persona_tree.topLevelItem(i)
+            found = _find_item(top_item)
+            if found:
+                self.persona_tree.setCurrentItem(found)
+                return
+
+    def is_dirty(self) -> bool:
+        return False
+
+    def _insert_jinja_snippet(self, snippet: str) -> None:
+        cursor = self.prompt_edit.textCursor()
+        cursor.insertText(snippet)
+        self.prompt_edit.setTextCursor(cursor)
+        self.prompt_edit.setFocus()
+
+    def _update_tokens_count(self) -> None:
+        text = self.prompt_edit.toPlainText()
+        chars = len(text)
+        tokens = int(chars / 4) if chars > 0 else 0
+        self.lbl_tokens.setText(tr("Aa %1 caractères  |  ~%2 Tokens estimés", chars, tokens))
+
+    @Slot()
+    def _on_scope_changed(self) -> None:
+        scope_key = self.scope_combo.currentData() or "pipeline"
+        spec = PERSONA_TYPE_SPECS.get(scope_key, PERSONA_TYPE_SPECS["pipeline"])
+        self.lbl_scope_info.setText(spec["desc"])
+        if hasattr(self, "scope_badge"):
+            self.scope_badge.setText(spec["badge_text"])
+            self.lbl_agent_icon.setPixmap(load_phosphor_icon("ph.sparkle", color=spec["badge_color"]).pixmap(18, 18))
+
+    @Slot()
+    def _on_engine_changed(self, model: Any = None) -> None:
+        cfg = self.engine_combo.get_current_model()
+        if cfg:
+            if hasattr(self, "lbl_engine_icon"):
+                self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.cpu", color=DesignTokens.ACCENT_PRIMARY).pixmap(14, 14))
+            self.lbl_engine_info.setText(tr("Moteur dédié : %1 (%2) avec configuration dédiée.", cfg.provider.upper(), cfg.model_id))
+        else:
+            if hasattr(self, "lbl_engine_icon"):
+                self.lbl_engine_icon.setPixmap(load_phosphor_icon("ph.gear", color=DesignTokens.TEXT_MUTED).pixmap(14, 14))
+            self.lbl_engine_info.setText(self.tr("Cet agent utilisera le modèle IA global par défaut défini dans les Paramètres."))
+
+    @Slot()
+    def _on_preview_prompt(self) -> None:
+        prompt_text = self.prompt_edit.toPlainText()
+        dlg = AgentPromptPreviewDialog(prompt_text, parent=self)
+        dlg.exec()
+
+    @Slot()
+    def _on_test_agent(self) -> None:
+        if not self._current_agent:
+            show_toast(self, self.tr("Aucun agent sélectionné à tester."), is_error=True)
+            return
+        dlg = AgentTestDialog(self._current_agent, ai_manager=self.ai_manager, parent=self)
+        dlg.exec()
+
+    @Slot()
+    def _on_tree_item_selected(self, current: QTreeWidgetItem | None, previous: QTreeWidgetItem | None) -> None:
+        if not current:
+            return
+
+        data = current.data(0, Qt.ItemDataRole.UserRole)
+        if not data:
+            return
+
+        item_type, obj = data
+        if item_type == "folder":
+            self._current_folder = obj
+            return
+
+        if item_type == "persona" and isinstance(obj, PersonaModel):
+            self._current_agent = obj
+            self._load_persona_into_editor(obj)
+
+    def _load_persona_into_editor(self, ag: PersonaModel) -> None:
+        if hasattr(self, "editor_master_stack"):
+            self.editor_master_stack.setCurrentIndex(1)
+
+        self.name_edit.setText(str(ag.name) if ag.name else "")
+        self.name_edit.setCursorPosition(0)
+        self.desc_edit.setText(str(ag.description) if ag.description else "")
+        self.desc_edit.setCursorPosition(0)
+        self.prompt_edit.setPlainText(str(ag.system_prompt) if ag.system_prompt else "")
+        self._update_tokens_count()
+
+        if hasattr(self, "lbl_agent_title"):
+            self.lbl_agent_title.setText(str(ag.name) if ag.name else "Agent sans nom")
+
+        self.folder_combo.blockSignals(True)
+        f_id = ag.folder.id if getattr(ag, "folder", None) else None
+        idx_f = self.folder_combo.findData(f_id)
+        if idx_f != -1:
+            self.folder_combo.setCurrentIndex(idx_f)
+        else:
+            self.folder_combo.setCurrentIndex(0)
+        self.folder_combo.blockSignals(False)
+
+        p_type = getattr(ag, "persona_type", "pipeline") or "pipeline"
+        idx_scope = self.scope_combo.findData(p_type)
+        if idx_scope != -1:
+            self.scope_combo.setCurrentIndex(idx_scope)
+        else:
+            self.scope_combo.setCurrentIndex(0)
+        self._on_scope_changed()
+
+        fmt = getattr(ag, "output_format", "json").lower()
+        idx = self.format_combo.findText(fmt, Qt.MatchFlag.MatchFixedString)
+        if idx != -1:
+            self.format_combo.setCurrentIndex(idx)
+        else:
+            self.format_combo.setCurrentText("json")
+
+        if hasattr(self, "format_badge"):
+            self.format_badge.setText(fmt.upper())
+
+        cfg_id = ag.llm_config.id if getattr(ag, "llm_config", None) else None
+        self.engine_combo.set_current_model_id(cfg_id)
+        self._on_engine_changed()
+
+        allowed_list = []
+        try:
+            raw_tools = getattr(ag, "allowed_tools", "[]") or "[]"
+            allowed_list = json.loads(raw_tools) if isinstance(raw_tools, str) else raw_tools
+        except Exception:
+            allowed_list = []
+
+        if "*" in allowed_list or "all" in allowed_list or (getattr(ag, "persona_type", "") == "universal" and not allowed_list):
+            for card in self._tool_cards.values():
+                card.setChecked(True)
+        else:
+            for tool_key, card in self._tool_cards.items():
+                card.setChecked(tool_key in allowed_list)
+
+    @Slot(QPoint)
+    def _on_tree_context_menu(self, pos: QPoint) -> None:
+        item = self.persona_tree.itemAt(pos)
+        if not item:
+            return
+
+        data = item.data(0, Qt.ItemDataRole.UserRole)
+        if not data:
+            return
+
+        item_type, obj = data
+        menu = StyledMenu(self)
+
+        if item_type == "folder" and obj is not None:
+            action_subfolder = menu.addAction(load_phosphor_icon("ph.folder-plus"), self.tr("Nouveau sous-dossier"))
+            action_rename = menu.addAction(load_phosphor_icon("ph.pencil-simple"), self.tr("Renommer le dossier"))
+            action_delete = menu.addAction(load_phosphor_icon("ph.trash"), self.tr("Supprimer le dossier"))
+
+            action = menu.exec(self.persona_tree.viewport().mapToGlobal(pos))
+            if action == action_subfolder:
+                sub_name, ok = QInputDialog.getText(self, "Nouveau sous-dossier", f"Nom du sous-dossier dans '{obj.name}' :")
+                if ok and sub_name.strip():
+                    PersonaFolderModel.create(name=sub_name.strip(), parent=obj)
+                    self.refresh_data()
+            elif action == action_rename:
+                new_name, ok = QInputDialog.getText(self, "Renommer le dossier", "Nouveau nom :", text=obj.name)
+                if ok and new_name.strip():
+                    obj.name = new_name.strip()
+                    obj.save()
+                    self.refresh_data()
+            elif action == action_delete:
+                confirm = QMessageBox.question(
+                    self,
+                    self.tr("Supprimer le dossier"),
+                    tr("Supprimer le dossier '%1' et ses sous-dossiers ? (Les agents seront déplacés vers 'Sans dossier')", obj.name),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                )
+                if confirm == QMessageBox.StandardButton.Yes:
+                    self._delete_folder_recursive(obj)
+                    self.refresh_data()
+
+        elif item_type == "persona":
+            action_clone = menu.addAction(load_phosphor_icon("ph.copy"), self.tr("Dupliquer l'agent"))
+            action_del = menu.addAction(load_phosphor_icon("ph.trash"), self.tr("Supprimer l'agent"))
+
+            action = menu.exec(self.persona_tree.viewport().mapToGlobal(pos))
+            if action == action_clone:
+                self._current_agent = obj
+                self._on_clone_agent()
+            elif action == action_del:
+                self._current_agent = obj
+                self._on_delete_selected()
+
+    def _delete_folder_recursive(self, folder: PersonaFolderModel) -> None:
+        with db.atomic():
+            PersonaModel.update(folder=None).where(PersonaModel.folder == folder).execute()
+
+            subfolders = list(PersonaFolderModel.select().where(PersonaFolderModel.parent == folder))
+            for sf in subfolders:
+                self._delete_folder_recursive(sf)
+
+            folder.delete_instance()
+
+    @Slot()
+    def _on_new_folder(self) -> None:
+        parent_folder = self._current_folder
+        prompt_title = f"Nouveau sous-dossier dans '{parent_folder.name}'" if parent_folder else "Nouveau Dossier Racine"
+        name, ok = QInputDialog.getText(self, "Nouveau Dossier", f"{prompt_title} :")
+        if ok and name.strip():
+            try:
+                PersonaFolderModel.create(name=name.strip(), parent=parent_folder)
+                self.refresh_data()
+                show_toast(self, tr("Dossier '%1' créé !", name.strip()))
+            except Exception as e:
+                log_and_notify_error(e, context="Création de dossier", parent=self, title="Erreur")
+
+    @Slot()
+    def _on_new_agent(self) -> None:
+        wizard = PersonaCreationWizardDialog(
+            cached_folders=self._cached_folders,
+            current_folder=self._current_folder,
+            parent=self,
+        )
+        if wizard.exec() == QDialog.DialogCode.Accepted and wizard.created_persona:
+            self.refresh_data()
+            self._current_agent = wizard.created_persona
+            self._load_persona_into_editor(wizard.created_persona)
+            self._select_persona_in_tree(wizard.created_persona.id)
+
+    @Slot()
+    def _on_new_agent_custom(self) -> None:
+        wizard = PersonaCreationWizardDialog(
+            cached_folders=self._cached_folders,
+            current_folder=self._current_folder,
+            parent=self,
+        )
+        wizard._switch_mode(1)
+        if wizard.exec() == QDialog.DialogCode.Accepted and wizard.created_persona:
+            self.refresh_data()
+            self._current_agent = wizard.created_persona
+            self._load_persona_into_editor(wizard.created_persona)
+            self._select_persona_in_tree(wizard.created_persona.id)
+
+    @Slot()
+    def _on_open_prompt_frameworks_menu(self) -> None:
+        menu = StyledMenu(self)
+        for framework in PROMPT_STARTER_FRAMEWORKS:
+            action = menu.addAction(framework.label)
+            action.triggered.connect(lambda _, f=framework: self._apply_prompt_framework(f))
+
+        pos = self.btn_prompt_framework.mapToGlobal(QPoint(0, self.btn_prompt_framework.height()))
+        menu.exec(pos)
+
+    def _apply_prompt_framework(self, framework: PromptStarter) -> None:
+        current_text = self.prompt_edit.toPlainText().strip()
+        if current_text and current_text != "Tu es un assistant expert pour Anki.":
+            confirm = QMessageBox.question(
+                self,
+                self.tr("Remplacer le prompt"),
+                tr("Souhaitez-vous remplacer le prompt actuel par le canevas '%1' ?\n(Cliquez sur 'Non' pour l'ajouter à la suite de votre texte)", framework.label),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+            )
+            if confirm == QMessageBox.StandardButton.Cancel:
+                return
+            if confirm == QMessageBox.StandardButton.Yes:
+                self.prompt_edit.setPlainText(framework.template_content)
+            else:
+                self.prompt_edit.appendPlainText("\n\n" + framework.template_content)
+        else:
+            self.prompt_edit.setPlainText(framework.template_content)
+
+        idx = self.format_combo.findText(framework.recommended_format, Qt.MatchFlag.MatchFixedString)
+        if idx != -1:
+            self.format_combo.setCurrentIndex(idx)
+
+        show_toast(self, tr("Canevas '%1' inséré !", framework.label))
+
+    @Slot()
+    def _on_open_variable_helper(self) -> None:
+        dlg = VariableHelperDialog(parent=self)
+        dlg.variable_inserted.connect(self._insert_jinja_snippet)
+        dlg.exec()
+
+    @Slot()
+    def _on_clone_agent(self) -> None:
+        if not self._current_agent:
+            show_toast(self, self.tr("Aucun agent sélectionné à cloner."), is_error=True)
+            return
+
+        try:
+            clone_name = f"{self._current_agent.name} (Copie)"
+            cloned = PersonaModel.create(
+                name=clone_name,
+                description=self._current_agent.description,
+                system_prompt=self._current_agent.system_prompt,
+                output_format=self._current_agent.output_format,
+                persona_type=getattr(self._current_agent, "persona_type", "pipeline"),
+                folder=self._current_agent.folder,
+                allowed_tools=self._current_agent.allowed_tools,
+                llm_config=self._current_agent.llm_config,
+            )
+            self.refresh_data()
+            self._current_agent = cloned
+            self._load_persona_into_editor(cloned)
+            show_toast(self, tr("Agent dupliqué sous le nom '%1' !", clone_name))
+        except Exception as e:
+            log_and_notify_error(e, context="Duplication d'agent", parent=self, title="Erreur")
+
+    @Slot()
+    def _on_import_agent_from_profile(self) -> None:
+        profiles = [name for name in ProfileManager().list_profiles() if name != self.profile_name]
+        if not profiles:
+            show_toast(self, self.tr("Aucun autre profil n'est disponible."), is_error=True)
+            return
+        source_profile, accepted = QInputDialog.getItem(self, "Importer un agent", "Profil source :", profiles, 0, False)
+        if not accepted:
+            return
+        try:
+            names = ProfileContentTransfer.list_personas(source_profile)
+            if not names:
+                show_toast(self, tr("Le profil '%1' ne contient aucun agent.", source_profile), is_error=True)
+                return
+            persona_name, accepted = QInputDialog.getItem(self, "Importer un agent", "Agent à importer :", names, 0, False)
+            if not accepted:
+                return
+            imported = ProfileContentTransfer.import_persona(source_profile, persona_name)
+            self.refresh_data()
+            self._current_agent = imported
+            self._load_persona_into_editor(imported)
+            show_toast(self, tr("Agent '%1' importé depuis '%2'.", imported.name, source_profile))
+        except Exception as e:
+            log_and_notify_error(e, context="Import d'agent depuis un profil", parent=self, title="Erreur d'importation")
+
+    @Slot()
+    def _on_delete_selected(self) -> None:
+        current_item = self.persona_tree.currentItem()
+        if not current_item:
+            show_toast(self, self.tr("Rien n'est sélectionné."), is_error=True)
+            return
+
+        data = current_item.data(0, Qt.ItemDataRole.UserRole)
+        if not data:
+            return
+
+        item_type, obj = data
+        if item_type == "folder" and obj is not None:
+            confirm = QMessageBox.question(
+                self,
+                self.tr("Supprimer le dossier"),
+                tr("Supprimer le dossier '%1' et ses sous-dossiers ? (Les agents seront déplacés vers 'Sans dossier')", obj.name),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if confirm == QMessageBox.StandardButton.Yes:
+                try:
+                    self._delete_folder_recursive(obj)
+                    self._current_folder = None
+                    self.refresh_data()
+                    show_toast(self, tr("Dossier '%1' supprimé.", obj.name))
+                except Exception as e:
+                    log_and_notify_error(e, context="Suppression de dossier", parent=self, title="Erreur")
+
+        elif item_type == "persona" and obj is not None:
+            confirm = QMessageBox.question(
+                self,
+                self.tr("Supprimer l'agent"),
+                tr("Voulez-vous vraiment supprimer l'agent '%1' ?", obj.name),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if confirm == QMessageBox.StandardButton.Yes:
+                try:
+                    obj.delete_instance()
+                    self._current_agent = None
+                    self.refresh_data()
+                    show_toast(self, self.tr("Agent supprimé de la base de données."))
+                except Exception as e:
+                    log_and_notify_error(e, context="Suppression d'agent", parent=self, title="Erreur")
+
+    @Slot()
+    def _on_save_agent(self) -> None:
+        if not self._current_agent:
+            show_toast(self, self.tr("Aucun agent sélectionné à sauvegarder."), is_error=True)
+            return
+
+        try:
+            name = self.name_edit.text().strip()
+            if not name:
+                show_toast(self, self.tr("Le nom de l'agent ne peut pas être vide."), is_error=True)
+                return
+
+            selected_tools = [key for key, card in self._tool_cards.items() if card.isChecked()]
+            selected_engine: LLMConfigModel | None = self.engine_combo.get_current_model()
+            selected_scope: str = self.scope_combo.currentData() or "pipeline"
+            selected_folder_id: int | None = self.folder_combo.currentData()
+            if selected_folder_id in ("__NEW_ROOT__", "__NEW_SUB__"):
+                selected_folder_id = None
+
+            with db.atomic():
+                self._current_agent.name = str(name)
+                self._current_agent.description = str(self.desc_edit.text().strip())
+                self._current_agent.system_prompt = str(self.prompt_edit.toPlainText())
+                self._current_agent.output_format = str(self.format_combo.currentText().lower())
+                self._current_agent.persona_type = str(selected_scope)
+                self._current_agent.folder_id = selected_folder_id
+                self._current_agent.allowed_tools = str(json.dumps(selected_tools))
+                self._current_agent.llm_config_id = selected_engine.id if selected_engine else None
+                self._current_agent.save()
+
+                PersonaVersionService.create_snapshot(
+                    self._current_agent,
+                    commit_message=f"Mise à jour de '{name}'",
+                )
+
+            show_toast(self, tr("Agent '%1' enregistré avec succès !", name))
+            self.refresh_data()
+        except Exception as e:
+            log_and_notify_error(e, context="Sauvegarde d'agent", parent=self, title="Erreur de sauvegarde")
+
+    @Slot()
+    def _on_open_history(self) -> None:
+        if not self._current_agent or not self._current_agent.id:
+            show_toast(self, self.tr("Sélectionnez un agent pour explorer son historique."), is_error=True)
+            return
+
+        dlg = PersonaHistoryDialog(self._current_agent.id, parent=self)
+        dlg.version_restored.connect(self._on_version_restored)
+        dlg.exec()
+
+    @Slot(int)
+    def _on_version_restored(self, persona_id: int) -> None:
+        refreshed = PersonaModel.get_or_none(PersonaModel.id == persona_id)
+        if refreshed:
+            self._current_agent = refreshed
+            self._load_persona_into_editor(refreshed)
+            self.refresh_data()
+            show_toast(self, tr("Agent '%1' restauré avec succès !", refreshed.name))
+
+
+AgentsTab = AgentsView

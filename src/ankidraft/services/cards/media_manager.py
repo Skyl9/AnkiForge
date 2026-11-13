@@ -1,0 +1,315 @@
+"""Gestion des médias AnkiForge : import, hachage, déduplication et formatage HTML.
+
+Centralise l'ajout des images aux profils, la détection des doublons par empreinte MD5
+et la transformation des références en balises HTML exploitables par les cartes.
+"""
+
+import hashlib
+import logging
+import mimetypes
+import os
+import re
+import shutil
+from functools import partial
+from pathlib import Path
+from typing import Any
+
+from ankidraft.utils.paths import get_app_data_dir, get_media_dir
+
+logger = logging.getLogger(__name__)
+
+
+def _replace_image_src_tag(match: re.Match[str], replacement: str) -> str:
+    """Remplace uniquement la valeur de l'attribut ``src`` d'une balise `` par la cible."""
+    return match.group(1) + replacement + match.group(2)
+
+
+class MediaManager:
+    """Gère l'importation, le hachage et le formatage HTML des images extraites."""
+
+    def __init__(self, media_dir: Path | None = None) -> None:
+        # On stocke prioritairement dans le dossier médias du profil actif
+        self.media_dir = media_dir or get_media_dir()
+        self.media_dir.mkdir(parents=True, exist_ok=True)
+        self.base_dir = get_app_data_dir()
+
+    @staticmethod
+    def _calculate_md5(file_path: str) -> str:
+        """Calcule l'empreinte MD5 d'un fichier pour garantir un nom unique."""
+        hash_md5 = hashlib.md5(usedforsecurity=False)
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+
+    def store_document_source(self, file_path: str) -> Any:
+        """Copie le fichier source dans media/ et retourne son MediaModel."""
+        file_path_obj = Path(file_path)
+        if not file_path_obj.exists():
+            logger.warning("Fichier source introuvable pour archivage média : %s", file_path)
+            return None
+
+        file_hash = self._calculate_md5(str(file_path_obj))
+        new_filename = f"{file_hash}{file_path_obj.suffix.lower()}"
+        destination_path = self.media_dir / new_filename
+
+        if not destination_path.exists():
+            shutil.copy2(str(file_path_obj), destination_path)
+            logger.info("Document source archivé : %s (hash: %s)", file_path_obj.name, file_hash)
+
+        from ankidraft.database.models import MediaModel
+
+        mime_type, _ = mimetypes.guess_type(str(file_path_obj))
+        mime_type = mime_type or "application/octet-stream"
+
+        media, _ = MediaModel.get_or_create(
+            checksum=file_hash,
+            defaults={
+                "filename": new_filename,
+                "original_name": file_path_obj.name,
+                "mime_type": mime_type,
+            },
+        )
+        return media
+
+    def store_media_bytes(self, data: bytes, original_name: str, mime_type: str | None = None) -> Any:
+        """Enregistre des données brutes en média et retourne son MediaModel."""
+        file_hash = hashlib.md5(data, usedforsecurity=False).hexdigest()
+        suffix = Path(original_name).suffix.lower() or ".png"
+        new_filename = f"{file_hash}{suffix}"
+        destination_path = self.media_dir / new_filename
+
+        if not destination_path.exists():
+            destination_path.write_bytes(data)
+            logger.info("Données média archivées : %s (hash: %s, taille: %d)", original_name, file_hash, len(data))
+
+        from ankidraft.database.models import MediaModel
+
+        if not mime_type:
+            mime_type, _ = mimetypes.guess_type(original_name)
+            mime_type = mime_type or "image/png"
+
+        media, _ = MediaModel.get_or_create(
+            checksum=file_hash,
+            defaults={
+                "filename": new_filename,
+                "original_name": original_name,
+                "mime_type": mime_type,
+            },
+        )
+        return media
+
+    def process_extracted_folder(self, source_folder: str, markdown_content: str) -> str:
+        """1. Trouve toutes les images dans le dossier source (généré par Marker).
+
+        2. Les copie dans data/media/ en les renommant avec leur hash MD5.
+        3. Remplace les liens Markdown bruts par des balises HTML <img> compatibles Anki.
+
+        Retourne le Markdown modifié.
+        """
+        source_path = Path(source_folder)
+        if not source_path.exists() or not source_path.is_dir():
+            return markdown_content
+
+        # Dictionnaire pour garder la trace des renommages : { "ancien_nom.jpeg" : "hash123.jpeg" }
+        image_mapping = {}
+
+        from ankidraft.database.models import MediaModel
+
+        for file in source_path.iterdir():
+            if file.is_file() and file.suffix.lower() in [".jpeg", ".jpg", ".png", ".webp", ".gif"]:
+                file_hash = self._calculate_md5(str(file))
+                new_filename = f"{file_hash}{file.suffix.lower()}"
+
+                destination_path = self.media_dir / new_filename
+
+                # Copie du fichier s'il n'existe pas déjà (évite les doublons parfaits)
+                if not destination_path.exists():
+                    shutil.copy2(str(file), destination_path)
+
+                mime_type, _ = mimetypes.guess_type(str(file))
+                mime_type = mime_type or "image/" + file.suffix.lower().strip(".")
+
+                MediaModel.get_or_create(
+                    checksum=file_hash,
+                    defaults={
+                        "filename": new_filename,
+                        "original_name": file.name,
+                        "mime_type": mime_type,
+                    },
+                )
+
+                image_mapping[file.name] = new_filename
+
+        logger.info("Traitement du dossier extrait terminé : %d image(s) archivée(s)", len(image_mapping))
+
+        # Marker génère généralement des liens comme ça : ![Description](_page_1_Figure_2.jpeg)
+        modified_markdown = markdown_content
+
+        for old_name, new_name in image_mapping.items():
+            html_img_tag = f'<img src="{new_name}">'
+
+            # Ex: ![N'importe quelle description](old_name)
+            pattern = r"!\[.*?\]\(" + str(re.escape(old_name)) + r"\)"
+            modified_markdown = re.sub(pattern, html_img_tag, modified_markdown)
+
+            # Remplacement ciblé sur les balises HTML existantes : uniquement l'attribut src complet,
+            # jamais de remplacement en chaîne aveugle qui risquerait de corrompre du texte non-image.
+            html_pattern = re.compile(r'(<img[^>]+src=["\'])' + re.escape(old_name) + r'(["\'])')
+            modified_markdown = html_pattern.sub(
+                partial(_replace_image_src_tag, replacement=new_name),
+                modified_markdown,
+            )
+
+        return modified_markdown
+
+    def clean_orphaned_media(self) -> int:
+        """Supprime physiquement les fichiers médias qui ne sont plus utilisés.
+
+        Analyse toutes les versions de notes en base de données pour identifier
+        les images référencées et nettoie les fichiers orphelins sur le disque.
+
+        Returns:
+            Le nombre de fichiers supprimés.
+        """
+        from ankidraft.database.models import DocumentChunkModel, DocumentModel, DocumentPageModel, MediaModel, NoteVersionModel
+
+        used_media = set()
+
+        for version in NoteVersionModel.select(NoteVersionModel.content):
+            if not version.content:
+                continue
+            # Images standard HTML
+            used_media.update(re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', version.content))
+            # Balises audio Anki [sound:xxx]
+            used_media.update(re.findall(r"\[sound:([^\]]+)\]", version.content))
+            # Balises audio HTML5 <audio src="..."> et <source src="...">
+            used_media.update(re.findall(r'<audio[^>]+src=["\']([^"\']+)["\']', version.content))
+            used_media.update(re.findall(r'<source[^>]+src=["\']([^"\']+)["\']', version.content))
+
+        # Médias utilisés comme documents originaux
+        for doc in DocumentModel.select(DocumentModel.original_media).where(DocumentModel.original_media.is_null(False)):
+            if doc.original_media:
+                used_media.add(doc.original_media.filename)
+
+        # Médias utilisés comme pages d'albums
+        for page in DocumentPageModel.select(DocumentPageModel.media).where(DocumentPageModel.media.is_null(False)):
+            if page.media:
+                used_media.add(page.media.filename)
+
+        # Médias utilisés dans les chunks de documents
+        for chunk in DocumentChunkModel.select(DocumentChunkModel.media).where(DocumentChunkModel.media.is_null(False)):
+            if chunk.media:
+                used_media.add(chunk.media.filename)
+
+        deleted_count = 0
+        if self.media_dir.exists():
+            for file_path in self.media_dir.iterdir():
+                if file_path.is_file() and file_path.name not in used_media:
+                    try:
+                        file_path.unlink()
+                        MediaModel.delete().where(MediaModel.filename == file_path.name).execute()
+                        deleted_count += 1
+                        logger.debug("Média orphelin supprimé : %s", file_path.name)
+                    except OSError as err:
+                        logger.warning(
+                            "Impossible de supprimer le média orphelin %s (fichier verrouillé) : %s",
+                            file_path.name,
+                            err,
+                        )
+
+        if used_media:
+            deleted_count += MediaModel.delete().where(~(MediaModel.filename.in_(used_media))).execute()
+        else:
+            deleted_count += MediaModel.delete().execute()
+
+        logger.info("Nettoyage des médias orphelins terminé : %d fichier(s) supprimé(s)", deleted_count)
+        return deleted_count
+
+    clean_orphan_media = clean_orphaned_media
+
+    def purge_tts_audio_cache(self, only_orphans: bool = False) -> tuple[int, int]:
+        """Purger les fichiers de cache audio TTS générés (commençant par 'tts_').
+
+        Args:
+            only_orphans: Si True, ne supprime que les fichiers audio TTS qui ne sont
+                pas référencés dans les versions de notes. Si False, purge tout le cache
+                audio TTS pour libérer de l'espace disque.
+
+        Returns:
+            (nombre_fichiers_supprimes, octets_libérés)
+        """
+        from ankidraft.database.models import MediaModel, NoteVersionModel
+
+        used_audio: set[str] = set()
+        if only_orphans:
+            for version in NoteVersionModel.select(NoteVersionModel.content):
+                if version.content:
+                    used_audio.update(re.findall(r"\[sound:([^\]]+)\]", version.content))
+                    used_audio.update(re.findall(r'<audio[^>]+src=["\']([^"\']+)["\']', version.content))
+                    used_audio.update(re.findall(r'<source[^>]+src=["\']([^"\']+)["\']', version.content))
+
+        deleted_count = 0
+        freed_bytes = 0
+        deleted_filenames: list[str] = []
+
+        # Garde-fou de sécurité pytest pour le dossier réel
+        if os.environ.get("PYTEST_CURRENT_TEST") and str(self.media_dir).startswith(str(Path.home() / ".ankidraft")):
+            logger.warning("Garde-fou pytest : purge du cache audio réel bloquée.")
+            return 0, 0
+
+        if self.media_dir.exists():
+            for file_path in self.media_dir.iterdir():
+                if file_path.is_file() and file_path.name.startswith("tts_"):
+                    if only_orphans and file_path.name in used_audio:
+                        continue
+                    try:
+                        size = file_path.stat().st_size
+                        file_path.unlink()
+                        deleted_count += 1
+                        freed_bytes += size
+                        deleted_filenames.append(file_path.name)
+                        logger.debug("Cache audio TTS supprimé : %s (%d octets)", file_path.name, size)
+                    except OSError as err:
+                        logger.warning("Impossible de supprimer le cache audio %s : %s", file_path.name, err)
+
+        if deleted_filenames:
+            try:
+                MediaModel.delete().where(MediaModel.filename.in_(deleted_filenames)).execute()
+            except Exception as err:
+                logger.debug("Nettoyage MediaModel pour cache audio : %s", err)
+
+        logger.info("Purge du cache audio TTS terminée : %d fichier(s) supprimé(s), %d Ko libérés", deleted_count, freed_bytes // 1024)
+        return deleted_count, freed_bytes
+
+    def decompress_all_zstd_media(self, profile_name: str | None = None) -> int:
+        """Scanne le dossier médias et décompresse en place tous les fichiers restants au format Zstandard.
+
+        Retourne le nombre de fichiers décompressés.
+        """
+        import zstandard as zstd
+
+        target_dir = get_media_dir(profile_name) if profile_name is not None else self.media_dir
+        if not target_dir.exists():
+            return 0
+
+        dctx = zstd.ZstdDecompressor()
+        decompressed_count = 0
+
+        for file_path in target_dir.iterdir():
+            if file_path.is_file():
+                try:
+                    with open(file_path, "rb") as fp:
+                        header = fp.read(4)
+                    if header == b"\x28\xb5\x2f\xfd":
+                        tmp_path = file_path.with_suffix(file_path.suffix + ".tmp_zstd")
+                        with open(file_path, "rb") as sf, open(tmp_path, "wb") as df:
+                            dctx.copy_stream(sf, df)
+                        tmp_path.replace(file_path)
+                        decompressed_count += 1
+                except Exception as err:
+                    logger.warning("Échec décompression Zstd pour %s: %s", file_path.name, err)
+
+        if decompressed_count > 0:
+            logger.info("Décompression globale Zstandard achevée : %d fichier(s) traités dans %s", decompressed_count, target_dir)
+        return decompressed_count

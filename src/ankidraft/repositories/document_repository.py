@@ -1,0 +1,920 @@
+"""Dépôt des dossiers, des documents, des fragments et des liens de traçabilité note-fragment."""
+
+from __future__ import annotations
+
+import json
+import logging
+import re
+from dataclasses import dataclass
+from typing import Any, cast
+
+from peewee import fn
+
+from ankidraft.database.models import (
+    DocumentChunkModel,
+    DocumentModel,
+    FolderModel,
+    MediaModel,
+    NoteChunkLinkModel,
+    NoteModel,
+)
+from ankidraft.repositories.base import BaseRepository
+from ankidraft.services.markdown.structurer import MarkdownStructurer
+from ankidraft.services.parsing.chunking_service import ChunkingService
+from ankidraft.services.reindex_service import mark_document_version
+from ankidraft.utils.region_address import (
+    RegionAddress,
+    RegionScope,
+    covers_region,
+    parse_region_address,
+    parse_region_addresses,
+    render_region_addresses,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ChunkSyncReport:
+    """Bilan d'un réalignement de fragments : ce qui a survécu, ce qui est né, ce qui a disparu."""
+
+    preserved: int = 0
+    created: int = 0
+    deleted: int = 0
+
+    def preserved_one(self) -> ChunkSyncReport:
+        """Retourne un nouveau bilan avec un fragment préservé de plus."""
+        return ChunkSyncReport(self.preserved + 1, self.created, self.deleted)
+
+    def created_one(self) -> ChunkSyncReport:
+        """Retourne un nouveau bilan avec un fragment créé de plus."""
+        return ChunkSyncReport(self.preserved, self.created + 1, self.deleted)
+
+    def deleted_one(self, count: int) -> ChunkSyncReport:
+        """Retourne un nouveau bilan avec le nombre de fragments supprimés incrémenté."""
+        return ChunkSyncReport(self.preserved, self.created, self.deleted + count)
+
+
+class DocumentRepository(BaseRepository):
+    """Dépôt d'accès aux données des documents, des dossiers et des rattachements de fragments RAG."""
+
+    _PAGE_LABEL_RE = re.compile(r"^\s*page\s*\d+\s*$", re.IGNORECASE)
+
+    def get_all_folders(self) -> list[FolderModel]:
+        """Retourne tous les dossiers de la bibliothèque documentaire."""
+        return list(FolderModel.select().order_by(FolderModel.name.asc()))
+
+    def get_folder_by_id(self, folder_id: int) -> FolderModel | None:
+        """Retourne un dossier par son ID."""
+        try:
+            return FolderModel.get_or_none(FolderModel.id == folder_id)
+        except Exception as e:
+            logger.error("Failed to get folder %s: %s", folder_id, e)
+            return None
+
+    def get_folder_by_name(self, name: str) -> FolderModel | None:
+        """Retourne un dossier par son nom."""
+        try:
+            return FolderModel.get_or_none(FolderModel.name == name)
+        except Exception as e:
+            logger.error("Failed to get folder by name '%s': %s", name, e)
+            return None
+
+    def create_folder(self, name: str) -> FolderModel:
+        """Crée un nouveau dossier."""
+        with self.atomic():
+            return FolderModel.create(name=name)
+
+    def delete_folder(self, folder_id: int) -> bool:
+        """Supprime un dossier et propage la suppression en cascade."""
+        folder = self.get_folder_by_id(folder_id)
+        if not folder:
+            return False
+
+        with self.atomic():
+            folder.delete_instance(recursive=True)
+            return True
+
+    def ensure_folder_hierarchy(self, full_path: str) -> FolderModel:
+        """Garantit l'existence de chaque niveau de l'arborescence et retourne le dossier feuille."""
+        from ankidraft.utils.hierarchy import join_hierarchy, split_hierarchy
+
+        parts = split_hierarchy(full_path)
+        if not parts:
+            raise ValueError("Le chemin hiérarchique du dossier ne peut être vide.")
+
+        with self.atomic():
+            leaf_folder: FolderModel | None = None
+            for i in range(1, len(parts) + 1):
+                level_path = join_hierarchy(parts[:i])
+                leaf_folder, _ = FolderModel.get_or_create(name=level_path)
+
+            if leaf_folder is None:
+                raise RuntimeError(f"Échec de création du dossier hiérarchique pour le chemin : {full_path}")
+            return leaf_folder
+
+    def heal_folder_hierarchies(self) -> int:
+        """Détecte et instancie tous les dossiers parents intermédiaires manquants de manière idempotente."""
+        from ankidraft.utils.hierarchy import join_hierarchy, split_hierarchy
+
+        created_count = 0
+        all_folders = self.get_all_folders()
+        existing_names = {f.name for f in all_folders}
+
+        needed_parents: set[str] = set()
+        for folder in all_folders:
+            parts = split_hierarchy(folder.name)
+            for i in range(1, len(parts)):
+                parent_name = join_hierarchy(parts[:i])
+                if parent_name not in existing_names:
+                    needed_parents.add(parent_name)
+
+        if needed_parents:
+            with self.atomic():
+                for p_name in sorted(needed_parents):
+                    if p_name not in existing_names:
+                        FolderModel.get_or_create(name=p_name)
+                        existing_names.add(p_name)
+                        created_count += 1
+
+        return created_count
+
+    def rename_folder(self, folder_id: int, new_leaf_or_full_name: str) -> FolderModel:
+        """Renomme un dossier et répercute en cascade la modification sur tous ses sous-dossiers."""
+        from ankidraft.utils.hierarchy import (
+            descendants_prefix,
+            join_hierarchy,
+            parent_path,
+            split_hierarchy,
+        )
+
+        folder = self.get_folder_by_id(folder_id)
+        if not folder:
+            raise ValueError(f"Dossier introuvable (id={folder_id})")
+
+        old_name = folder.name
+        if "::" in new_leaf_or_full_name:
+            target_name = join_hierarchy(split_hierarchy(new_leaf_or_full_name))
+        else:
+            parent = parent_path(old_name)
+            target_name = join_hierarchy((parent, new_leaf_or_full_name.strip())) if parent else new_leaf_or_full_name.strip()
+
+        if target_name == old_name:
+            return folder
+
+        existing = self.get_folder_by_name(target_name)
+        if existing and existing.id != folder.id:
+            raise ValueError(f"Un dossier nommé '{target_name}' existe déjà.")
+
+        with self.atomic():
+            old_prefix = descendants_prefix(old_name)
+            new_prefix = descendants_prefix(target_name)
+            descendants = list(FolderModel.select().where(FolderModel.name.startswith(old_prefix)))
+
+            folder.name = target_name
+            folder.save()
+
+            for desc in descendants:
+                suffix = desc.name[len(old_prefix) :]
+                desc.name = f"{new_prefix}{suffix}"
+                desc.save()
+
+        return folder
+
+    def get_all_documents(self, folder_id: int | None = None) -> list[DocumentModel]:
+        """Retourne tous les documents, éventuellement filtrés par dossier."""
+        query = DocumentModel.select().order_by(DocumentModel.created_at.desc())
+        if folder_id is not None:
+            query = query.where(DocumentModel.folder == folder_id)
+        return list(query)
+
+    def get_document_by_id(self, doc_id: int) -> DocumentModel | None:
+        """Retourne un document par son ID."""
+        try:
+            return DocumentModel.get_or_none(DocumentModel.id == doc_id)
+        except Exception as e:
+            logger.error("Failed to get document %s: %s", doc_id, e)
+            return None
+
+    def get_document_by_title(self, title: str) -> DocumentModel | None:
+        """Retourne un document par son titre exact."""
+        try:
+            return DocumentModel.get_or_none(DocumentModel.title == title)
+        except Exception as e:
+            logger.error("Failed to get document by title '%s': %s", title, e)
+            return None
+
+    def create_document(
+        self,
+        title: str,
+        content: str = "",
+        file_type: str = "md",
+        folder: FolderModel | None = None,
+        source_url: str | None = None,
+        chroma_collection_name: str | None = None,
+        original_media: MediaModel | None = None,
+    ) -> DocumentModel:
+        """Crée un nouveau document."""
+        with self.atomic():
+            return DocumentModel.create(
+                title=title,
+                content=content,
+                file_type=file_type,
+                folder=folder,
+                source_url=source_url,
+                chroma_collection_name=chroma_collection_name,
+                original_media=original_media,
+            )
+
+    def update_document(self, doc_id: int, **kwargs: Any) -> DocumentModel | None:
+        """Met à jour les champs d'un document existant."""
+        doc = self.get_document_by_id(doc_id)
+        if not doc:
+            return None
+
+        with self.atomic():
+            for key, val in kwargs.items():
+                if hasattr(doc, key):
+                    setattr(doc, key, val)
+            doc.save()
+            return doc
+
+    def delete_document(self, doc_id: int) -> bool:
+        """Supprime un document et propage en cascade à ses fragments et liens."""
+        doc = self.get_document_by_id(doc_id)
+        if not doc:
+            return False
+
+        with self.atomic():
+            doc.delete_instance(recursive=True)
+            return True
+
+    def get_chunks_for_document(self, doc_id: int) -> list[DocumentChunkModel]:
+        """Retourne les fragments d'un document triés par index."""
+        return list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc_id).order_by(DocumentChunkModel.chunk_index.asc()))
+
+    def get_document_by_source_url(self, source_url: str) -> DocumentModel | None:
+        """Retourne le document le plus récent associé à une URL source (dédoublonnage web)."""
+        try:
+            return DocumentModel.select().where(DocumentModel.source_url == source_url).order_by(DocumentModel.created_at.desc()).first()
+        except Exception as e:
+            logger.error("Failed to get document by source_url '%s': %s", source_url, e)
+            return None
+
+    def save_imported_document(
+        self,
+        title: str,
+        content: str,
+        file_type: str = "md",
+        source_url: str | None = None,
+        doc_id_to_update: int | None = None,
+        folder: FolderModel | None = None,
+        original_media: MediaModel | None = None,
+    ) -> DocumentModel:
+        """Crée (ou met à jour) un document importé et régénère ses chunks RAG.
+
+        Garantit l'unicité du titre (contrainte DB) et préserve le titre original
+        lors d'une mise à jour d'un document existant.
+        """
+        if doc_id_to_update:
+            doc = self.get_document_by_id(doc_id_to_update)
+            if doc is None:
+                doc = DocumentModel()
+                doc.title = self._unique_title(title, source_url)
+        else:
+            doc = DocumentModel()
+            doc.title = self._unique_title(title, source_url)
+
+        doc.content = content
+        doc.file_type = file_type
+        if source_url:
+            doc.source_url = source_url
+        if folder is not None:
+            doc.folder = folder
+        if original_media is not None:
+            doc.original_media = original_media
+
+        with self.atomic():
+            doc.save(force_insert=not doc.id)
+        self._regenerate_chunks(doc, content, file_type)
+        return doc
+
+    def _unique_title(self, base_title: str, source_url: str | None = None) -> str:
+        """Retourne un titre unique en suffixant « (N) » en cas de collision (title unique=True)."""
+        candidate = (base_title or "Document importé").strip() or "Document importé"
+        if not DocumentModel.select().where(DocumentModel.title == candidate).exists():
+            return candidate
+        n = 2
+        while n < 1000:
+            suffixed = f"{candidate} ({n})"
+            if not DocumentModel.select().where(DocumentModel.title == suffixed).exists():
+                return suffixed
+            n += 1
+        return f"{candidate} ({n})"
+
+    def _regenerate_chunks(self, doc: DocumentModel, content: str, file_type: str) -> None:
+        """Recalcule les fragments RAG du document et marque sa version d'indexation.
+
+        Le recalcul passe par la même couture que le réalignement : supprimer puis recréer
+        tous les fragments renumérotait le découpage et emportait au passage les rattachements
+        de cartes, alors que rien de ce qui compte ici n'a changé de nature.
+        """
+        extracted_chunks = ChunkingService.extract_chunks(
+            content,
+            file_type=file_type,
+            strategy=ChunkingService.preferred_strategy(file_type),
+        )
+        self.sync_extracted_chunks(doc, extracted_chunks)
+        mark_document_version(doc)
+
+    def create_chunks(self, doc: DocumentModel, chunks_data: list[dict[str, Any]]) -> list[DocumentChunkModel]:
+        """Crée en lot les fragments d'un document."""
+        created_chunks: list[DocumentChunkModel] = []
+        with self.atomic():
+            for idx, data in enumerate(chunks_data):
+                chunk = DocumentChunkModel.create(
+                    document=doc,
+                    chunk_index=data.get("chunk_index", idx),
+                    content=data.get("content", ""),
+                    content_hash=data.get("content_hash", ""),
+                    page_number=data.get("page_number"),
+                    heading_path=data.get("heading_path"),
+                    is_profiled=data.get("is_profiled", False),
+                    is_structural_container=data.get("is_structural_container", False),
+                    # L'origine accompagne le drapeau : un conteneur déclaré par l'utilisateur
+                    # et un conteneur déduit par la règle de seuil ne se revalident pas de la
+                    # même façon, et les Guards lisent cette colonne pour distinguer l'un de
+                    # l'autre. Perdre le marqueur à l'écriture revenait à faire passer une
+                    # déclaration pour une déduction au premier réingestion venu.
+                    container_origin=data.get("container_origin"),
+                )
+                created_chunks.append(chunk)
+        mark_document_version(doc)
+        return created_chunks
+
+    def delete_chunks_by_document(self, doc_id: int) -> int:
+        """Supprime tous les fragments d'un document."""
+        with self.atomic():
+            return int(DocumentChunkModel.delete().where(DocumentChunkModel.document == doc_id).execute())
+
+    def link_note_to_chunk(
+        self,
+        note: NoteModel,
+        chunk: DocumentChunkModel,
+        is_hallucinating: bool = False,
+    ) -> NoteChunkLinkModel:
+        """Crée ou met à jour le lien de traçabilité entre une note et un fragment source."""
+        with self.atomic():
+            link, _ = NoteChunkLinkModel.get_or_create(
+                note=note,
+                chunk=chunk,
+                defaults={"is_hallucinating": is_hallucinating},
+            )
+            return link
+
+    def get_linked_notes_for_chunk(self, chunk_id: int) -> list[NoteModel]:
+        """Retourne les notes rattachées à un fragment donné."""
+        return list(NoteModel.select().join(NoteChunkLinkModel).where(NoteChunkLinkModel.chunk == chunk_id))
+
+    @staticmethod
+    def _parse_excluded_headings(doc: DocumentModel | None) -> list[str]:
+        """Parse la liste JSON des sections exclues (délimitation) persistée sur le document."""
+        if doc is None:
+            return []
+        raw_excl = getattr(doc, "excluded_headings", None)
+        if not raw_excl:
+            return []
+        try:
+            parsed = json.loads(raw_excl)
+            if isinstance(parsed, list):
+                return [str(item) for item in parsed if item]
+        except Exception:
+            return []
+        return []
+
+    @classmethod
+    def get_excluded_regions(cls, doc: DocumentModel | None) -> list[RegionAddress]:
+        """Adresses de région **écartées**, lues telles qu'écrites et rendues canoniques.
+
+        Point d'entrée unique des exclusions de document : le dépôt, les dialogues, les vues et
+        l'alignement de couverture l'interrogent tous, si bien qu'une exclusion ne peut plus être
+        perçue différemment selon le consommateur qui la lit.
+        """
+        return parse_region_addresses(cls._parse_excluded_headings(doc))
+
+    @classmethod
+    def get_excluded_headings(cls, doc: DocumentModel | None) -> list[str]:
+        """Adresses écartées rendues sous forme textuelle, pour inspection et vérification."""
+        return [address.render() for address in cls.get_excluded_regions(doc)]
+
+    @classmethod
+    def get_neutralized_regions(cls, doc: DocumentModel | None) -> list[RegionAddress]:
+        """Adresses de région **neutralisées** : elles ne sortent que du dénominateur de couverture."""
+        if doc is None:
+            return []
+        return parse_region_addresses(getattr(doc, "neutralized_regions", None))
+
+    @classmethod
+    def is_region_excluded(cls, doc: DocumentModel | None, *, heading_path: str | None = None, page_number: int | None = None) -> bool:
+        """Prédicat d'appartenance d'une région écartée — le même, partout.
+
+        Une section sans fil d'Ariane n'est jamais écartée par une adresse de titre, et une adresse
+        de page ne peut pas écarter une section : les portées ne se contaminent pas.
+        """
+        if page_number is not None and cls.is_page_outside_span(doc, page_number):
+            return True
+        return covers_region(cls.get_excluded_regions(doc), heading_path=heading_path, page_number=page_number)
+
+    @classmethod
+    def is_page_outside_span(cls, doc: DocumentModel | None, page_number: int) -> bool:
+        """Vrai si cette page tombe hors de la plage de pages retenue sur le document.
+
+        La plage est une partie de la règle, au même titre qu'un trou de page : avant
+        l'écartement non destructif, elle ne s'exprimait qu'à travers la suppression des
+        fragments hors bornes, et nul lecteur de règle n'avait à la connaître. La matière étant
+        conservée, une page hors bornes doit être reconnaissable comme écartée — sinon un
+        réélargissement de la plage laissait la matière revenue au périmètre mais toujours
+        déclarée hors périmètre, et le délimiteur redevenait la seule expression de la portée.
+        """
+        if doc is None:
+            return False
+        start_p = getattr(doc, "start_page", None)
+        end_p = getattr(doc, "end_page", None)
+        if start_p is None and end_p is None:
+            return False
+        start = int(start_p) if start_p else 1
+        end = int(end_p) if end_p else start
+        if end < start:
+            return False
+        return page_number < start or page_number > end
+
+    @classmethod
+    def is_section_excluded(cls, doc: DocumentModel | None, heading_path: str) -> bool:
+        """Indique si une section est hors périmètre, d'après les exclusions persistées.
+
+        Même prédicat que celui appliqué au dénominateur de couverture par
+        :meth:`get_coverage_stats` : l'interface et le diagnostic ne peuvent donc pas
+        diverger sur ce qu'est une section exclue.
+        """
+        if not heading_path or not heading_path.strip():
+            return False
+        return cls.is_region_excluded(doc, heading_path=heading_path)
+
+    @classmethod
+    def get_section_exclusion_scope(cls, doc: DocumentModel | None, heading_path: str) -> RegionScope | None:
+        """Détermine la portée d'exclusion d'une section : HEADING (branche entière), NODE (titre seul), ou None.
+
+        Permet à l'interface de distinguer visuellement si seul le conteneur a été écarté
+        (les sous-sections restant actives) ou si toute la lignée est hors périmètre.
+        """
+        if not heading_path or not heading_path.strip() or doc is None:
+            return None
+        excluded = cls.get_excluded_regions(doc)
+        covering = [address for address in excluded if address.covers(heading_path=heading_path, page_number=None)]
+        if not covering:
+            return None
+        if any(address.scope is RegionScope.HEADING for address in covering):
+            return RegionScope.HEADING
+        if any(address.scope is RegionScope.NODE for address in covering):
+            return RegionScope.NODE
+        return None
+
+    @classmethod
+    def is_region_neutralized(cls, doc: DocumentModel | None, *, heading_path: str | None = None, page_number: int | None = None) -> bool:
+        """Prédicat d'appartenance d'une région neutralisée par l'utilisateur."""
+        return any(address.covers(heading_path=heading_path, page_number=page_number) for address in cls.get_neutralized_regions(doc))
+
+    @classmethod
+    def get_excluded_pages(cls, doc: DocumentModel | None) -> set[int]:
+        """Trous de pages persistés, déduits des adresses de portée `page:`."""
+        return {int(address.value) for address in cls.get_excluded_regions(doc) if address.scope is RegionScope.PAGE and address.value.isdigit()}
+
+    @classmethod
+    def is_excludable_heading(cls, heading_path: str | None) -> bool:
+        """Indique si un libellé de fragment désigne une section exprimable comme exclusion.
+
+        Un libellé de page auto-généré (« Page 12 ») n'en est pas une : le stocker
+        exclurait la page entière dans tous les consommateurs de la délimitation.
+        """
+        if not heading_path or not heading_path.strip():
+            return False
+        return cls._PAGE_LABEL_RE.match(heading_path.strip()) is None
+
+    def _write_regions(self, doc: DocumentModel, field_name: str, addresses: list[RegionAddress]) -> None:
+        """Écrit une collection d'adresses de région, de façon canonique et dédupliquée."""
+        setattr(doc, field_name, render_region_addresses(addresses))
+        doc.save(only=[field_name])
+
+    @staticmethod
+    def _normalized_address(address: RegionAddress | str) -> RegionAddress | None:
+        """Adresse normalisée : nettoyée de son libellé de titre, ou ``None`` si inexploitable.
+
+        Le nettoyage vivait dans le seul raccourci « section ». Le rattacher à l'adresse
+        elle-même évite que la portée décide de l'hygiène de l'écriture : une exclusion de
+        nœud écrite depuis le menu aurait sinon gardé un libellé que le prédicat ne reconnaît
+        pas, et se serait révélée inerte.
+        """
+        target = address if isinstance(address, RegionAddress) else parse_region_address(address)
+        if target is None or not target.value:
+            return None
+        if target.scope is RegionScope.PAGE:
+            return target
+        cleaned = MarkdownStructurer.clean_heading_title(target.value.strip()) or target.value.strip()
+        return RegionAddress(target.scope, cleaned)
+
+    def set_region_excluded(self, doc_id: int, address: RegionAddress | str, excluded: bool) -> bool:
+        """**Écarte** une région du document : elle sort du périmètre, de sa couverture et du rattachement.
+
+        L'écartement est une *règle* — une adresse, évaluée contre la structure courante — et non
+        un identifiant de fragment mémorisé. Rien n'est supprimé : la matière reste en base,
+        lisible dans l'inspecteur, et réintégrable. C'est ce qui permet à la réingestion de
+        réévaluer la règle au lieu de la perdre avec les lignes supprimées.
+
+        :returns: ``True`` si le document a été mis à jour, ``False`` si le document est
+            introuvable ou si l'adresse fournie est illisible.
+        """
+        doc = self.get_document_by_id(doc_id)
+        if doc is None:
+            return False
+        target = self._normalized_address(address)
+        if target is None:
+            return False
+
+        with self.atomic():
+            kept = [entry for entry in self.get_excluded_regions(doc) if not entry.covers_address(target)]
+            if excluded:
+                kept.append(target)
+            self._write_regions(doc, "excluded_headings", kept)
+        return True
+
+    def sync_extracted_chunks(self, doc: DocumentModel, extracted: list[dict[str, Any]]) -> ChunkSyncReport:
+        """Réaligne les fragments stockés sur une découpe fraîchement extraite, sans les remplacer.
+
+        C'est l'unique couture d'écriture d'un rédecoupage : la délimitation, la réindexation et
+        la réécriture du contenu y passent toutes. L'appariement se fait d'abord sur l'empreinte du
+        texte, puis sur le couple (titre, page) — un fragment inchangé conserve ainsi son
+        `id`, donc ses rattachements de cartes, et seule la matière réellement modifiée en
+        gagne un neuf. Ce qui a disparu de la découpe est supprimé : c'est la seule perte
+        admise, et elle est le fait de l'ingestion, pas celui d'un filtre d'exclusion.
+
+        :returns: le bilan ``(preserved, created, deleted)`` du réalignement.
+        """
+        # La déclaration est réévaluée ici, une fois pour toutes, et non par chaque appelant :
+        # `extracted` arrive d'une simple découpe, qui n'a aucune raison de savoir qu'un
+        # conteneur a été neutralisé. Une règle que l'on réapplique à chaque réingestion ne
+        # doit pas dépendre du chemin qui y mène.
+        # Lue sur une instance fraîche : un appelant qui vient d'écrire la déclaration et
+        # garde son `DocumentModel` en mémoire CONSULTERAIT le contraire de ce qu'il a posé.
+        current = DocumentModel.get_or_none(DocumentModel.id == doc.id) or doc
+        extracted = ChunkingService.flag_structural_containers(extracted, declared_addresses=DocumentRepository.get_neutralized_regions(current))
+
+        # Expansion centralisée des figures : un fragment de figure dédié par balise d'image
+        # détectée, portant son media_id, sa bounding_box, son fil d'Ariane et sa page,
+        # sans altérer le fragment textuel source.
+        expanded: list[dict[str, Any]] = []
+        for data in extracted or []:
+            entry = dict(data)
+            expanded.append(entry)
+            content = str(data.get("content") or "")
+            detected = ChunkingService.detect_figure_references(content)
+            if not detected:
+                continue
+            media_bboxes = data.get("media_bboxes") if isinstance(data.get("media_bboxes"), dict) else {}
+            page = data.get("page_number")
+            heading = data.get("heading_path")
+            base_bbox = data.get("bounding_box")
+            for filename in detected:
+                # Préserve la balise d'origine correspondant à ce fichier.
+                tag = None
+                for match in ChunkingService.IMAGE_MARKDOWN_RE.finditer(content):
+                    if match.group(1).strip() == filename:
+                        tag = match.group(0)
+                        break
+                if tag is None:
+                    for match in ChunkingService.IMAGE_HTML_RE.finditer(content):
+                        if match.group(1).strip() == filename:
+                            tag = match.group(0)
+                            break
+                if tag is None:
+                    tag = f"![Figure]({filename})"
+                bbox = media_bboxes.get(filename) if isinstance(media_bboxes, dict) else None
+                if bbox is None:
+                    bbox = base_bbox
+                expanded.append(
+                    {
+                        **dict(data),
+                        "content": tag,
+                        "content_hash": ChunkingService.hash_content(tag),
+                        "page_number": page,
+                        "heading_path": heading,
+                        "start_time": data.get("start_time"),
+                        "end_time": data.get("end_time"),
+                        "is_structural_container": False,
+                        "container_origin": None,
+                        "media_filename": filename,
+                        "_is_figure": True,
+                        "bounding_box": bbox,
+                    }
+                )
+        extracted = expanded
+
+        existing_chunks = list(DocumentChunkModel.select().where(DocumentChunkModel.document == doc).order_by(DocumentChunkModel.chunk_index))
+        existing_by_hash: dict[str, list[DocumentChunkModel]] = {}
+        existing_by_heading_page: dict[tuple[str | None, int | None], list[DocumentChunkModel]] = {}
+        for chunk in existing_chunks:
+            if chunk.content_hash:
+                existing_by_hash.setdefault(chunk.content_hash, []).append(chunk)
+            if chunk.heading_path:
+                existing_by_heading_page.setdefault((chunk.heading_path, chunk.page_number), []).append(chunk)
+
+        report = ChunkSyncReport()
+        matched_ids: set[int] = set()
+
+        with self.atomic():
+            for index, data in enumerate(extracted):
+                content = str(data.get("content") or "")
+                content_hash = data.get("content_hash") or ChunkingService.hash_content(content)
+                page = data.get("page_number")
+                heading = data.get("heading_path")
+                is_figure = bool(data.get("media_filename") or data.get("_is_figure"))
+                figure_media = None
+                if is_figure:
+                    from ankidraft.database.models.cards import MediaModel
+
+                    figure_media = MediaModel.get_or_none(MediaModel.filename == data.get("media_filename"))
+
+                matched: DocumentChunkModel | None = None
+                for bucket in (existing_by_hash.get(content_hash), existing_by_heading_page.get((heading, page))):
+                    for candidate in bucket or []:
+                        if candidate.id not in matched_ids:
+                            matched = candidate
+                            break
+                    if matched is not None:
+                        break
+
+                if matched is not None:
+                    matched_ids.add(matched.id)
+                    matched.chunk_index = index
+                    matched.content = content
+                    matched.page_number = page
+                    matched.heading_path = heading
+                    matched.content_hash = content_hash
+                    matched.is_profiled = bool(data.get("is_profiled", matched.is_profiled))
+                    matched.is_structural_container = bool(data.get("is_structural_container", False))
+                    matched.container_origin = data.get("container_origin")
+                    matched.start_time = data.get("start_time", matched.start_time)
+                    matched.end_time = data.get("end_time", matched.end_time)
+                    if is_figure:
+                        if figure_media is not None:
+                            matched.media = figure_media
+                        bbox = data.get("bounding_box")
+                        if bbox is not None:
+                            matched.bounding_box = bbox
+                    matched.save()
+                    report = report.preserved_one()
+                else:
+                    created = DocumentChunkModel.create(
+                        document=doc,
+                        chunk_index=index,
+                        content=content,
+                        page_number=page,
+                        heading_path=heading,
+                        start_time=data.get("start_time"),
+                        end_time=data.get("end_time"),
+                        is_structural_container=bool(data.get("is_structural_container", False)),
+                        container_origin=data.get("container_origin"),
+                        content_hash=content_hash,
+                        media=figure_media if is_figure else None,
+                        bounding_box=data.get("bounding_box"),
+                    )
+                    matched_ids.add(created.id)
+                    report = report.created_one()
+
+            obsolete = [chunk.id for chunk in existing_chunks if chunk.id not in matched_ids]
+            if obsolete:
+                DocumentChunkModel.delete().where(DocumentChunkModel.id.in_(obsolete)).execute()
+        return report if not obsolete else report.deleted_one(len(obsolete))
+
+    def set_section_excluded(self, doc_id: int, heading_path: str, excluded: bool) -> bool:
+        """Ajoute ou retire une section des exclusions persistées du document.
+
+        Raccourci de lecture : une section décochée dans l'arbre est un **nœud et sa lignée**,
+        donc une adresse `heading:`. Le dépôt expose aussi :meth:`set_region_excluded` pour les
+        autres portées, et c'est elle qui porte la règle.
+
+        Le libellé est nettoyé avant écriture parce que c'est le `heading_path` **stocké** que le
+        prédicat d'appartenance interroge. Écrire le libellé brut en plus servait de pansement à
+        des comparaisons divergentes — une même exclusion lue différemment selon le consommateur —
+        et le monopole du prédicat le rend désormais sans objet.
+
+        :returns: ``True`` si le document a été mis à jour, ``False`` si le document est
+            introuvable ou si le libellé fourni ne désigne pas une section.
+        """
+        if not self.is_excludable_heading(heading_path):
+            return False
+        cleaned = MarkdownStructurer.clean_heading_title(heading_path.strip()) or heading_path.strip()
+        return self.set_region_excluded(doc_id, RegionAddress(RegionScope.HEADING, cleaned), excluded)
+
+    def set_region_neutralized(self, doc_id: int, address: RegionAddress | str, neutralized: bool) -> bool:
+        """**Neutralise** une région : elle ne sort plus que du dénominateur de couverture.
+
+        Le document la conserve, les générations la voient encore, et la matière reste en base.
+        La déclaration est réévaluée à chaque réingestion, qui en tire l'origine `declared` des
+        fragments concernés.
+
+        :returns: ``True`` si le document a été mis à jour, ``False`` si le document est
+            introuvable ou si l'adresse fournie est illisible.
+        """
+        doc = self.get_document_by_id(doc_id)
+        if doc is None:
+            return False
+        # Même normalisation que pour l'exclusion : le verdict de conteneur se décide sur le
+        # titre *stocké*, et une déclaration écrite avec un libellé non nettoyé ne
+        # s'allumerait jamais, tout en restant affichée comme active dans l'interface.
+        target = self._normalized_address(address)
+        if target is None:
+            return False
+
+        with self.atomic():
+            # Une déclaration de lignée n'emporte pas les déclarations de ses descendants :
+            # retirer `heading:Cours` laisserait `heading:Cours > Ch1` — deux choix distincts,
+            # dont le second n'a pas été fait.
+            kept = [entry for entry in self.get_neutralized_regions(doc) if entry.key != target.key]
+            if neutralized:
+                kept.append(target)
+            self._write_regions(doc, "neutralized_regions", kept)
+        return True
+
+    def count_cards_by_chunk(self, doc_id: int) -> dict[int, int]:
+        """Nombre de cartes de couverture liées à chaque fragment d'un document.
+
+        Une seule requête agrégée : l'inspecteur s'en sert pour rafraîchir ses compteurs
+        de sommaire en place, sans reconstruire la liste ni perdre la sélection courante.
+        """
+        rows = cast(
+            "list[tuple[Any, ...]]",
+            NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id, fn.COUNT(NoteChunkLinkModel.id).alias("card_count"))
+            .join(DocumentChunkModel)
+            .where(DocumentChunkModel.document_id == doc_id)
+            .group_by(NoteChunkLinkModel.chunk_id)
+            .tuples(),
+        )
+        return {int(chunk_id): int(card_count) for chunk_id, card_count in rows}
+
+    def get_orphan_chunks(self, doc_id: int) -> list[DocumentChunkModel]:
+        """Retourne tous les fragments utiles et actifs non rattachés à une carte.
+
+        Respecte les exclusions de région (ADR 0010), les bornes de pages et élimine
+        les conteneurs structurels purs qui ne constituent pas de la matière à couvrir.
+        """
+        doc = self.get_document_by_id(doc_id)
+        if not doc:
+            return []
+        chunks = self.get_chunks_for_document(doc_id)
+        if not chunks:
+            return []
+        linked_chunk_ids = {link.chunk_id for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).join(DocumentChunkModel).where(DocumentChunkModel.document_id == doc_id)}
+        return [c for c in chunks if not self.is_region_excluded(doc, heading_path=c.heading_path, page_number=c.page_number) and not c.is_structural_container and c.id not in linked_chunk_ids]
+
+    def get_coverage_stats(self, doc_id: int) -> dict[str, Any]:
+        """Calcule les métriques globales de couverture et de lacunes d'un document (par page ou section)."""
+        doc = self.get_document_by_id(doc_id)
+        chunks = self.get_chunks_for_document(doc_id)
+        total_chunks = len(chunks)
+
+        linked_chunk_ids = {link.chunk_id for link in NoteChunkLinkModel.select(NoteChunkLinkModel.chunk_id).join(DocumentChunkModel).where(DocumentChunkModel.document_id == doc_id)}
+        covered_count = len(linked_chunk_ids)
+        total_cards = NoteChunkLinkModel.select().join(DocumentChunkModel).where(DocumentChunkModel.document_id == doc_id).count()
+
+        if total_chunks == 0 and (not doc or not doc.total_pages):
+            return {
+                "total_chunks": 0,
+                "covered_chunks": 0,
+                "coverage_pct": 0.0,
+                "total_cards": 0,
+                "unit_type": "sections",
+                "total_units": 0,
+                "covered_units": 0,
+                "orphan_units": [],
+            }
+
+        file_type = (doc.file_type or "").lower() if doc else ""
+        pages_in_chunks = {c.page_number for c in chunks if c.page_number is not None and c.page_number > 0}
+        is_paginated = file_type in ("pdf", "album", "pptx", "epub") or bool(pages_in_chunks)
+        if not is_paginated and file_type not in ("md", "markdown", "txt", "text", "web", "youtube", "yt", "audio", "mp3", "wav", "m4a", "ipynb", "py"):
+            is_paginated = bool(doc and doc.total_pages and doc.total_pages > 1)
+
+        start_p = getattr(doc, "start_page", None)
+        end_p = getattr(doc, "end_page", None)
+
+        # Sections fines : dès qu'un fragment porte un heading_path réel (≠ libellé
+        # générique "Page N" auto-généré), on privilégie la granularité section plutôt
+        # que la page — cas des PDF indexés par Marker et des Markdown structurés.
+        headings_in_chunks = [c.heading_path for c in chunks if c.heading_path]
+        fine_headings = [h for h in headings_in_chunks if not self._PAGE_LABEL_RE.match(h)]
+        use_section_units = bool(fine_headings) or (bool(headings_in_chunks) and not is_paginated)
+
+        if use_section_units:
+            # La granularité section ne doit pas ignorer la plage de pages : un fragment hors
+            # bornes est hors périmètre, et son titre compterait sinon comme une unité de
+            # couverture à couvrir alors que le document ne le contient plus.
+            in_scope = [c for c in chunks if not self.is_region_excluded(doc, heading_path=c.heading_path, page_number=c.page_number)]
+            # `distinct_headings` reste l'inventaire complet : c'est lui qui rend le compte des
+            # unités hors périmètre comparable. Le périmètre, lui, se lit fragment par fragment.
+            distinct_headings = list(dict.fromkeys(headings_in_chunks))
+            covered_headings = {c.heading_path for c in in_scope if c.id in linked_chunk_ids and c.heading_path}
+            # Un conteneur structurel n'est pas une unité de cours : il n'a pas de contenu
+            # propre, seulement des sous-sections à couvrir. Le compter gonflerait le
+            # dénominateur d'une section qui ne peut pas l'être.
+            container_headings = {c.heading_path for c in chunks if c.is_structural_container and c.heading_path}
+            in_scope_headings = {c.heading_path for c in in_scope if c.heading_path}
+            active_headings = [h for h in distinct_headings if h in in_scope_headings and h not in container_headings]
+            covered_active = {h for h in covered_headings if h not in container_headings}
+            total_sections = len(active_headings)
+            covered_sections = len(covered_active & set(active_headings))
+            cov_pct = round((covered_sections / total_sections) * 100.0, 1) if total_sections > 0 else 0.0
+            orphan_headings = [h for h in active_headings if h not in covered_active]
+            container_units = len(container_headings & in_scope_headings)
+
+            return {
+                "total_chunks": total_chunks,
+                "covered_chunks": covered_count,
+                "coverage_pct": cov_pct,
+                "total_cards": total_cards,
+                "unit_type": "sections",
+                "total_units": total_sections,
+                "covered_units": covered_sections,
+                "orphan_units": orphan_headings,
+                "container_units": container_units,
+                # Sections effectivement sorties du périmètre, et non entrées brutes : une
+                # entrée peut recouvrir plusieurs sections, et une entrée devenue obsolète
+                # (trou de page, ancien titre) ne doit pas gonfler le compteur.
+                "excluded_units": len(distinct_headings) - total_sections,
+            }
+
+        if is_paginated:
+            doc_total = doc.total_pages if doc and doc.total_pages else 0
+            total_raw_pages = max(doc_total, max(pages_in_chunks)) if pages_in_chunks else (doc_total or total_chunks or 1)
+
+            effective_start = start_p if (start_p is not None and start_p > 0) else 1
+            effective_end = end_p if (end_p is not None and end_p >= effective_start) else total_raw_pages
+            effective_end = min(effective_end, total_raw_pages)
+
+            # Un trou de page est une adresse `page:` : il sort la page du dénominateur au même
+            # titre qu'une section écartée sort de son dénominateur de sections. L'ignorer ici
+            # rendrait la délimitation non destructive… invisible au score.
+            excluded_pages = self.get_excluded_pages(doc)
+            active_pages_set = set(range(effective_start, effective_end + 1)) - excluded_pages
+            # Un périmètre entièrement troué n'a pas de dénominateur, et c'est le bon chiffre :
+            # y réinjecter la page retirée affichait « 0 % » là où l'utilisateur a retiré la
+            # dernière page, et门户rait un trou de couverture sur une matière qu'il a écartée.
+            total_active_pages = len(active_pages_set)
+
+            covered_pages_set = {c.page_number for c in chunks if c.id in linked_chunk_ids and c.page_number is not None and c.page_number in active_pages_set}
+            covered_pages_count = len(covered_pages_set)
+            cov_pct = round((covered_pages_count / total_active_pages) * 100.0, 1) if total_active_pages > 0 else 0.0
+            orphan_pages = sorted(list(active_pages_set - covered_pages_set))
+            excluded_pages_count = max(0, total_raw_pages - total_active_pages)
+
+            return {
+                "total_chunks": total_chunks,
+                "covered_chunks": covered_count,
+                "coverage_pct": cov_pct,
+                "total_cards": total_cards,
+                "unit_type": "pages",
+                "total_units": total_active_pages,
+                "covered_units": covered_pages_count,
+                "orphan_units": orphan_pages,
+                "total_pages": total_active_pages,
+                "covered_pages": sorted(list(covered_pages_set)),
+                "excluded_units": excluded_pages_count,
+                "excluded_pages": sorted(excluded_pages & set(range(1, total_raw_pages + 1))),
+                "start_page": effective_start,
+                "end_page": effective_end,
+            }
+
+        cov_pct = round((covered_count / total_chunks) * 100.0, 1) if total_chunks > 0 else 0.0
+        orphan_chunks = [c.chunk_index + 1 for c in chunks if c.id not in linked_chunk_ids]
+        return {
+            "total_chunks": total_chunks,
+            "covered_chunks": covered_count,
+            "coverage_pct": cov_pct,
+            "total_cards": total_cards,
+            "unit_type": "sections",
+            "total_units": total_chunks,
+            "covered_units": covered_count,
+            "orphan_units": orphan_chunks,
+        }
+
+    def normalize_orphan_units(self, stats: dict[str, Any]) -> list[dict[str, Any]]:
+        """Normalise la liste des unités non couvertes en entrées homogènes {kind, label, unit_id}."""
+        orphan_units = stats.get("orphan_units", [])
+        normalized: list[dict[str, Any]] = []
+        for unit in orphan_units:
+            if isinstance(unit, dict):
+                normalized.append(unit)
+            elif isinstance(unit, int):
+                normalized.append({"kind": "page", "label": f"Page {unit}", "unit_id": unit})
+            elif isinstance(unit, str):
+                normalized.append({"kind": "section", "label": unit, "unit_id": unit})
+        return normalized
