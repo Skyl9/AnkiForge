@@ -1,10 +1,10 @@
-# 🎨 Guide du Design System & Référentiel des Styles — AnkiForge
+# 🎨 Guide du Design System & Référentiel des Styles — AnkiDraft
 
-Ce document constitue la **source unique de vérité (Single Source of Truth)** pour l'architecture visuelle, le système de design, la gestion des modes **Sombre 🌙 / Clair ☀️**, la matrice de correspondance des tokens pour chaque composant UI et l'inventaire des **12 Familles de Thèmes bivalentes (24 thèmes au total)** d'AnkiForge.
+Ce document constitue la **source unique de vérité (Single Source of Truth)** pour l'architecture visuelle, le système de design, la gestion des modes **Sombre 🌙 / Clair ☀️**, la matrice de correspondance des tokens pour chaque composant UI et l'inventaire des **12 Familles de Thèmes bivalentes (24 thèmes au total)** d'AnkiDraft.
 
 > [!IMPORTANT]
 > **Règle d'or de Contribution UI & Nouveaux Composants :**
-> Toute création d'un nouveau type de composant, widget interactif ou panneau dans AnkiForge **DOIT IMPÉRATIVEMENT** être répertoriée dans la **Partie 1** de ce document avec la spécification exacte des variables de styles et `DesignTokens` à consommer. Aucun style ni code couleur hexadécimal ne doit être codé en dur dans le code source Qt PySide6.
+> Toute création d'un nouveau type de composant, widget interactif ou panneau dans AnkiDraft **DOIT IMPÉRATIVEMENT** être répertoriée dans la **Partie 1** de ce document avec la spécification exacte des variables de styles et `DesignTokens` à consommer. Aucun style ni code couleur hexadécimal ne doit être codé en dur dans le code source Qt PySide6.
 
 ---
 
@@ -57,7 +57,7 @@ Pour toute surface « teintée » (badge, pastille, fond de statut, diff, hover 
 | `BRANCH_B_BG` / `BRANCH_B_BORDER` | variante cyan rôle/étape B | `rgba(6, 182, 212, 0.12)` / `rgba(6, 182, 212, 0.45)` | dérivé de `color_cyan` |
 
 > [!NOTE]
-> - Le blanc inversé sur fond accent/coloré est unifié via le token `TEXT_ON_ACCENT` (`DesignTokens.TEXT_ON_ACCENT`, surchargé par `ThemeProfile.text_on_accent`), exposé pour les icônes via `load_on_accent_icon(name, weight="regular")` dans `ankiforge.utils.icon_loader` (équivalent couleur à `load_phosphor_icon(..., color=DesignTokens.TEXT_ON_ACCENT)`). Toute icône affichée sur une surface accent/colorée (`PrimaryButton`, badges teintés, arêtes vives du guide, segment actif) doit utiliser ce helper — zéro `color="white"` / `"#ffffff"` codé en dur.
+> - Le blanc inversé sur fond accent/coloré est unifié via le token `TEXT_ON_ACCENT` (`DesignTokens.TEXT_ON_ACCENT`, surchargé par `ThemeProfile.text_on_accent`), exposé pour les icônes via `load_on_accent_icon(name, weight="regular")` dans `ankidraft.utils.icon_loader` (équivalent couleur à `load_phosphor_icon(..., color=DesignTokens.TEXT_ON_ACCENT)`). Toute icône affichée sur une surface accent/colorée (`PrimaryButton`, badges teintés, arêtes vives du guide, segment actif) doit utiliser ce helper — zéro `color="white"` / `"#ffffff"` codé en dur.
 > - Restent des blancs **physiques** légitimes hors tokens (vérifiés et documentés) : rendu des cartes Anki (`card_model_io.py:504`, `anki_renderer.py:320`, `snippet_library.py:246`), séparateurs de pages PDF (`delimitation_dialog.py:456/785`), thèmes clairs (`themes.py`), et le handle du QSlider global (`engine.py:761`). Ces blancs sont des couleurs d'objets (fond de carte, trait) et non du texte sur accent.
 
 ---
@@ -247,7 +247,7 @@ Une Famille choisie explicitement **prime** sur la Famille par défaut du layout
 
 ### 3.1 Bibliothèque de Thèmes sur Disque & Format d'Échange JSON (ADR 0004 §2 et §3)
 
-AnkiForge adosse les thèmes personnalisés à une bibliothèque de fichiers JSON stockée sur disque (`~/.ankiforge/themes/`, résolue via `paths.get_themes_dir()`) partagée globalement entre tous les profils de l'installation :
+AnkiDraft adosse les thèmes personnalisés à une bibliothèque de fichiers JSON stockée sur disque (`~/.ankidraft/themes/`, résolue via `paths.get_themes_dir()`) partagée globalement entre tous les profils de l'installation :
 
 - **Conteneur bivalent de Famille (ADR 0004 §3) :** Tout fichier exporté est un conteneur portant l'identité de la Famille (`id`, `name`, `icon`, `description`), sa version de format (`version: "1.0"`), et ses deux variantes (`dark` et `light`).
 - **Charge utile tolérante & non-destructrice :** Chaque variante ne déclare que les jetons qu'elle définit. L'import n'écrase que les champs présents ; un jeton absent ne remet jamais une valeur à son défaut et conserve les tokens de la base (`JETBRAINS_DARK` / `JETBRAINS_LIGHT` ou base explicite). Les ajouts de champs optionnels sont absorbés sans rejet.

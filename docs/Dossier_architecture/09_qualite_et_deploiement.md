@@ -1,6 +1,6 @@
-# Qualité, Tests et Déploiement (AnkiForge)
+# Qualité, Tests et Déploiement (AnkiDraft)
 
-Une application Desktop embarquant des LLMs, de l'ORM, du multi-threading Qt et du C natif est par nature hautement complexe. Voici les standards de vérification de l'industrie mis en place pour garantir la robustesse d'AnkiForge.
+Une application Desktop embarquant des LLMs, de l'ORM, du multi-threading Qt et du C natif est par nature hautement complexe. Voici les standards de vérification de l'industrie mis en place pour garantir la robustesse d'AnkiDraft.
 
 ## 1. Standards de Code (Linting & Typage)
 La qualité commence avant même d'exécuter le code.

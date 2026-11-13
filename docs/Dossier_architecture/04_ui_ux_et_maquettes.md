@@ -1,4 +1,4 @@
-# Ergonomie, UI/UX et Architecture des Vues (AnkiForge)
+# Ergonomie, UI/UX et Architecture des Vues (AnkiDraft)
 
 ## 1. Principes Techniques de l'Interface
 L'application repose sur un cahier des charges strict pour garantir des performances de type "Desktop App" de qualité professionnelle :
@@ -8,7 +8,7 @@ L'application repose sur un cahier des charges strict pour garantir des performa
 * **Internationalisation Qt Linguist (ADR 0013) :** L'interface est écrite en français, mais **tout texte affiché est extrait** vers les catalogues de `src/ankidraft/resources/translations/` par `pylupdate`. Les formes admissibles sont `self.tr("…")` dans une sous-classe de `QObject` et `tr("…")` ailleurs — les deux seules que l'extracteur reconnaît. Une interpolation s'écrit `tr("Enregistré : %1/%2", faits, total)` : les marqueurs `%1`/`%n` sont résolus **après** traduction, ce qui autorise le traducteur à réordonner la phrase cible ; `tr(f"…")` est interdit car la f-chaîne est évaluée avant l'appel et n'entre donc jamais au catalogue. Langue source et repli : français. Les catalogues sont réinjectés dans le bundle par `build_script/nuitka_config.json` et `script/build_standalone.py`, et leur présence est vérifiée en disposition Nuitka par `tests/test_i18n_packaging.py` (un catalogue manquant ne provoquant aucune erreur, le défaut serait sinon invisible jusqu'au signalement d'un utilisateur).
 
 ## 2. Standards d'Industrie et Expérience Utilisateur (UX)
-AnkiForge s'aligne sur les standards des meilleurs IDE (IntelliJ, VSCode) :
+AnkiDraft s'aligne sur les standards des meilleurs IDE (IntelliJ, VSCode) :
 * **Multi-fenêtrage et Panneaux Détachables :** L'UI repose sur des systèmes de `IdePanel` et `QDockWidget` permettant à l'utilisateur de réorganiser son espace (ex: détacher l'aperçu de la carte sur un deuxième écran).
 * **Design Tokens & Cohérence :** Utilisation centralisée de variables (Design System) pour les espacements, les typographies (polices lisibles type Inter/Roboto) et les palettes de couleurs.
 * **Dark Mode Natif :** Le mode sombre n'est pas une option esthétique, c'est le mode de conception prioritaire pour réduire la fatigue visuelle lors de longues sessions d'audit.
@@ -20,7 +20,7 @@ AnkiForge s'aligne sur les standards des meilleurs IDE (IntelliJ, VSCode) :
 L'application est découpée en modules fonctionnels (Vues) précis. Voici leur rôle et leurs interactions clés :
 
 ### 📊 Tableau de Bord (`dashboard_view.py`)
-* **Rôle :** Point d'entrée. Offre une vue d'ensemble de la base locale AnkiForge, sélecteur de profil et métriques globales.
+* **Rôle :** Point d'entrée. Offre une vue d'ensemble de la base locale AnkiDraft, sélecteur de profil et métriques globales.
 * **Actions/Boutons :** *Boutons de navigation vers les modules, sélecteur de profil actif (`profile_selector.py`), KPIs globaux (Nombre de cartes, documents ingérés, répartition par paquets).*
 
 ### 📚 Documents (`documents_view.py`)
@@ -31,7 +31,7 @@ L'application est découpée en modules fonctionnels (Vues) précis. Voici leur 
 ### 🏭 Création & Pipelines (`creation_view.py` & `pipelines_view.py`)
 * **Rôle :** Orchestration de la génération de masse de cartes à partir des sources via le moteur DAG.
 * **Actions/Boutons :**
-  * Dans Pipelines : *Créer/Éditer un Pipeline DAG*, *Ajouter une étape (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`)*, *Inspecteur d'étape JetBrains (`StepInspectorPanel`)*, *Éditeur d'outils Python déterministes (`ToolEditorDialog`)*.
+  * Dans Pipelines : *Créer/Éditer un Pipeline DAG*, *Ajouter une étape (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`, `AUDIO_TTS`)*, *Inspecteur d'étape JetBrains (`StepInspectorPanel`)*, *Éditeur d'outils Python déterministes (`ToolEditorDialog`)*.
   * Dans Création : *Lancer le workflow DAG dans QThreadPool*, *Modale de validation humaine interactive (`HumanValidationDialog`)*, *Mappage automatique des champs selon le type de note*, *Générer les cartes*.
 
 ### 🏥 Analyse & Audit IA (`analysis_view.py`)

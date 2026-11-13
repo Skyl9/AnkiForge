@@ -1,9 +1,9 @@
-# Vision Globale et Cas d'Usage (AnkiForge)
+# Vision Globale et Cas d'Usage (AnkiDraft)
 
 ## 1. Définition et Postulat de Base
-AnkiForge est conçu comme un **environnement de développement intégré (IDE) et un compagnon de maintenance** pour l'écosystème Anki.
+AnkiDraft est conçu comme un **environnement de développement intégré (IDE) et un compagnon de maintenance** pour l'écosystème Anki.
 * **Rôle strict :** Il ne remplace en aucun cas l'application Anki pour la phase de révision/apprentissage. C'est une plateforme d'ingénierie de la connaissance.
-* **Flux déconnecté (Air-gapped) et Versionnement :** AnkiForge possède sa propre base de données isolée et ne communique pas en direct avec Anki. Le workflow repose sur un cycle d'import (`.apkg` / `.colpkg`) et d'export `.apkg`. L'application intègre nativement une logique de **versionnement** basée sur les IDs uniques des cartes, ce qui permet de comparer et d'auditer l'historique de manière sécurisée sans corrompre la base Anki originale.
+* **Flux déconnecté (Air-gapped) et Versionnement :** AnkiDraft possède sa propre base de données isolée et ne communique pas en direct avec Anki. Le workflow repose sur un cycle d'import (`.apkg` / `.colpkg`) et d'export `.apkg`. L'application intègre nativement une logique de **versionnement** basée sur les IDs uniques des cartes, ce qui permet de comparer et d'auditer l'historique de manière sécurisée sans corrompre la base Anki originale.
 
 ## 2. Philosophie de l'IA : Le Copilote Intentionnel
 L'application rejette le paradigme de l'"IA boîte noire" qui générerait des milliers de cartes sans supervision.
@@ -11,7 +11,7 @@ L'application rejette le paradigme de l'"IA boîte noire" qui générerait des m
 * **Bulk-Action :** Pour s'adapter aux volumes importants, une option de validation par lot ("Select All -> Valider") existe, mais elle ne sera jamais le comportement poussé par défaut.
 
 ## 3. Les Cas d'Usage Principaux (Les Vues de l'Application)
-AnkiForge est une application polyvalente, prête à accueillir de nombreuses fonctionnalités réparties dans ses différents modules :
+AnkiDraft est une application polyvalente, prête à accueillir de nombreuses fonctionnalités réparties dans ses différents modules :
 
 1. **Création & Pipelines (Génération de connaissances) :** Outils pour ingérer des sources documentaires (`documents_view.py`) ou multimédias et sculpter de nouvelles cartes efficacement avec l'assistance de l'IA au travers de pipelines automatisés (`creation_view.py`, `pipelines_view.py`).
 2. **Analyse, Audit & Édition (Maintenance au long cours) :** Principalement pensé pour les *Power Users*. C'est ici que l'on diagnostique, reformule (Linter Wozniak) et fusionne (algorithme Levenshtein) les paquets chaotiques (`analysis_view.py`, `edition_view.py`). La philosophie centrale est la recherche de la **connaissance profonde** : l'application vise à réparer et sublimer le savoir, jamais à supprimer, enterrer ou archiver des cartes sous prétexte de superficialité.

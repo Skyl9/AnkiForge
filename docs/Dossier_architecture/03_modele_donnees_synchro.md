@@ -1,13 +1,14 @@
-# Modèle de Données et Synchronisation (AnkiForge)
+# Modèle de Données et Synchronisation (AnkiDraft)
 
 ## 1. Modélisation de la Base de Données (Peewee)
-AnkiForge reproduit intelligemment la structure relationnelle d'Anki, optimisée pour l'analyse et la forge. La base SQLite locale gérée par `peewee` repose sur les piliers suivants :
+AnkiDraft reproduit intelligemment la structure relationnelle d'Anki, optimisée pour l'analyse et la forge. La base SQLite locale gérée par `peewee` repose sur les piliers suivants :
 
 * **Cartes, Notes & Médias (`models/cards.py`) :**
   * `NoteTypeModel` : Définition des gabarits HTML/CSS et schémas de champs (Recto, Verso, Extra).
   * `NoteModel` : Contenu textuel et multimédia agnostique du paquet de destination. `note_type` en FK `ON DELETE RESTRICT` (un type de note utilisé ne se supprime jamais silencieusement).
   * `CardModel` : Instanciation physique d'une note dans un paquet avec état d'apprentissage.
   * `DeckModel` : Arborescence hiérarchique des paquets Anki. `parent_deck` en FK `ON DELETE CASCADE` (sémantique native Anki : un sous-deck et ses cartes suivent leur parent).
+  * `FlagDefinitionModel` & `ProfileFlagLabelModel` : Définition des drapeaux Anki (flags 1 à 7) et libellés personnalisés isolés par profil.
   * `MediaModel` & `NoteVersionMediaModel` : Gestion dédupliquée des médias par checksum SHA-256. La liaison média est en FK `ON DELETE RESTRICT` (un média référencé n'est jamais supprimé ; le nettoyage passe par le `media_manager` qui désassocie d'abord).
   * `NoteVersionModel` : Historique Time Machine des modifications de chaque note.
 * **Documents & RAG Local (`models/rag.py`) :**
@@ -23,12 +24,13 @@ AnkiForge reproduit intelligemment la structure relationnelle d'Anki, optimisée
   * `PersonaVersionModel` : Versionnement et rollback des prompts et hyperparamètres des personas.
   * `PromptModel` : Bibliothèque de prompts modulaires réutilisables.
   * `LLMConfigModel` : Configurations d'inférence (fournisseur, température, context window).
-  * `StagedPatchModel` : Propositions chirurgicales d'agents MCP en attente de validation humaine (Two-Phase Commit, ADR 0043).
+  * `StagedPatchModel` & `StagedBundleModel` : Propositions chirurgicales d'agents MCP et paquets de remédiation par lots en attente de validation humaine (Two-Phase Commit, ADR 0043 & ADR 0057).
 * **Télémétrie & Coûts IA (`models/usage.py`) :**
   * `TokenUsageModel` : Télémétrie granulaire des jetons, temps d'inférence, coûts USD et contexte d'exécution. Vraies clés étrangères vers `PipelineModel` et `PersonaModel` (`ON DELETE SET NULL` via `column_name="pipeline_id"`/`persona_id`) : la suppression d'un pipeline ou d'un persona conserve l'historique de coûts.
 * **Moteur d'Orchestration DAG (`models/pipelines.py`) :**
   * `PipelineModel` : Définition des graphes de génération et d'audit.
-  * `PipelineStepModel` : Étapes typées (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`) et branchements.
+  * `PipelineStepModel` : Étapes typées (`LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`, `AUDIO_TTS`) et branchements.
+  * `PipelineRunModel` : Persistance SQLite de l'état d'exécution des runs du DAG (`PipelineRunState`), compteurs d'étapes et reprise après crash ou pause copilote.
   * `PythonToolModel` : Outils déterministes et scripts Python persistés en sandbox.
 * **Audit Wozniak & Linter (`models/audit.py`) :**
   * `LinterRuleModel` : Règles de formulation (20 règles de Wozniak + règles métier catégorisées).
@@ -133,13 +135,13 @@ flowchart LR
 ```
 
 ## 2. Le Cycle de Synchronisation (Workflow `.apkg`)
-AnkiForge fonctionnant de manière isolée ("Air-gapped"), le transfert de données se fait via des archives compressées standard.
-1. **Ingestion :** Import d'un `.apkg` (Paquet) ou `.colpkg` (Collection complète). AnkiForge mappe les IDs uniques d'Anki avec ses IDs internes.
+AnkiDraft fonctionnant de manière isolée ("Air-gapped"), le transfert de données se fait via des archives compressées standard.
+1. **Ingestion :** Import d'un `.apkg` (Paquet) ou `.colpkg` (Collection complète). AnkiDraft mappe les IDs uniques d'Anki avec ses IDs internes.
 2. **Forge :** L'utilisateur modifie, audite, et crée des cartes.
 3. **Éjection :** Export d'un nouveau `.apkg` ciblé contenant uniquement les ajouts et les mises à jour, prêt à être double-cliqué pour s'intégrer dans Anki.
 
 ## 3. Gestion Intelligente des Conflits (Le Smart Merge)
-C'est la fonctionnalité phare pour les Power Users. Lors d'un import, AnkiForge compare la base entrante avec sa base locale. Contrairement à Anki qui écrase brutalement selon la date, AnkiForge déploie un outil de résolution de conflits précis.
+C'est la fonctionnalité phare pour les Power Users. Lors d'un import, AnkiDraft compare la base entrante avec sa base locale. Contrairement à Anki qui écrase brutalement selon la date, AnkiDraft déploie un outil de résolution de conflits précis.
 
 ### A. Critères stricts de déclenchement d'un conflit
 L'application ne lève une alerte de conflit **que si, et seulement si, le contenu textuel/HTML des champs d'une Note a été modifié des deux côtés**.
@@ -147,11 +149,11 @@ L'application ne lève une alerte de conflit **que si, et seulement si, le conte
 * **Ce qui est ignoré (Pas de conflit) :**
   * Le déplacement de la carte vers un autre paquet (Deck).
   * La modification des statistiques de révision (Ease factor, intervalles).
-  * Ces métadonnées sont fusionnées silencieusement (AnkiForge garde le contenu forgé, mais accepte le nouveau Deck entrant si pertinent).
+  * Ces métadonnées sont fusionnées silencieusement (AnkiDraft garde le contenu forgé, mais accepte le nouveau Deck entrant si pertinent).
 
 ### B. L'Interface de Résolution (Merge Dialog 3-Panneaux)
 Si un vrai conflit de contenu est détecté, l'utilisateur n'est pas bloqué, mais une modale façon "IDE de développement" s'ouvre :
-1. **Panneau Gauche (Base Locale Forge) :** Affiche la note telle qu'elle a été travaillée dans AnkiForge.
+1. **Panneau Gauche (Base Locale Forge) :** Affiche la note telle qu'elle a été travaillée dans AnkiDraft.
 2. **Panneau Droit (Base Entrante Anki) :** Affiche la note provenant du fichier `.apkg` importé.
 3. **Panneau Central (Résultat Fusionné) :** Un éditeur interactif avec mise en évidence des différences (diff highlighting) permettant d'accepter les ajouts de gauche ou de droite, ligne par ligne.
 

@@ -1,13 +1,13 @@
 # Plan d'Implémentation Global (Architecture & Modules Implémentés)
 
-Ce document récapitule l'implémentation technique complète d'AnkiForge, détaillant les modules opérationnels, les modèles de données et l'intégration des vues.
+Ce document récapitule l'implémentation technique complète d'AnkiDraft, détaillant les modules opérationnels, les modèles de données et l'intégration des vues.
 
 ---
 
 ## 1. Moteur d'Orchestration (Core Backend)
 * **État Actuel :** ✅ **Moteur DAG Implémenté & Validé par Tests.**
   - `PipelineRunState` gère la mémoire d'état partagée, les variables, l'historique et la sérialisation.
-  - `PipelineOrchestrator` prend en charge `LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`, les sauts de graphe conditionnels (`on_success_step`, `on_failure_step`), les interruptions thread-safe et l'annulation.
+  - `PipelineOrchestrator` prend en charge `LLM_PROMPT`, `RAG_RETRIEVAL`, `MAP_REDUCE`, `HUMAN_VALIDATION`, `PYTHON_TOOL`, `AUDIO_TTS`, les sauts de graphe conditionnels (`on_success_step`, `on_failure_step`), les interruptions thread-safe et l'annulation.
   - Exécution asynchrone multithreadée dans `QThreadPool` avec émission de signaux réactifs (`step_started`, `step_progress`, `human_validation_required`, `pipeline_finished`).
 
 ## 2. Vue Éditeur de Pipelines (`pipelines_view.py`) & Système d'Outils Python
@@ -78,7 +78,7 @@ Ce document récapitule l'implémentation technique complète d'AnkiForge, déta
 
 ## 10. Multi-Profils & Gestion des Données
 * **État Actuel :** ✅ **Isolation Totale Multi-Profils (`ProfileManager`).**
-  - Profils indépendants sous `~/.ankiforge/profiles/<profile_name>/`.
+  - Profils indépendants sous `~/.ankidraft/profiles/<profile_name>/` (avec migration automatique non destructive depuis `~/.ankiforge`).
   - Base SQLite et répertoire de médias isolés par profil.
   - Sélecteur de profil instantané dans l'interface (`profile_selector.py`).
-  - Suite globale de **> 1700 tests** unitaires et UI au vert (1 702 collectés).
+  - Suite globale de **> 4200 tests** unitaires et UI au vert (4 255 collectés).

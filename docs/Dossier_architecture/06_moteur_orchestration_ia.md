@@ -1,6 +1,6 @@
 # Moteur d'Orchestration IA & Architecture Détaillée
 
-Pour répondre aux contraintes du traitement massif (LLM locaux avec fenêtres de contexte limitées) et offrir une flexibilité totale, l'architecture IA d'AnkiForge s'appuie sur un **Moteur de Workflow Orienté Graphe (DAG) avec Map-Reduce, RAG natif et Pause Copilote**.
+Pour répondre aux contraintes du traitement massif (LLM locaux avec fenêtres de contexte limitées) et offrir une flexibilité totale, l'architecture IA d'AnkiDraft s'appuie sur un **Moteur de Workflow Orienté Graphe (DAG) avec Map-Reduce, RAG natif et Pause Copilote**.
 
 ## 1. Schéma de Données (Le Moteur de Pipeline)
 
@@ -33,7 +33,7 @@ Chaque étape du pipeline possède un `step_type` déterministe et une configura
 ### C. State Management & Persistance SQLite (`PipelineRunModel`)
 Les étapes s'échangent un objet **`PipelineRunState`** (dictionnaire JSON sérialisable) qui s'enrichit au fil de l'exécution :
 * **Persistance en base :** La table `pipeline_runs` (`PipelineRunModel`) consigne l'identifiant du pipeline, l'étape courante (`current_step_order`), le statut (`running`, `completed`, `failed`, `paused`, `cancelled`), les compteurs d'exécution par étape et le JSON complet de l'état.
-* **Reprise d'exécution (`resume_run`) :** En cas d'interruption (crash, arrêt utilisateur, fermeture de l'application), le pipeline peut être repris via `PipelineOrchestrator.resume_run(run_id)`. Au démarrage, AnkiForge détecte automatiquement les runs inachevés et propose leur reprise immédiate sans ré-exécuter les étapes préalablement validées. De même, la vue Batch (`BatchView`) permet de reprendre uniquement les tâches restées en échec ou non terminées.
+* **Reprise d'exécution (`resume_run`) :** En cas d'interruption (crash, arrêt utilisateur, fermeture de l'application), le pipeline peut être repris via `PipelineOrchestrator.resume_run(run_id)`. Au démarrage, AnkiDraft détecte automatiquement les runs inachevés et propose leur reprise immédiate sans ré-exécuter les étapes préalablement validées. De même, la vue Batch (`BatchView`) permet de reprendre uniquement les tâches restées en échec ou non terminées.
 
 ```mermaid
 classDiagram

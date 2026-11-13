@@ -2,7 +2,7 @@
 
 ![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)
 ![PySide6](https://img.shields.io/badge/PySide6-Qt%206-green.svg)
-![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-4200%2B%20passing-brightgreen.svg)
 ![Database](https://img.shields.io/badge/database-SQLite%20%7C%20Peewee-orange.svg)
 ![Protocol](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-purple.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -245,7 +245,7 @@ Distribué sous licence MIT. Consultez le fichier [LICENSE.md](LICENSE.md) pour 
 
 ![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)
 ![PySide6](https://img.shields.io/badge/PySide6-Qt%206-green.svg)
-![Tests](https://img.shields.io/badge/tests-1700%2B%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-4200%2B%20passing-brightgreen.svg)
 ![Database](https://img.shields.io/badge/database-SQLite%20%7C%20Peewee-orange.svg)
 ![Protocol](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-purple.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
