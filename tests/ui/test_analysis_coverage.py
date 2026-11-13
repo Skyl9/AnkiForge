@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QLabel, QTreeWidgetItem, QTreeWidgetItemIterator
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentChunkModel,
@@ -17,16 +17,16 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.repositories.document_repository import DocumentRepository
-from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
-from ankiforge.services.parsing.chunking_service import ChunkingService
-from ankiforge.ui.components.duplicate_widgets import (
+from ankidraft.repositories.document_repository import DocumentRepository
+from ankidraft.services.audit.coverage_alignment_service import CoverageAlignmentService
+from ankidraft.services.parsing.chunking_service import ChunkingService
+from ankidraft.ui.components.duplicate_widgets import (
     DuplicateMatrixTable,
     DuplicateMergeInspector,
 )
-from ankiforge.ui.components.linter_widgets import WozniakCardItemWidget
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.views.analysis_view import (
+from ankidraft.ui.components.linter_widgets import WozniakCardItemWidget
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.ui.views.analysis_view import (
     AIDuplicatesMergeTab,
     AISourcesDiagnosticTab,
     AITokensSrsTab,
@@ -34,9 +34,9 @@ from ankiforge.ui.views.analysis_view import (
     AnalysisView,
     DocumentInspectorPanel,
 )
-from ankiforge.ui.views.analysis_view.tabs.sources_tab import _ROLE_HEADING
-from ankiforge.utils.region_address import RegionScope
-from ankiforge.utils.tags import build_document_tags
+from ankidraft.ui.views.analysis_view.tabs.sources_tab import _ROLE_HEADING
+from ankidraft.utils.region_address import RegionScope
+from ankidraft.utils.tags import build_document_tags
 
 pytestmark = pytest.mark.ui
 
@@ -420,7 +420,7 @@ def test_document_inspector_exclusion_action_follows_the_selected_section(qtbot)
 
 def test_document_inspector_exclusion_is_propagated_to_the_rest_of_the_app(qtbot):
     """Changer le périmètre d'un document est notifié aux autres vues de l'application."""
-    from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
+    from ankidraft.utils.event_bus import CoverageSyncedEvent, event_bus
 
     uid = uuid.uuid4().hex[:6]
     doc, _chunks = _make_inspectable_document(uid)
@@ -571,7 +571,7 @@ def _card_linked_to(uid: str, doc: DocumentModel, chunk: DocumentChunkModel, fro
 def test_document_inspector_refines_links_towards_sub_sections(qtbot, monkeypatch):
     """« Affiner les liens » rattache les cartes de chapitre aux sous-sections et rafraîchit le sommaire."""
     toasts: list[str] = []
-    monkeypatch.setattr("ankiforge.ui.views.analysis_view.tabs.sources_tab.show_toast", lambda _parent, msg, *a, **k: toasts.append(msg))
+    monkeypatch.setattr("ankidraft.ui.views.analysis_view.tabs.sources_tab.show_toast", lambda _parent, msg, *a, **k: toasts.append(msg))
 
     uid = uuid.uuid4().hex[:6]
     doc, chunks = _make_nested_document(uid)
@@ -616,7 +616,7 @@ def test_document_inspector_refines_links_towards_sub_sections(qtbot, monkeypatc
 def test_document_inspector_reports_a_refinement_without_effect(qtbot, monkeypatch):
     """Sans lien à affiner, l'action reste sans effet et le dit explicitement."""
     toasts: list[str] = []
-    monkeypatch.setattr("ankiforge.ui.views.analysis_view.tabs.sources_tab.show_toast", lambda _parent, msg, *a, **k: toasts.append(msg))
+    monkeypatch.setattr("ankidraft.ui.views.analysis_view.tabs.sources_tab.show_toast", lambda _parent, msg, *a, **k: toasts.append(msg))
 
     uid = uuid.uuid4().hex[:6]
     doc, _chunks = _make_nested_document(uid)
@@ -636,7 +636,7 @@ def test_document_inspector_reports_a_refinement_without_effect(qtbot, monkeypat
 def test_document_inspector_keeps_sole_cards_on_a_teaching_chapter(qtbot, monkeypatch):
     """La dernière carte d'un chapitre de contenu n'est jamais déplacée vers une sous-section."""
     toasts: list[str] = []
-    monkeypatch.setattr("ankiforge.ui.views.analysis_view.tabs.sources_tab.show_toast", lambda _parent, msg, *a, **k: toasts.append(msg))
+    monkeypatch.setattr("ankidraft.ui.views.analysis_view.tabs.sources_tab.show_toast", lambda _parent, msg, *a, **k: toasts.append(msg))
 
     uid = uuid.uuid4().hex[:6]
     doc, chunks = _make_nested_document(uid, chapter_body=TEACHING_CHAPTER_BODY)
@@ -719,7 +719,7 @@ def test_ai_sources_align_all_sources_ne_bloque_pas_le_thread_ui(qtbot, monkeypa
     """_on_align_all_sources exécute le réalignement global via un worker, sans bloquer le thread UI."""
     toasts: list[str] = []
     monkeypatch.setattr(
-        "ankiforge.ui.views.analysis_view.tabs.sources_tab.show_toast",
+        "ankidraft.ui.views.analysis_view.tabs.sources_tab.show_toast",
         lambda _parent, msg, *a, **k: toasts.append(str(msg)),
     )
 

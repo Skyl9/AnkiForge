@@ -5,16 +5,16 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
-from ankiforge.services.cards.bulk_hygiene_service import BulkHygieneService
-from ankiforge.utils.tags import parse_note_tags
+from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankidraft.services.cards.bulk_hygiene_service import BulkHygieneService
+from ankidraft.utils.tags import parse_note_tags
 
 pytestmark = pytest.mark.integration
 

@@ -4,14 +4,14 @@ import os
 import pytest
 from peewee_migrate import Router
 
-from ankiforge.database.migration import run_migrations
-from ankiforge.database.models import DocumentChunkModel, DocumentModel, LLMConfigModel, PersonaModel, db
-from ankiforge.services.ai.model_catalog import ModelCatalog
+from ankidraft.database.migration import run_migrations
+from ankidraft.database.models import DocumentChunkModel, DocumentModel, LLMConfigModel, PersonaModel, db
+from ankidraft.services.ai.model_catalog import ModelCatalog
 
 pytestmark = pytest.mark.integration
 
 
-MIGRATIONS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "src", "ankiforge", "database", "migrations")
+MIGRATIONS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "src", "ankidraft", "database", "migrations")
 
 
 @pytest.mark.integration
@@ -100,7 +100,7 @@ def test_run_migrations_idempotency(mock_db):
 
 def test_dedicated_agent_migration_repairs_empty_existing_prompts(mock_db):
     """La migration 031 doit réparer les agents créés avec un prompt vide."""
-    migration_031 = importlib.import_module("ankiforge.database.migrations.031_seed_dedicated_mcp_agents")
+    migration_031 = importlib.import_module("ankidraft.database.migrations.031_seed_dedicated_mcp_agents")
 
     PersonaModel.create(name="Auditeur Wozniak", system_prompt="")
     PersonaModel.create(name="Architecte Modèles & CSS", system_prompt="Prompt personnalisé conservé")
@@ -117,7 +117,7 @@ def test_dedicated_agent_migration_repairs_empty_existing_prompts(mock_db):
 
 def test_seed_initial_data_repairs_empty_existing_persona_prompts(mock_db):
     """Le seed doit réparer les personas préexistants dont le prompt est vide."""
-    from ankiforge.database.seeds.initial_seed import seed_initial_data
+    from ankidraft.database.seeds.initial_seed import seed_initial_data
 
     PersonaModel.create(name="Consultant Généraliste", system_prompt="")
     PersonaModel.create(name="Archiviste Pédagogue", system_prompt="")
@@ -361,7 +361,7 @@ def test_migration_045_never_overwrites_a_declared_origin(mock_db):
     )
 
     # Le nom de fichier d'une migration commence par un chiffre : seul `importlib` l'atteint.
-    backfill = importlib.import_module("ankiforge.database.migrations.045_region_addresses").backfill
+    backfill = importlib.import_module("ankidraft.database.migrations.045_region_addresses").backfill
     backfill(db)
 
     assert DocumentChunkModel.get_by_id(derived.id).container_origin == "declared"
@@ -391,8 +391,8 @@ def test_foreign_keys_restaure_meme_en_cas_derreur(mock_db, monkeypatch):
     import peewee
     from peewee_migrate import Router
 
-    from ankiforge.database.migration import run_migrations
-    from ankiforge.database.models import db
+    from ankidraft.database.migration import run_migrations
+    from ankidraft.database.models import db
 
     # Idem que test_run_migrations_idempotency : pas d'historique de migrations pré-existant.
     if db.table_exists("migratehistory"):
@@ -426,7 +426,7 @@ def test_migration_051_purge_obsolete_tables_and_rollback(mock_db):
     """Vérifie l'aller-retour complet de la migration 051 : purge des 6 tables et rollback fidèle."""
     from peewee_migrate import Migrator
 
-    mod_051 = importlib.import_module("ankiforge.database.migrations.051_purge_obsolete_database_tables")
+    mod_051 = importlib.import_module("ankidraft.database.migrations.051_purge_obsolete_database_tables")
     migrate_051 = mod_051.migrate
     rollback_051 = mod_051.rollback
 

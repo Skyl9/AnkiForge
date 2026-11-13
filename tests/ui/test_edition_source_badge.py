@@ -10,7 +10,7 @@ import pytest
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QSizePolicy
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentChunkModel,
@@ -20,7 +20,7 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.ui.views.edition_view import DocumentSourceBadge, EditionView
+from ankidraft.ui.views.edition_view import DocumentSourceBadge, EditionView
 
 pytestmark = pytest.mark.ui
 

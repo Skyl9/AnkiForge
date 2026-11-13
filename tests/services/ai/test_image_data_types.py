@@ -5,12 +5,12 @@ Conforme aux spécifications de CONTEXT.md:56-59 et au ticket Feature.
 
 import pytest
 
-from ankiforge.services.ai.album_transcription_types import (
+from ankidraft.services.ai.album_transcription_types import (
     AlbumTranscriptionOptions,
     build_album_transcription_prompt,
 )
-from ankiforge.services.ai.model_catalog import ModelSpec
-from ankiforge.services.ai.vision_category_service import (
+from ankidraft.services.ai.model_catalog import ModelSpec
+from ankidraft.services.ai.vision_category_service import (
     get_closed_image_data_types,
     get_image_data_type,
     is_engine_compatible_with_type,
@@ -96,7 +96,7 @@ def test_token_budget_follows_model_never_type() -> None:
     Un modèle avec thinking (Claude 3.7) conserve son budget, tandis qu'un modèle
     sans thinking (Gemini Flash) a un budget de 0, quel que soit le type d'image.
     """
-    from ankiforge.services.ai.vision_category_service import VisionCategory
+    from ankidraft.services.ai.vision_category_service import VisionCategory
 
     cat_reasoning = VisionCategory(
         id="claude-custom",

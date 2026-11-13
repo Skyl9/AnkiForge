@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.utils.event_bus import (
+from ankidraft.utils.event_bus import (
     AppEvent,
     AppEventBus,
     AuditCompletedEvent,

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.services.documentation.doc_service import (
+from ankidraft.services.documentation.doc_service import (
     AppDocumentationService,
     _clean_header_text,
     _slugify,

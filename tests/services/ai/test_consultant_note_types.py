@@ -7,7 +7,7 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
@@ -15,9 +15,9 @@ from ankiforge.database.models import (
     NoteVersionModel,
     StagedPatchModel,
 )
-from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
-from ankiforge.services.ai.patch_appliers.model_applier import ModelPatchApplier
-from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
+from ankidraft.services.ai.patch_appliers.model_applier import ModelPatchApplier
+from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
 
 pytestmark = pytest.mark.integration
 

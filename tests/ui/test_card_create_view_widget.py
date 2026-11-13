@@ -15,8 +15,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget
 from pytestqt.qtbot import QtBot
 
-from ankiforge.database.models import DeckModel, NoteTypeModel
-from ankiforge.ui.widgets.card_create_view_widget import CardCreateViewWidget
+from ankidraft.database.models import DeckModel, NoteTypeModel
+from ankidraft.ui.widgets.card_create_view_widget import CardCreateViewWidget
 
 
 @pytest.fixture

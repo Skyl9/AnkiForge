@@ -4,8 +4,8 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtWidgets import QMessageBox
 
-from ankiforge.database.backup import BackupInfo
-from ankiforge.ui.widgets.settings_modal.tabs.storage_tab import StorageMaintenanceTab
+from ankidraft.database.backup import BackupInfo
+from ankidraft.ui.widgets.settings_modal.tabs.storage_tab import StorageMaintenanceTab
 
 pytestmark = pytest.mark.ui
 
@@ -16,7 +16,7 @@ def test_storage_tab_backups_table_and_restore(qtbot, tmp_path):
 
     fake_backup_dir = tmp_path / "backups"
     fake_backup_dir.mkdir(parents=True)
-    fake_db = tmp_path / "ankiforge.db"
+    fake_db = tmp_path / "ankidraft.db"
     fake_db.write_text("ACTIVE DB DATA")
 
     # Création d'une sauvegarde saine
@@ -27,8 +27,8 @@ def test_storage_tab_backups_table_and_restore(qtbot, tmp_path):
     conn.close()
 
     with (
-        patch("ankiforge.ui.widgets.settings_modal.tabs.storage_tab.list_profile_backups") as mock_list,
-        patch("ankiforge.ui.widgets.settings_modal.tabs.storage_tab.get_active_profile", return_value="default"),
+        patch("ankidraft.ui.widgets.settings_modal.tabs.storage_tab.list_profile_backups") as mock_list,
+        patch("ankidraft.ui.widgets.settings_modal.tabs.storage_tab.get_active_profile", return_value="default"),
     ):
         mock_list.return_value = [
             BackupInfo(
@@ -46,8 +46,8 @@ def test_storage_tab_backups_table_and_restore(qtbot, tmp_path):
         # Test restore action
         with (
             patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes),
-            patch("ankiforge.ui.widgets.settings_modal.tabs.storage_tab.restore_granular_backup", return_value=True) as mock_restore,
-            patch("ankiforge.ui.widgets.settings_modal.tabs.storage_tab.restart_application") as mock_restart,
+            patch("ankidraft.ui.widgets.settings_modal.tabs.storage_tab.restore_granular_backup", return_value=True) as mock_restore,
+            patch("ankidraft.ui.widgets.settings_modal.tabs.storage_tab.restart_application") as mock_restart,
         ):
             # Click restore button
             btn_restore = tab.table_backups.cellWidget(0, 4)

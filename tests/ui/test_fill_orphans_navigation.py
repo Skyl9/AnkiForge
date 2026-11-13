@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     DocumentChunkModel,
     DocumentModel,
@@ -15,13 +15,13 @@ from ankiforge.database.models import (
     PipelineModel,
     PipelineStepModel,
 )
-from ankiforge.repositories.document_repository import DocumentRepository
-from ankiforge.ui.views.analysis_view.tabs.sources_tab import (
+from ankidraft.repositories.document_repository import DocumentRepository
+from ankidraft.ui.views.analysis_view.tabs.sources_tab import (
     AISourcesDiagnosticTab,
     DocumentInspectorPanel,
 )
-from ankiforge.ui.views.creation_view import CreationView
-from ankiforge.utils.region_address import parse_region_address
+from ankidraft.ui.views.creation_view import CreationView
+from ankidraft.utils.region_address import parse_region_address
 
 pytestmark = pytest.mark.ui
 
@@ -128,7 +128,7 @@ def test_fill_orphans_all_covered_shows_toast_and_no_navigation(qtbot: Any, mock
     qtbot.addWidget(panel)
 
     toasts: list[str] = []
-    from ankiforge.ui.views.analysis_view.tabs import sources_tab
+    from ankidraft.ui.views.analysis_view.tabs import sources_tab
 
     monkeypatch.setattr(sources_tab, "show_toast", lambda _parent, msg, **_kw: toasts.append(msg))
 
@@ -151,7 +151,7 @@ def test_fill_orphans_not_indexed_shows_toast_and_no_navigation(qtbot: Any, mock
     qtbot.addWidget(panel)
 
     toasts: list[str] = []
-    from ankiforge.ui.views.analysis_view.tabs import sources_tab
+    from ankidraft.ui.views.analysis_view.tabs import sources_tab
 
     monkeypatch.setattr(sources_tab, "show_toast", lambda _parent, msg, **_kw: toasts.append(msg))
 
@@ -180,7 +180,7 @@ def test_fill_orphans_all_excluded_shows_toast_and_no_navigation(qtbot: Any, moc
     qtbot.addWidget(panel)
 
     toasts: list[str] = []
-    from ankiforge.ui.views.analysis_view.tabs import sources_tab
+    from ankidraft.ui.views.analysis_view.tabs import sources_tab
 
     monkeypatch.setattr(sources_tab, "show_toast", lambda _parent, msg, **_kw: toasts.append(msg))
 

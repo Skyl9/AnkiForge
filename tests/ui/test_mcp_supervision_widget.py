@@ -7,8 +7,8 @@ import json
 import pytest
 from PySide6.QtGui import QGuiApplication
 
-from ankiforge.ui.components.tabs.segmented_tab_bar import SegmentedTabBar
-from ankiforge.ui.views.consultant_view.widgets.mcp_supervision_widget import (
+from ankidraft.ui.components.tabs.segmented_tab_bar import SegmentedTabBar
+from ankidraft.ui.views.consultant_view.widgets.mcp_supervision_widget import (
     MCPSupervisionWidget,
 )
 
@@ -99,12 +99,12 @@ def test_mcp_supervision_widget_snippets(qtbot) -> None:
     # Claude
     claude_cfg = widget.get_snippet_config("claude")
     parsed_claude = json.loads(claude_cfg)
-    assert parsed_claude["mcpServers"]["ankiforge"]["headers"]["Authorization"] == "Bearer secret_supervision"
+    assert parsed_claude["mcpServers"]["ankidraft"]["headers"]["Authorization"] == "Bearer secret_supervision"
 
     # agy
     agy_cfg = widget.get_snippet_config("agy")
     parsed_agy = json.loads(agy_cfg)
-    assert parsed_agy["name"] == "ankiforge"
+    assert parsed_agy["name"] == "ankidraft"
 
     # Cursor
     cursor_cfg = widget.get_snippet_config("cursor")
@@ -120,14 +120,14 @@ def test_mcp_supervision_widget_snippets(qtbot) -> None:
     assert isinstance(widget.tab_bar_clients, SegmentedTabBar)
     assert widget.tab_bar_clients.count() == 4
     widget.tab_bar_clients.setCurrentIndex(1)
-    assert "ankiforge.json" in widget.lbl_snippet_hint.text()
-    assert "ankiforge" in widget.edit_snippet_code.toPlainText()
+    assert "ankidraft.json" in widget.lbl_snippet_hint.text()
+    assert "ankidraft" in widget.edit_snippet_code.toPlainText()
 
     # Copie
     widget.copy_current_snippet()
     clipboard = QGuiApplication.clipboard()
     assert clipboard is not None
-    assert "ankiforge" in clipboard.text()
+    assert "ankidraft" in clipboard.text()
 
 
 def test_mcp_supervision_widget_token_toggle_and_copy(qtbot) -> None:
@@ -221,7 +221,7 @@ def test_mcp_supervision_widget_pending_request_banner(qtbot) -> None:
 
 def test_mcp_supervision_widget_theme_refresh(qtbot) -> None:
     """Vérifie l'adaptation aux thèmes et l'absence de cascade parasite de bordure."""
-    from ankiforge.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT
+    from ankidraft.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT
 
     widget = MCPSupervisionWidget(initial_status="running")
     qtbot.addWidget(widget)
@@ -291,7 +291,7 @@ def test_mcp_supervision_widget_quick_exports_and_flash(qtbot) -> None:
 
 def test_mcp_supervision_widget_kpi_listeners(qtbot) -> None:
     """Vérifie la mise à jour des mini-KPIs d'activité en temps réel."""
-    from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker
+    from ankidraft.services.ai.mcp_tracker import get_mcp_activity_tracker
 
     tracker = get_mcp_activity_tracker()
     widget = MCPSupervisionWidget(initial_status="running", initial_port=8765)

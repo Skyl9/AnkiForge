@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import ankiforge.utils.secret_store as ss
+import ankidraft.utils.secret_store as ss
 
 pytestmark = pytest.mark.unit
 
@@ -97,7 +97,26 @@ def test_delete_secret():
         ok = ss.delete_secret("ns", "k")
         assert ok is True
         assert ("ns", "k") not in ss._SECRET_CACHE
-        mock_keyring.delete_password.assert_called_once_with(ss.SERVICE_NAME, "ns:k")
+        mock_keyring.delete_password.assert_any_call(ss.SERVICE_NAME, "ns:k")
+
+
+def test_load_secret_transparent_migration_from_legacy():
+    """Vérifie la migration transparente d'un secret depuis l'ancien service AnkiForge vers AnkiDraft."""
+    mock_keyring = MagicMock()
+
+    def fake_get_password(service: str, account: str) -> str | None:
+        if service == ss.SERVICE_NAME:
+            return None
+        if service == ss.LEGACY_SERVICE_NAME:
+            return "legacy_secret_456"
+        return None
+
+    mock_keyring.get_password.side_effect = fake_get_password
+
+    with patch.object(ss, "keyring", mock_keyring), patch.object(ss, "_HAS_KEYRING", True):
+        val = ss.load_secret("llm", "claude")
+        assert val == "legacy_secret_456"
+        mock_keyring.set_password.assert_called_once_with(ss.SERVICE_NAME, "llm:claude", "legacy_secret_456")
 
 
 def test_load_llm_key_prefers_session_environment_variable():

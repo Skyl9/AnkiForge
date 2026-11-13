@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.services.reindex_activity_service import ReindexActivityService
+from ankidraft.services.reindex_activity_service import ReindexActivityService
 
 pytestmark = pytest.mark.unit
 

@@ -11,13 +11,13 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
 )
-from ankiforge.repositories.note_repository import NoteRepository
+from ankidraft.repositories.note_repository import NoteRepository
 
 pytestmark = pytest.mark.integration
 

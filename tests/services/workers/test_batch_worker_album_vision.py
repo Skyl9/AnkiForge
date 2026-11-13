@@ -5,7 +5,7 @@ import json
 import pytest
 from PIL import Image
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     DocumentChunkModel,
     DocumentModel,
@@ -16,14 +16,14 @@ from ankiforge.database.models import (
     PipelineModel,
     PipelineStepModel,
 )
-from ankiforge.services.ai.base import LLMResult, MockProvider
-from ankiforge.services.batch.models import (
+from ankidraft.services.ai.base import LLMResult, MockProvider
+from ankidraft.services.batch.models import (
     BatchGenerationConfig,
     BatchScopeSnapshot,
     BatchSourceBlock,
     BatchTaskSnapshot,
 )
-from ankiforge.services.workers.batch_worker import BatchWorker
+from ankidraft.services.workers.batch_worker import BatchWorker
 
 pytestmark = pytest.mark.unit
 
@@ -46,7 +46,7 @@ class MultimodalCapturingProvider(MockProvider):
 def album_batch_fixture(tmp_path, monkeypatch):
     media_dir = tmp_path / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr("ankiforge.utils.paths.get_media_dir", lambda *args, **kwargs: media_dir)
+    monkeypatch.setattr("ankidraft.utils.paths.get_media_dir", lambda *args, **kwargs: media_dir)
 
     img1_path = media_dir / "plate_batch_p1.png"
     img1 = Image.new("RGB", (100, 100), color="green")

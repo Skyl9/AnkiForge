@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.ui.shortcuts.catalog import get_shortcut_catalog
+from ankidraft.ui.shortcuts.catalog import get_shortcut_catalog
 from script.check_shortcuts_drift import (
     DOCS_SHORTCUTS_PATH,
     check_shortcuts_drift,

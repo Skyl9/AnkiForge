@@ -14,16 +14,16 @@ from unittest.mock import patch
 
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.shortcuts import ShortcutId, get_shortcut_catalog
-from ankiforge.ui.widgets.command_palette import CommandPaletteModal
-from ankiforge.ui.widgets.settings_modal.modal import SettingsModal
-from ankiforge.ui.widgets.settings_modal.tabs.keyboard_tab import KeyboardTab
+from ankidraft.services.settings_service import SettingsService
+from ankidraft.ui.shortcuts import ShortcutId, get_shortcut_catalog
+from ankidraft.ui.widgets.command_palette import CommandPaletteModal
+from ankidraft.ui.widgets.settings_modal.modal import SettingsModal
+from ankidraft.ui.widgets.settings_modal.tabs.keyboard_tab import KeyboardTab
 
 
 def test_settings_modal_has_keyboard_tab_and_accessors_intact(qtbot) -> None:
     """L'onglet Clavier est à l'indice 7 et les 8 autres onglets conservent leurs accesseurs."""
-    with patch("ankiforge.ui.widgets.settings_modal.modal.is_development", return_value=True):
+    with patch("ankidraft.ui.widgets.settings_modal.modal.is_development", return_value=True):
         modal = SettingsModal()
         qtbot.addWidget(modal)
 

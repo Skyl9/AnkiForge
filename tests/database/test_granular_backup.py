@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.database.backup import (
+from ankidraft.database.backup import (
     check_db_integrity,
     create_prerestore_backup,
     list_profile_backups,
@@ -22,7 +22,7 @@ def fake_profile_env(tmp_path: Path):
     backup_dir = profile_dir / "backups"
     backup_dir.mkdir(parents=True)
 
-    active_db = profile_dir / "ankiforge.db"
+    active_db = profile_dir / "ankidraft.db"
     conn = sqlite3.connect(str(active_db))
     conn.execute("CREATE TABLE users (id int, name text);")
     conn.execute("INSERT INTO users VALUES (1, 'Alice');")
@@ -61,7 +61,7 @@ def test_list_profile_backups(fake_profile_env):
     b3 = backup_dir / "ankiforge_backup_20260903_140000.db"
     b3.write_text("CORRUPTED BYTES")
 
-    with patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", profiles_dir):
+    with patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", profiles_dir):
         backups = list_profile_backups(profile_name)
         assert len(backups) == 3
         # Classé du plus récent au plus ancien
@@ -84,8 +84,8 @@ def test_create_prerestore_backup(fake_profile_env):
     active_db = fake_profile_env["active_db"]
 
     with (
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=active_db),
     ):
         prerestore_path = create_prerestore_backup(profile_name)
         assert prerestore_path is not None
@@ -115,8 +115,8 @@ def test_restore_granular_backup_success(fake_profile_env):
     shm_file.write_text("shm data")
 
     with (
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=active_db),
     ):
         success = restore_granular_backup(profile_name, backup_target.name, create_safety_snapshot=True)
         assert success is True
@@ -132,7 +132,7 @@ def test_restore_granular_backup_success(fake_profile_env):
             assert res[0] == "Bob"
 
         # Une sauvegarde pré-restauration doit avoir été créée
-        prerestore_files = list(backup_dir.glob("ankiforge_backup_prerestore_*.db"))
+        prerestore_files = list(backup_dir.glob("*_backup_prerestore_*.db"))
         assert len(prerestore_files) == 1
 
 
@@ -158,11 +158,11 @@ def test_restore_granular_backup_closes_all_sqlite_connections(fake_profile_env,
         opened.append(connection)
         return connection
 
-    monkeypatch.setattr("ankiforge.database.backup.sqlite3.connect", tracking_connect)
+    monkeypatch.setattr("ankidraft.database.backup.sqlite3.connect", tracking_connect)
 
     with (
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=active_db),
     ):
         assert restore_granular_backup(profile_name, backup_target.name, create_safety_snapshot=True) is True
 
@@ -182,8 +182,8 @@ def test_restore_granular_backup_fails_on_corrupted_file(fake_profile_env):
     corrupt_file.write_text("NOT VALID SQLITE")
 
     with (
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=active_db),
     ):
         success = restore_granular_backup(profile_name, corrupt_file.name, create_safety_snapshot=True)
         assert success is False

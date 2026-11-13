@@ -21,23 +21,23 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtWidgets import QStyleOptionViewItem
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     db,
 )
-from ankiforge.repositories.note_repository import NoteRepository
-from ankiforge.services.cards.export_manager import ExportManager
-from ankiforge.services.cards.import_manager import ImportManager
-from ankiforge.ui.models.delegates import FLAG_ROLE, FlagItemDelegate
-from ankiforge.ui.models.note_table_model import NoteVirtualTableModel
+from ankidraft.repositories.note_repository import NoteRepository
+from ankidraft.services.cards.export_manager import ExportManager
+from ankidraft.services.cards.import_manager import ImportManager
+from ankidraft.ui.models.delegates import FLAG_ROLE, FlagItemDelegate
+from ankidraft.ui.models.note_table_model import NoteVirtualTableModel
 
 pytestmark = pytest.mark.integration
 
 
-mig_026 = importlib.import_module("ankiforge.database.migrations.026_card_flags")
+mig_026 = importlib.import_module("ankidraft.database.migrations.026_card_flags")
 
 
 def test_card_model_flags_persistence() -> None:

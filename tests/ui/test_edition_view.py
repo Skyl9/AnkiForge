@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QDialog, QMessageBox
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentChunkModel,
@@ -19,9 +19,9 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.ui.views.edition_view import EditionView, format_tags_display, strip_html_tags
-from ankiforge.ui.widgets.editor_toolbar_widget import EditorToolbarWidget
-from ankiforge.ui.widgets.note_editor_widget import (
+from ankidraft.ui.views.edition_view import EditionView, format_tags_display, strip_html_tags
+from ankidraft.ui.widgets.editor_toolbar_widget import EditorToolbarWidget
+from ankidraft.ui.widgets.note_editor_widget import (
     NoteFieldEditorWidget,
     NoteFieldTextEdit,
 )
@@ -274,7 +274,7 @@ def test_edition_view_card_selection_smart_cloze_and_saving(qtbot, mock_db):
 
 def test_edition_view_model_filter_modal(qtbot: Any, mock_db: Any) -> None:
     """Vérifie l'ouverture de ModelSelectWindow depuis la barre de filtres et l'application du filtre."""
-    from ankiforge.ui.components.model_select_window import ModelSelectWindow
+    from ankidraft.ui.components.model_select_window import ModelSelectWindow
 
     uid = uuid.uuid4().hex[:6]
     nt1 = NoteTypeModel.create(name=f"ModelA {uid}", fields_schema='["Front", "Back"]')
@@ -306,7 +306,7 @@ def test_edition_view_model_filter_modal(qtbot: Any, mock_db: Any) -> None:
 
 def test_edition_view_change_note_model_modal(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
     """Vérifie le changement de modèle d'une note via le dialogue ChangeNoteTypeDialog dans l'éditeur."""
-    from ankiforge.ui.dialogs.change_note_type_dialog import ChangeNoteTypeDialog
+    from ankidraft.ui.dialogs.change_note_type_dialog import ChangeNoteTypeDialog
 
     uid = uuid.uuid4().hex[:6]
     nt_old = NoteTypeModel.create(name=f"OldModel {uid}", fields_schema='["Front", "Back"]')
@@ -412,7 +412,7 @@ def test_edition_view_batch_move_cards_to_deck(qtbot: Any, mock_db: Any) -> None
 
 def test_edition_view_save_card_preserves_proven_and_migrated_links(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que la sauvegarde dans EditionView ne détruit pas les liens prouvés ni migrés."""
-    from ankiforge.utils.tags import build_document_tags
+    from ankidraft.utils.tags import build_document_tags
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"Cours Cardio {uid}", file_type="md")
@@ -467,7 +467,7 @@ def test_edition_view_save_card_preserves_proven_and_migrated_links(qtbot: Any, 
 
 def test_edition_view_tags_editor_inline_and_add_tag_with_spaces(qtbot, mock_db):
     """Vérifie l'éditeur inline de tags, la normalisation des espaces en tirets bas (ADR 0040) et leur persistance."""
-    from ankiforge.utils.tags import parse_note_tags
+    from ankidraft.utils.tags import parse_note_tags
 
     uid = uuid.uuid4().hex[:6]
     nt = NoteTypeModel.create(name=f"NT_{uid}", fields_schema='["Front", "Back"]')
@@ -495,7 +495,7 @@ def test_edition_view_tags_editor_inline_and_add_tag_with_spaces(qtbot, mock_db)
 
 def test_edition_view_tags_editor_visual_distinction_and_reorder(qtbot, mock_db):
     """Vérifie la distinction visuelle des tags de provenance et la réorganisation."""
-    from ankiforge.ui.views.edition_view.note_tags_editor import NoteTagChipWidget
+    from ankidraft.ui.views.edition_view.note_tags_editor import NoteTagChipWidget
 
     uid = uuid.uuid4().hex[:6]
     nt = NoteTypeModel.create(name=f"NT_{uid}", fields_schema='["Front", "Back"]')
@@ -524,14 +524,14 @@ def test_edition_view_tags_editor_visual_distinction_and_reorder(qtbot, mock_db)
     assert editor.get_tags() == ["cardiologie", "section:intro"]
 
     refreshed_note = NoteModel.get_by_id(note.id)
-    from ankiforge.utils.tags import parse_note_tags
+    from ankidraft.utils.tags import parse_note_tags
 
     assert parse_note_tags(refreshed_note.tags) == ["cardiologie", "section:intro"]
 
 
 def test_edition_view_tags_editor_provenance_deletion_annihilable(qtbot, mock_db, monkeypatch):
     """Vérifie que la suppression d'un tag de provenance est annulable puis effective si confirmée."""
-    from ankiforge.utils.tags import build_document_tags
+    from ankidraft.utils.tags import build_document_tags
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"Cours Cardio {uid}", file_type="md")
@@ -593,14 +593,14 @@ def test_edition_view_tags_editor_regular_tag_deletion_immediate(qtbot, mock_db)
     assert editor.get_tags() == ["autre"]
 
     refreshed_note = NoteModel.get_by_id(note.id)
-    from ankiforge.utils.tags import parse_note_tags
+    from ankidraft.utils.tags import parse_note_tags
 
     assert parse_note_tags(refreshed_note.tags) == ["autre"]
 
 
 def test_edition_view_tags_editor_confirmation_box_content(qtbot, mock_db, monkeypatch):
     """Vérifie que la boîte de dialogue de confirmation nomme explicitement le lien de couverture."""
-    from ankiforge.ui.views.edition_view.note_tags_editor import NoteTagsEditorWidget
+    from ankidraft.ui.views.edition_view.note_tags_editor import NoteTagsEditorWidget
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"NeuroAnatomie {uid}", file_type="md")

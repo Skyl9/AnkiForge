@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.repositories.deck_repository import DeckRepository
+from ankidraft.repositories.deck_repository import DeckRepository
 
 pytestmark = pytest.mark.integration
 
@@ -51,7 +51,7 @@ def test_deck_repository_crud() -> None:
 def test_deck_repository_delete_cascades_to_subdecks_and_cards() -> None:
     """Supprimer un paquet emporte sa sous-arborescence (préfixe hiérarchique) et leurs cartes."""
     repo = DeckRepository()
-    from ankiforge.database.models import CardModel, NoteModel, NoteTypeModel
+    from ankidraft.database.models import CardModel, NoteModel, NoteTypeModel
 
     parent = repo.create_deck("DeleteRoot", description="À supprimer")
     child = repo.create_deck("DeleteRoot::Child", description="Sous-paquet", parent_deck=parent)

@@ -10,7 +10,7 @@ import pytest
 from PySide6.QtCore import Qt
 from pytestqt.qtbot import QtBot
 
-from ankiforge.ui.components.tag_select_window import TagSelectWindow
+from ankidraft.ui.components.tag_select_window import TagSelectWindow
 
 pytestmark = pytest.mark.ui
 

@@ -2,7 +2,7 @@
 
 import pytest
 
-from ankiforge.services.ai.album_transcription_types import (
+from ankidraft.services.ai.album_transcription_types import (
     AlbumTranscriptionOptions,
     build_album_transcription_prompt,
     parse_page_ranges,

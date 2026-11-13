@@ -4,9 +4,9 @@ import uuid
 import pytest
 from PySide6.QtCore import Qt
 
-from ankiforge.database.models import DocumentChunkModel, DocumentModel, NoteChunkLinkModel, NoteModel
-from ankiforge.repositories.document_repository import DocumentRepository
-from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+from ankidraft.database.models import DocumentChunkModel, DocumentModel, NoteChunkLinkModel, NoteModel
+from ankidraft.repositories.document_repository import DocumentRepository
+from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
 pytestmark = pytest.mark.integration
 
@@ -45,7 +45,7 @@ def test_coverage_stats_with_delimited_pages():
     assert 50 not in stats["orphan_units"]
 
     # 2. Création de cartes pour TOUTES les 11 pages utiles (10 à 20)
-    from ankiforge.database.models import NoteTypeModel
+    from ankidraft.database.models import NoteTypeModel
 
     nt = NoteTypeModel.select().first() or NoteTypeModel.create(
         name=f"Model {uid}",
@@ -165,7 +165,7 @@ def test_delimitation_dialog_markdown_document_without_pages(qtbot):
 
 def test_coverage_stats_pdf_marker_uses_fine_sections():
     """Un PDF indexé par Marker (sections fines) est couvert par section, pas par page."""
-    from ankiforge.database.models import NoteTypeModel
+    from ankidraft.database.models import NoteTypeModel
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -205,7 +205,7 @@ def test_coverage_stats_pdf_marker_uses_fine_sections():
 
 def test_coverage_stats_native_pdf_with_page_labels_stays_paginated():
     """Un PDF natif (fragments 'Page N' uniquement) conserve une couverture par pages."""
-    from ankiforge.database.models import NoteTypeModel
+    from ankidraft.database.models import NoteTypeModel
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"PDF Natif {uid}", file_type="pdf", total_pages=3)
@@ -239,7 +239,7 @@ def test_coverage_stats_native_pdf_with_page_labels_stays_paginated():
 
 def test_coverage_stats_fine_sections_respect_excluded_headings():
     """Les sections exclues (délimitation) sont retirées du dénominateur de couverture."""
-    from ankiforge.database.models import NoteTypeModel
+    from ankidraft.database.models import NoteTypeModel
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(

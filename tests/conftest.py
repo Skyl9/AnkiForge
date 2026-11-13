@@ -14,7 +14,7 @@ with contextlib.suppress(Exception):
 
     keyring.set_keyring(fail.Keyring())
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     AuditRecordModel,
     CardModel,
     DeckModel,
@@ -230,7 +230,7 @@ def mock_db():
         """)
 
     with contextlib.suppress(Exception):
-        from ankiforge.utils.environment import get_app_qsettings
+        from ankidraft.utils.environment import get_app_qsettings
 
         get_app_qsettings().clear()
         # Les préférences d'apparence et de layout vivent dans le scope « obsidian ».
@@ -241,7 +241,7 @@ def mock_db():
     yield test_db  # Le test s'exécute ici
 
     with contextlib.suppress(Exception):
-        from ankiforge.utils.environment import get_app_qsettings
+        from ankidraft.utils.environment import get_app_qsettings
 
         get_app_qsettings().clear()
         get_app_qsettings("obsidian").clear()
@@ -263,7 +263,7 @@ def cleanup_qt_widgets():
     from PySide6.QtWidgets import QApplication
 
     with contextlib.suppress(Exception):
-        from ankiforge.ui.widgets.toast import ToastManager
+        from ankidraft.ui.widgets.toast import ToastManager
 
         ToastManager.get_instance().clear()
 
@@ -287,7 +287,7 @@ def cleanup_qt_widgets():
         QThreadPool.globalInstance().waitForDone(1000)
 
     with contextlib.suppress(Exception):
-        from ankiforge.ui.style_engine import StyleEngine
+        from ankidraft.ui.style_engine import StyleEngine
 
         if StyleEngine._instance is not None:
             StyleEngine._instance.clear_custom_library()
@@ -298,7 +298,7 @@ def cleanup_qt_widgets():
     # servie telle quelle à un autre test dont la planche avait la même clé — un échec
     # qui ne se reproduisait qu'en-suite complète, jamais isolé.
     with contextlib.suppress(Exception):
-        from ankiforge.ui.views.documents_view.widgets.album_thumbnails import GLOBAL_THUMBNAIL_CACHE
+        from ankidraft.ui.views.documents_view.widgets.album_thumbnails import GLOBAL_THUMBNAIL_CACHE
 
         GLOBAL_THUMBNAIL_CACHE.clear()
 

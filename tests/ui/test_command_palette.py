@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from ankiforge.ui.widgets.command_palette import CommandPalette
+from ankidraft.ui.widgets.command_palette import CommandPalette
 
 pytestmark = pytest.mark.ui
 

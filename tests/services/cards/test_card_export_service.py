@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentChunkModel,
@@ -21,7 +21,7 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.cards.card_export_service import CardExportService
+from ankidraft.services.cards.card_export_service import CardExportService
 
 pytestmark = pytest.mark.integration
 

@@ -10,10 +10,10 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QMessageBox, QTreeWidgetItem
 
-from ankiforge.database.models import DocumentModel, FolderModel
-from ankiforge.ui.style_engine import JETBRAINS_DARK
-from ankiforge.ui.views.documents_view import DocumentsView
-from ankiforge.ui.views.documents_view.dialogs import FolderCreateDialog
+from ankidraft.database.models import DocumentModel, FolderModel
+from ankidraft.ui.style_engine import JETBRAINS_DARK
+from ankidraft.ui.views.documents_view import DocumentsView
+from ankidraft.ui.views.documents_view.dialogs import FolderCreateDialog
 
 pytestmark = pytest.mark.ui
 
@@ -137,7 +137,7 @@ def test_documents_view_sandbox_search_coverage(qtbot: Any, mock_db: Any, monkey
         }
     ]
 
-    from ankiforge.services.ai.rag_service import RAGService
+    from ankidraft.services.ai.rag_service import RAGService
 
     monkeypatch.setattr(RAGService, "search", lambda self, doc_id, query, top_k=4: fake_results)
     view._on_sandbox_search()

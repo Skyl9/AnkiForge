@@ -12,9 +12,9 @@ from typing import Any
 import pytest
 from PySide6.QtWidgets import QLabel, QSplitter
 
-from ankiforge.ui.components.panels import IdePanel
-from ankiforge.ui.components.tabs.tab_button import TabButton
-from ankiforge.ui.theme import DesignTokens
+from ankidraft.ui.components.panels import IdePanel
+from ankidraft.ui.components.tabs.tab_button import TabButton
+from ankidraft.ui.theme import DesignTokens
 
 pytestmark = pytest.mark.ui
 

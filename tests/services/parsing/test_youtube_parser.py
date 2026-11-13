@@ -3,9 +3,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.services.parsing.audio_parser import AudioParser, WhisperUnavailableError
-from ankiforge.services.parsing.youtube_parser import YouTubeParser
-from ankiforge.services.parsing.yt_dlp_service import YtDlpService, YtDlpUnavailableError
+from ankidraft.services.parsing.audio_parser import AudioParser, WhisperUnavailableError
+from ankidraft.services.parsing.youtube_parser import YouTubeParser
+from ankidraft.services.parsing.yt_dlp_service import YtDlpService, YtDlpUnavailableError
 
 pytestmark = pytest.mark.unit
 
@@ -17,7 +17,7 @@ def test_extract_video_id():
     assert parser._extract_video_id("https://notyoutube.com") is None
 
 
-@patch("ankiforge.services.parsing.youtube_parser.YouTubeTranscriptApi")
+@patch("ankidraft.services.parsing.youtube_parser.YouTubeTranscriptApi")
 def test_extract_subtitles_success(mock_api):
     mock_api.get_transcript.return_value = [{"text": "Hello"}, {"text": "world"}]
     parser = YouTubeParser()
@@ -26,7 +26,7 @@ def test_extract_subtitles_success(mock_api):
     mock_api.get_transcript.assert_called_once_with("dQw4w9WgXcQ", languages=["fr", "en"])
 
 
-@patch("ankiforge.services.parsing.youtube_parser.YouTubeTranscriptApi")
+@patch("ankidraft.services.parsing.youtube_parser.YouTubeTranscriptApi")
 def test_extract_subtitles_failure(mock_api):
     mock_api.get_transcript.side_effect = Exception("No subs")
     parser = YouTubeParser()

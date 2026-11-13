@@ -8,15 +8,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.ui.components.deck_select_window import ALL_DECKS_NODE_ID
-from ankiforge.ui.views.analysis_view.tabs.tokens_srs_tab import AITokensSrsTab
+from ankidraft.ui.components.deck_select_window import ALL_DECKS_NODE_ID
+from ankidraft.ui.views.analysis_view.tabs.tokens_srs_tab import AITokensSrsTab
 
 pytestmark = pytest.mark.ui
 

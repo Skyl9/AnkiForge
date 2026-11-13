@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QLabel, QPushButton
 
-from ankiforge.ui.widgets.settings_modal.components import CollapsibleSettingsGroup
+from ankidraft.ui.widgets.settings_modal.components import CollapsibleSettingsGroup
 
 
 def test_collapsible_settings_group_defaults_collapsed(qtbot):
@@ -83,7 +83,7 @@ def test_collapsible_settings_group_add_layout_counts_badge(qtbot):
 
 def test_collapsible_settings_group_refresh_theme_no_crash(qtbot):
     """refresh_theme ne lève pas d'exception au changement de thème."""
-    from ankiforge.ui.style_engine import get_style_engine
+    from ankidraft.ui.style_engine import get_style_engine
 
     group = CollapsibleSettingsGroup("Options")
     qtbot.addWidget(group)

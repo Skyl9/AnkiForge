@@ -18,15 +18,15 @@ from PySide6.QtCore import QRegularExpression, QUrl
 from PySide6.QtGui import QTextDocument
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 
-from ankiforge.ui.widgets.katex_editor import KaTeXHighlighter
-from ankiforge.ui.widgets.note_editor_widget import NoteKaTeXHighlighter
-from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
-from ankiforge.utils.anki_renderer import (
+from ankidraft.ui.widgets.katex_editor import KaTeXHighlighter
+from ankidraft.ui.widgets.note_editor_widget import NoteKaTeXHighlighter
+from ankidraft.ui.widgets.safe_web_preview import SafeWebEngineView
+from ankidraft.utils.anki_renderer import (
     _preprocess_math_blocks,
     get_mathjax_script,
     render_anki_card,
 )
-from ankiforge.utils.paths import get_resource_path
+from ankidraft.utils.paths import get_resource_path
 
 pytestmark = pytest.mark.unit
 

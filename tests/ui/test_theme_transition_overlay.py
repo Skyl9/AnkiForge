@@ -1,7 +1,7 @@
 import pytest
 from PySide6.QtWidgets import QWidget
 
-from ankiforge.ui.widgets.theme_transition_overlay import (
+from ankidraft.ui.widgets.theme_transition_overlay import (
     SpinningIconLabel,
     ThemeTransitionOverlay,
     show_theme_transition,

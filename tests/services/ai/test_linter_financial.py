@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     TokenUsageModel,
 )
-from ankiforge.services.ai.linter import TokenSrsFinancialService
+from ankidraft.services.ai.linter import TokenSrsFinancialService
 
 pytestmark = pytest.mark.unit
 

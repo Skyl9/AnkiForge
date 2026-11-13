@@ -8,14 +8,14 @@ Vérifie :
 - intégration automatique des surcharges SettingsService dans get_shortcut_sequence.
 """
 
-from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.shortcuts import (
+from ankidraft.services.settings_service import SettingsService
+from ankidraft.ui.shortcuts import (
     RESERVED_SEQUENCES,
     ShortcutId,
     get_shortcut_catalog,
     get_shortcut_sequence,
 )
-from ankiforge.ui.shortcuts.catalog import validate_shortcut_override
+from ankidraft.ui.shortcuts.catalog import validate_shortcut_override
 
 
 def test_validate_shortcut_rejects_reserved_sequences() -> None:

@@ -12,15 +12,15 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentChunkModel,
     DocumentModel,
     FolderModel,
 )
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
-from ankiforge.utils.event_bus import MCPDataMutatedEvent, event_bus
-from ankiforge.utils.region_address import (
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
+from ankidraft.utils.event_bus import MCPDataMutatedEvent, event_bus
+from ankidraft.utils.region_address import (
     RegionScope,
     parse_region_addresses,
     validate_canonical_region_address,
@@ -299,7 +299,7 @@ def test_reindex_document_success_with_params(sample_document: DocumentModel) ->
 
     event_bus.subscribe(MCPDataMutatedEvent, _on_event)
     try:
-        with patch("ankiforge.services.rag.vector_manager.VectorManager.index_document", return_value=True):
+        with patch("ankidraft.services.rag.vector_manager.VectorManager.index_document", return_value=True):
             res_json = MCPToolRegistry.reindex_document(
                 document_id=sample_document.id,
                 chunk_size=150,

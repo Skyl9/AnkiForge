@@ -7,8 +7,8 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QMessageBox
 
-from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.ui.widgets.version_history_dialog import VersionHistoryDialog
+from ankidraft.database.models import DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.ui.widgets.version_history_dialog import VersionHistoryDialog
 
 pytestmark = pytest.mark.ui
 
@@ -52,7 +52,7 @@ def test_dialog_initialization(dialog):
 
 
 def test_diff_html_generation(dialog):
-    from ankiforge.ui.widgets.time_machine_dialog import DiffViewerWidget
+    from ankidraft.ui.widgets.time_machine_dialog import DiffViewerWidget
 
     viewer = DiffViewerWidget()
     viewer.set_content_diff({"Verso": "Doggo"}, {"Verso": "Dog"})

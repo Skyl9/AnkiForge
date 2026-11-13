@@ -8,19 +8,19 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentChunkModel,
     DocumentModel,
     FolderModel,
 )
-from ankiforge.ui.components.document_picker_button import DocumentPickerButton
-from ankiforge.ui.components.document_select_window import DocumentSelectWindow
-from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeWidget
-from ankiforge.ui.views.creation_view import CreationView
-from ankiforge.ui.views.creation_view.widgets.document_editor import (
+from ankidraft.ui.components.document_picker_button import DocumentPickerButton
+from ankidraft.ui.components.document_select_window import DocumentSelectWindow
+from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeWidget
+from ankidraft.ui.views.creation_view import CreationView
+from ankidraft.ui.views.creation_view.widgets.document_editor import (
     DocumentEditorWidget,
 )
-from ankiforge.utils.region_address import RegionAddress, RegionScope, parse_region_addresses
+from ankidraft.utils.region_address import RegionAddress, RegionScope, parse_region_addresses
 
 pytestmark = pytest.mark.ui
 
@@ -198,7 +198,7 @@ def test_creation_view_tab_switch_syncs_document(qtbot: Any, mock_db: Any) -> No
 
 def test_batch_composer_embeds_scope_and_updates_live(qtbot: Any, mock_db: Any) -> None:
     """La modale fusionnée embarque le DocumentScopeWidget : chaque coche recalcule les tâches en direct (mode Direct)."""
-    from ankiforge.ui.views.batch_view.dialogs.batch_slice_composer_dialog import BatchSliceComposerDialog
+    from ankidraft.ui.views.batch_view.dialogs.batch_slice_composer_dialog import BatchSliceComposerDialog
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"Physiologie {uid}", file_type="md", content="# Section 1\n\nTexte 1\n\n# Section 2\n\nTexte 2")
@@ -317,7 +317,7 @@ def test_scope_parent_row_exposes_partial_state_after_child_toggle(qtbot: Any, m
 
 def test_batch_composer_picker_switch_reloads_scope_and_result(qtbot: Any, mock_db: Any) -> None:
     """Changer de document via le picker embarqué recharge la portée ; get_result renvoie tâches + portée + doc."""
-    from ankiforge.ui.views.batch_view.dialogs.batch_slice_composer_dialog import BatchSliceComposerDialog
+    from ankidraft.ui.views.batch_view.dialogs.batch_slice_composer_dialog import BatchSliceComposerDialog
 
     uid = uuid.uuid4().hex[:6]
     doc1 = DocumentModel.create(title=f"Doc A {uid}", file_type="md", content="# Intro A\n\nContenu A")
@@ -359,7 +359,7 @@ def test_batch_composer_picker_switch_reloads_scope_and_result(qtbot: Any, mock_
 
 def test_modal_range_selector_contextual_slider_and_range_bar(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la modale de délimitation, la barre visuelle et la présence contextuelle du slider."""
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"Physique {uid}", file_type="pdf", total_pages=20, content="Page 1")
@@ -409,7 +409,7 @@ def test_modal_range_selector_contextual_slider_and_range_bar(qtbot: Any, mock_d
 
 def test_modal_scope_unpaginated_doc_no_slider(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que pour un document non paginé, aucun slider de page n'est présent."""
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"Markdown {uid}", file_type="md", total_pages=1, content="## Titre 1\nTexte 1\n## Titre 2\nTexte 2")
@@ -424,7 +424,7 @@ def test_modal_scope_unpaginated_doc_no_slider(qtbot: Any, mock_db: Any) -> None
 
 def test_segment_inspector_scope_trigger_card(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que SegmentInspectorWidget affiche la carte de portée et gère les signaux de délimitation et de portée."""
-    from ankiforge.ui.widgets.segment_inspector_widget import SegmentInspectorWidget
+    from ankidraft.ui.widgets.segment_inspector_widget import SegmentInspectorWidget
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"Doc {uid}", file_type="pdf", total_pages=10, content="Content")
@@ -449,8 +449,8 @@ def test_segment_inspector_scope_trigger_card(qtbot: Any, mock_db: Any) -> None:
 
 def test_document_scope_dialog_filtered_access_and_contextual_slider(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que DocumentScopeDialog donne accès uniquement au contenu filtré et conditionne le slider."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
     uid = uuid.uuid4().hex[:6]
     # Document délimité entre les pages 3 et 8 avec une section exclue
@@ -501,9 +501,9 @@ def test_document_scope_dialog_filtered_access_and_contextual_slider(qtbot: Any,
 
 def test_delimitation_dialog_differential_update_preserves_card_links(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que la mise à jour différentielle de délimitation préserve les NoteChunkLinkModel."""
-    from ankiforge.database.models import DocumentChunkModel, NoteChunkLinkModel, NoteModel, NoteTypeModel
-    from ankiforge.repositories.document_repository import DocumentRepository
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+    from ankidraft.database.models import DocumentChunkModel, NoteChunkLinkModel, NoteModel, NoteTypeModel
+    from ankidraft.repositories.document_repository import DocumentRepository
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
     uid = uuid.uuid4().hex[:6]
     nt = NoteTypeModel.create(name=f"Basic_{uid}")
@@ -542,8 +542,8 @@ def test_delimitation_dialog_differential_update_preserves_card_links(qtbot: Any
 
 def test_delimitation_bidirectional_sync_slider_sections(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la synchronisation bidirectionnelle slider <-> sections dans DocumentDelimitationDialog."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"Sync Doc {uid}", file_type="pdf", total_pages=5)
@@ -573,8 +573,8 @@ def test_delimitation_bidirectional_sync_slider_sections(qtbot: Any, mock_db: An
 
 def test_document_scope_dialog_bidirectional_sync_and_assembled_view(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la synchronisation bidirectionnelle et la Vue Finale Assemblée dans DocumentScopeDialog."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog, SectionRowWidget
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog, SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"Scope View Doc {uid}", file_type="pdf", total_pages=4, start_page=1, end_page=4)
@@ -629,9 +629,9 @@ def test_document_scope_dialog_bidirectional_sync_and_assembled_view(qtbot: Any,
 
 def test_delimitation_modification_and_modal_refresh_sync(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la mise à jour réactive des modaux après modification de la délimitation d'un document."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
     uid = uuid.uuid4().hex[:6]
     content_with_pages = "\n\n".join(f"<!-- PAGE: {p} -->\nTexte long de la page numéro {p} avec du contenu pédagogique." for p in range(1, 6))
@@ -692,9 +692,9 @@ def test_delimitation_modification_and_modal_refresh_sync(qtbot: Any, mock_db: A
 
 def test_delimitation_manual_exclusion_memory_and_slider_immunity(qtbot: Any, mock_db: Any) -> None:
     """Vérifie qu'une exclusion de section issue de l'arbre devient gouvernante, est persistée, et survit à la manipulation des curseurs de pages."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     content = "\n\n".join(f"<!-- PAGE: {p} -->\nTexte de la page {p} avec du contenu explicatif suffisant." for p in range(1, 6))
@@ -766,8 +766,8 @@ def test_delimitation_manual_exclusion_memory_and_slider_immunity(qtbot: Any, mo
 
 def test_delimitation_dialog_preview_and_slider_bidirectional_sync(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le saut immédiat de la vue PDF et l'ajustement dynamique des sliders dans DocumentDelimitationDialog."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     content = "\n\n".join(f"<!-- PAGE: {p} -->\nTexte pédagogique détaillé pour la page {p}." for p in range(1, 6))
@@ -841,8 +841,8 @@ def test_delimitation_dialog_preview_and_slider_bidirectional_sync(qtbot: Any, m
 
 def test_document_scope_dialog_preview_and_slider_bidirectional_sync(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le saut immédiat de la vue PDF, l'activation automatique du mode sections au décochage, et l'ajustement des sliders dans DocumentScopeDialog."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog, SectionRowWidget
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog, SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     content = "\n\n".join(f"<!-- PAGE: {p} -->\nTexte de cours pour le fragment de la page {p}." for p in range(1, 6))
@@ -917,9 +917,9 @@ def test_document_scope_dialog_preview_and_slider_bidirectional_sync(qtbot: Any,
 
 def test_structure_delimitation_pdf_markdown_tree_cascade_and_chapter_range(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la hiérarchie arborescente, la cascade tristate et le sélecteur rapide de chapitres pour un PDF-Markdown."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     content = (
@@ -1043,8 +1043,8 @@ def test_structure_delimitation_pdf_markdown_tree_cascade_and_chapter_range(qtbo
 
 def test_structure_delimitation_pure_markdown_no_pages_card(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le comportement avec un document Markdown pur : masque pages_card, affiche sélecteur dans sections."""
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     content = (
@@ -1107,9 +1107,9 @@ def test_structure_delimitation_pure_markdown_no_pages_card(qtbot: Any, mock_db:
 
 def test_structure_delimitation_scanned_pdf_or_album_hides_structure_mode(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que pour un Album ou PDF numérisé sans titres, le bouton Par Chapitres est masqué."""
-    from ankiforge.database.models import DocumentPageModel, MediaModel
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+    from ankidraft.database.models import DocumentPageModel, MediaModel
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1152,8 +1152,8 @@ def test_structure_delimitation_scanned_pdf_or_album_hides_structure_mode(qtbot:
 
 def test_modal_hierarchical_filter_keeps_ancestors_and_check_states(qtbot: Any, mock_db: Any) -> None:
     """Le filtre garde les ancêtres visibles et ne modifie jamais les cases cochées."""
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1192,7 +1192,7 @@ def test_modal_hierarchical_filter_keeps_ancestors_and_check_states(qtbot: Any, 
     assert not beta.isHidden()
     assert target.checkState(0) == Qt.CheckState.Unchecked
 
-    with patch("ankiforge.ui.dialogs.document_scope_dialog.SettingsService.get", return_value=None):
+    with patch("ankidraft.ui.dialogs.document_scope_dialog.SettingsService.get", return_value=None):
         scope = DocumentScopeDialog(doc)
     qtbot.addWidget(scope)
     scope_alpha = scope.sections_list.topLevelItem(0)
@@ -1206,7 +1206,7 @@ def test_modal_hierarchical_filter_keeps_ancestors_and_check_states(qtbot: Any, 
 
 def test_delimitation_assembled_preview_uses_in_memory_selection(qtbot: Any, mock_db: Any) -> None:
     """La vue finale assemble les feuilles sélectionnées sans dépendre de la BDD."""
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1234,7 +1234,7 @@ def test_delimitation_assembled_preview_uses_in_memory_selection(qtbot: Any, moc
 
 def test_delimitation_reset_requires_confirmation_and_clears_persistent_scope(qtbot: Any, mock_db: Any) -> None:
     """Le reset est confirmé avant de vider les bornes et exclusions persistées."""
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1250,7 +1250,7 @@ def test_delimitation_reset_requires_confirmation_and_clears_persistent_scope(qt
     qtbot.addWidget(dialog)
 
     with patch(
-        "ankiforge.ui.views.documents_view.dialogs.delimitation_dialog.QMessageBox.question",
+        "ankidraft.ui.views.documents_view.dialogs.delimitation_dialog.QMessageBox.question",
         return_value=QMessageBox.StandardButton.No,
     ):
         dialog._on_reset()
@@ -1259,7 +1259,7 @@ def test_delimitation_reset_requires_confirmation_and_clears_persistent_scope(qt
     assert unchanged.end_page == 4
 
     with patch(
-        "ankiforge.ui.views.documents_view.dialogs.delimitation_dialog.QMessageBox.question",
+        "ankidraft.ui.views.documents_view.dialogs.delimitation_dialog.QMessageBox.question",
         return_value=QMessageBox.StandardButton.Yes,
     ):
         dialog._on_reset()
@@ -1271,7 +1271,7 @@ def test_delimitation_reset_requires_confirmation_and_clears_persistent_scope(qt
 
 def test_scope_context_progress_is_hidden_without_valid_limit(qtbot: Any, mock_db: Any) -> None:
     """Une limite de contexte absente ou invalide ne doit pas afficher de jauge trompeuse."""
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1279,13 +1279,13 @@ def test_scope_context_progress_is_hidden_without_valid_limit(qtbot: Any, mock_d
         file_type="md",
         content="# Section\nContenu suffisamment long pour estimer quelques tokens.",
     )
-    with patch("ankiforge.ui.dialogs.document_scope_dialog.SettingsService.get", return_value=None):
+    with patch("ankidraft.ui.dialogs.document_scope_dialog.SettingsService.get", return_value=None):
         dialog = DocumentScopeDialog(doc)
     qtbot.addWidget(dialog)
     assert dialog.token_progress.isHidden()
     assert dialog.lbl_context_tokens.isHidden()
 
-    with patch("ankiforge.ui.dialogs.document_scope_dialog.SettingsService.get", return_value="100"):
+    with patch("ankidraft.ui.dialogs.document_scope_dialog.SettingsService.get", return_value="100"):
         configured = DocumentScopeDialog(doc)
     qtbot.addWidget(configured)
     assert not configured.token_progress.isHidden()
@@ -1294,8 +1294,8 @@ def test_scope_context_progress_is_hidden_without_valid_limit(qtbot: Any, mock_d
 
 def test_pdf_defaults_to_pages_and_requires_explicit_section_activation(qtbot: Any, mock_db: Any) -> None:
     """Un PDF structuré démarre en mode pages et le mode sections est explicite."""
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
     uid = uuid.uuid4().hex[:6]
     content = "<!-- PAGE: 1 -->\n# Introduction\nTexte introductif.\n\n<!-- PAGE: 2 -->\n# Conclusion\nTexte final."
@@ -1337,8 +1337,8 @@ def test_pdf_defaults_to_pages_and_requires_explicit_section_activation(qtbot: A
 
 def test_markdown_defaults_to_sections_and_section_selection_does_not_change_pages(qtbot: Any, mock_db: Any) -> None:
     """Un Markdown non paginé démarre en mode sections."""
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1371,7 +1371,7 @@ def test_markdown_defaults_to_sections_and_section_selection_does_not_change_pag
 
 def test_section_mode_persists_sections_without_page_bounds(qtbot: Any, mock_db: Any) -> None:
     """La validation en mode sections persiste les exclusions, pas une plage de pages dérivée."""
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1403,9 +1403,9 @@ def test_section_mode_persists_sections_without_page_bounds(qtbot: Any, mock_db:
 
 def test_h3_content_and_h4_children_retained_in_scope_dialog(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que le contenu propre de H3 ET ses sous-sections H4 cochées sont inclus dans la portée."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import SectionRowWidget
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1501,8 +1501,8 @@ def test_h3_tristate_checkbox_toggle_and_row_activation(qtbot: Any, mock_db: Any
     from PySide6.QtCore import QPointF
     from PySide6.QtGui import QMouseEvent
 
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import SectionRowWidget
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1565,9 +1565,9 @@ Texte 4
 
 def test_h3_h4_scope_dialog_restore_faithfully(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que la réouverture de DocumentScopeDialog restaure fidèlement la sélection fine H3/H4."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import SectionRowWidget
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1634,8 +1634,8 @@ Texte H4b.
 
 def test_delimitation_dialog_h3_content_and_h4_cascade(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la préservation du contenu H3 et la cascade dans DocumentDelimitationDialog."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog, SectionRowWidget
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1697,7 +1697,7 @@ Détail 1.B.
 
 def test_format_and_parse_page_ranges_canonical() -> None:
     """Vérifie le parsing et le formatage canonique des plages de pages (continues et discontinues)."""
-    from ankiforge.ui.views.creation_view.utils import format_page_ranges, parse_page_ranges
+    from ankidraft.ui.views.creation_view.utils import format_page_ranges, parse_page_ranges
 
     # 1. Parsing
     assert parse_page_ranges("1-3, 5, 7-9") == [1, 2, 3, 5, 7, 8, 9]
@@ -1717,8 +1717,8 @@ def test_format_and_parse_page_ranges_canonical() -> None:
 
 def test_document_scope_dialog_non_contiguous_pages(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la sélection et la restauration de plages discontinues dans DocumentScopeDialog."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1773,9 +1773,9 @@ def test_document_delimitation_dialog_non_contiguous_pages(qtbot: Any, mock_db: 
     """Vérifie que DocumentDelimitationDialog exclut correctement les pages sautées et enregistre les exclusions."""
     import json
 
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.repositories.document_repository import DocumentRepository
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.repositories.document_repository import DocumentRepository
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1825,8 +1825,8 @@ def test_document_delimitation_dialog_non_contiguous_pages(qtbot: Any, mock_db: 
 
 def test_preview_widget_page_toggle_button(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le bouton 1-clic d'exclusion/inclusion de diapositive dans le volet d'aperçu."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1873,8 +1873,8 @@ def test_preview_widget_page_toggle_button(qtbot: Any, mock_db: Any) -> None:
 
 def test_push_behavior_slider_spinbox(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le comportement push-clamp lorsque le début dépasse la fin ou inversement."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1919,8 +1919,8 @@ def test_push_behavior_slider_spinbox(qtbot: Any, mock_db: Any) -> None:
 
 def test_section_multi_page_span_overlap(qtbot: Any, mock_db: Any) -> None:
     """Vérifie qu'une section ou chapitre couvrant plusieurs pages reste cochée si l'une des pages est incluse."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
     uid = uuid.uuid4().hex[:6]
     content = """<!-- PAGE: 1 -->
@@ -1972,8 +1972,8 @@ Dernière page du document.
 
 def test_document_scope_rejects_page_range_outside_bounds(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que DocumentScopeDialog refuse d'appliquer si une page dépasse la borne utile."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -2003,7 +2003,7 @@ def test_document_scope_rejects_page_range_outside_bounds(qtbot: Any, mock_db: A
 
 def test_slide_selector_bar_widget(qtbot: Any) -> None:
     """Vérifie le ruban de pastilles de slides cliquables et ses actions rapides."""
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import SlideSelectorBarWidget
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import SlideSelectorBarWidget
 
     widget = SlideSelectorBarWidget()
     qtbot.addWidget(widget)
@@ -2040,7 +2040,7 @@ def test_range_segments_widget(qtbot: Any) -> None:
     """Vérifie l'affichage des badges de segments et le constructeur inline de plage."""
     from PySide6.QtWidgets import QPushButton
 
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import RangeSegmentsWidget
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import RangeSegmentsWidget
 
     widget = RangeSegmentsWidget(max_page=10)
     qtbot.addWidget(widget)
@@ -2077,8 +2077,8 @@ def test_range_segments_widget(qtbot: Any) -> None:
 
 def test_delimitation_dialog_slide_selector_and_segments_sync(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la synchronisation complète entre les pastilles, les segments, les spinboxes et l'aperçu dans DelimitationDialog."""
-    from ankiforge.database.models import DocumentChunkModel
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+    from ankidraft.database.models import DocumentChunkModel
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
 
     uid = uuid.uuid4().hex[:6]
     pages_content = "\n".join(f"<!-- PAGE: {p} -->\n# Slide {p}\nContenu riche de la slide {p}." for p in range(1, 9))
@@ -2812,7 +2812,7 @@ def test_pdf_preview_fallback_when_qtpdf_unavailable(qtbot: Any, mock_db: Any) -
             content_hash=f"h_{uid}_{p}",
         )
 
-    with patch("ankiforge.ui.views.documents_view.dialogs.delimitation_dialog.HAVE_QTPDF", False):
+    with patch("ankidraft.ui.views.documents_view.dialogs.delimitation_dialog.HAVE_QTPDF", False):
         scope = DocumentScopeWidget(doc)
         qtbot.addWidget(scope)
         scope.show()

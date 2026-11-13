@@ -4,23 +4,23 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentModel,
     PersonaModel,
     PipelineModel,
     PipelineRunModel,
     PipelineStepModel,
 )
-from ankiforge.services.ai.base import LLMProvider
-from ankiforge.services.ai.orchestrator import (
+from ankidraft.services.ai.base import LLMProvider
+from ankidraft.services.ai.orchestrator import (
     CARD_SECTION_DOCUMENTATION_RULE,
     PipelineOrchestrator,
     PipelineStepExecutionError,
     _source_context_metadata,
     _stamp_card_source_metadata,
 )
-from ankiforge.services.ai.persona_override import apply_persona_override
-from ankiforge.services.ai.state import PipelineRunState
+from ankidraft.services.ai.persona_override import apply_persona_override
+from ankidraft.services.ai.state import PipelineRunState
 
 pytestmark = pytest.mark.integration
 
@@ -343,7 +343,7 @@ def test_llm_prompt_empty_input_variable_falls_back_to_source(qtbot: Any) -> Non
 
 def test_orchestrator_multi_model_jinja_and_parsing():
     """Vérifie le rendu de {{ available_card_models }} et l'extraction multi-modèles."""
-    from ankiforge.database.models import NoteTypeModel
+    from ankidraft.database.models import NoteTypeModel
 
     nt_basic = NoteTypeModel.create(
         name="Basique Test",
@@ -406,10 +406,10 @@ def test_orchestrator_rag_retrieval_hybrid_step(tmp_path, monkeypatch):
     """Vérifie l'exécution de l'étape RAG_RETRIEVAL avec le moteur hybride FAISS/BM25."""
     import json
 
-    from ankiforge.database.models import DocumentChunkModel, DocumentModel
-    from ankiforge.services.rag.vector_manager import VectorManager
+    from ankidraft.database.models import DocumentChunkModel, DocumentModel
+    from ankidraft.services.rag.vector_manager import VectorManager
 
-    monkeypatch.setattr("ankiforge.services.rag.vector_manager.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankidraft.services.rag.vector_manager.get_app_data_dir", lambda: tmp_path)
 
     # Création d'un document avec fragments
     doc = DocumentModel.create(title="Cours Pharmacologie RRF", content="Texte brut", file_type="md")
@@ -551,7 +551,7 @@ def test_call_provider_generate_falls_back_for_legacy_providers():
 
 def test_source_context_metadata_and_stamp_provenance():
     """_source_context_metadata extrait les clés de provenance, _stamp_card_source_metadata les écrit sur les cartes."""
-    from ankiforge.services.ai.state import PipelineRunState as PRS
+    from ankidraft.services.ai.state import PipelineRunState as PRS
 
     state = PRS(document_id=7, initial_prompt="test")
     state.set_variable("source_chunk_id", 12)
@@ -1048,7 +1048,7 @@ def test_pipeline_run_state_logs_thought_and_retrieval():
 
 def test_orchestrator_captures_thought_in_state_and_history():
     """L'orchestrateur extrait le thought de LLMResult, le stocke dans state et execution_history."""
-    from ankiforge.services.ai.base import LLMResult
+    from ankidraft.services.ai.base import LLMResult
 
     class ThinkingProvider(LLMProvider):
         def generate_response(
@@ -1092,7 +1092,7 @@ def test_orchestrator_captures_thought_in_state_and_history():
 
 def test_orchestrator_handles_think_tags_in_raw_content():
     """L'orchestrateur sépare les balises <think> et ne corrompt pas le parsing JSON des cartes."""
-    from ankiforge.services.ai.base import LLMResult
+    from ankidraft.services.ai.base import LLMResult
 
     class ThinkTagProvider(LLMProvider):
         def generate_response(
@@ -1105,7 +1105,7 @@ def test_orchestrator_handles_think_tags_in_raw_content():
         ) -> LLMResult:
             # Même si le fournisseur renvoie le format avec balises dans content
             raw = '<think>Pensees en direct du modele local</think>{"cards": [{"Front": "QTag", "Back": "ATag"}]}'
-            from ankiforge.services.ai.flexible_service import extract_thought_tags
+            from ankidraft.services.ai.flexible_service import extract_thought_tags
 
             c, th = extract_thought_tags(raw)
             return LLMResult(content=c, thought=th)
@@ -1133,7 +1133,7 @@ def test_orchestrator_handles_think_tags_in_raw_content():
 
 def test_orchestrator_map_reduce_captures_thoughts():
     """L'orchestrateur agrège les chaînes de pensée de chaque élément en MAP_REDUCE."""
-    from ankiforge.services.ai.base import LLMResult
+    from ankidraft.services.ai.base import LLMResult
 
     class MapReduceThinkingProvider(LLMProvider):
         def generate_response(
@@ -1357,8 +1357,8 @@ def test_map_reduce_input_and_output_variables() -> None:
 
 def test_map_reduce_dedicated_llm_config_override() -> None:
     """Vérifie que MAP_REDUCE instancie le provider dédié configuré par llm_config_id."""
-    from ankiforge.database.models import LLMConfigModel
-    from ankiforge.services.ai.flexible_service import AIManager
+    from ankidraft.database.models import LLMConfigModel
+    from ankidraft.services.ai.flexible_service import AIManager
 
     cfg = LLMConfigModel.create(
         display_name="Modèle Dédié MapReduce",

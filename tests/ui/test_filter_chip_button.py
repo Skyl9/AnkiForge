@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from PySide6.QtCore import QSize, Qt
 
-from ankiforge.ui.components.buttons import FilterChipButton
+from ankidraft.ui.components.buttons import FilterChipButton
 
 pytestmark = pytest.mark.ui
 
@@ -67,7 +67,7 @@ def test_filter_chip_button_refresh_theme(qtbot: Any) -> None:
     btn = FilterChipButton("Tous", icon_name="ph.sparkle")
     qtbot.addWidget(btn)
 
-    from ankiforge.ui.style_engine import JETBRAINS_LIGHT
+    from ankidraft.ui.style_engine import JETBRAINS_LIGHT
 
     btn.setChecked(True)
     btn.refresh_theme(JETBRAINS_LIGHT)

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from ankiforge.ui.widgets.card_semantic_diff_widget import (
+from ankidraft.ui.widgets.card_semantic_diff_widget import (
     BatchNoteCreateView,
     CardSemanticDiffWidget,
 )

@@ -1,7 +1,7 @@
 import pytest
 from PySide6.QtWidgets import QLabel, QWidget
 
-from ankiforge.ui.widgets.tour_guide import TourBubble, TourStep, create_default_tour_steps
+from ankidraft.ui.widgets.tour_guide import TourBubble, TourStep, create_default_tour_steps
 
 pytestmark = pytest.mark.ui
 

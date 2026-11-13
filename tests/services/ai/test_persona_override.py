@@ -5,8 +5,8 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import PersonaModel
-from ankiforge.services.ai.persona_override import (
+from ankidraft.database.models import PersonaModel
+from ankidraft.services.ai.persona_override import (
     OVERRIDE_BASE_DIGEST_KEY,
     OVERRIDE_FROZEN_AT_KEY,
     PROMPT_OVERRIDE_KEY,

@@ -8,17 +8,17 @@ from PySide6.QtCore import Qt, QUrl
 from PySide6.QtWidgets import QSplitter, QWidget
 from shiboken6 import isValid
 
-from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel
-from ankiforge.services.workers.duplicate_worker import DuplicateWorker
-from ankiforge.ui.components.buttons import IconButton
-from ankiforge.ui.components.deck_select_window import DeckSelectWindow
-from ankiforge.ui.components.duplicate_widgets import DuplicateMergeInspector
-from ankiforge.ui.views.analysis_view.tabs.duplicates_merge_tab import AIDuplicatesMergeTab
-from ankiforge.ui.views.analysis_view.view import AnalysisView
+from ankidraft.database.models import DeckModel, NoteModel, NoteTypeModel
+from ankidraft.services.workers.duplicate_worker import DuplicateWorker
+from ankidraft.ui.components.buttons import IconButton
+from ankidraft.ui.components.deck_select_window import DeckSelectWindow
+from ankidraft.ui.components.duplicate_widgets import DuplicateMergeInspector
+from ankidraft.ui.views.analysis_view.tabs.duplicates_merge_tab import AIDuplicatesMergeTab
+from ankidraft.ui.views.analysis_view.view import AnalysisView
 
 pytestmark = pytest.mark.ui
 
-_FIND_DUPLICATES_TARGET = "ankiforge.services.workers.duplicate_worker.DuplicateManager.find_duplicates"
+_FIND_DUPLICATES_TARGET = "ankidraft.services.workers.duplicate_worker.DuplicateManager.find_duplicates"
 
 
 def _is_running_safe(worker: object) -> bool:
@@ -55,7 +55,7 @@ def test_ai_duplicates_merge_tab_run_scan_with_global_deck(qtbot) -> None:
     tab = AIDuplicatesMergeTab()
     qtbot.addWidget(tab)
 
-    with patch("ankiforge.ui.views.analysis_view.tabs.duplicates_merge_tab.DuplicateWorker") as mock_worker_cls:
+    with patch("ankidraft.ui.views.analysis_view.tabs.duplicates_merge_tab.DuplicateWorker") as mock_worker_cls:
         mock_instance = MagicMock()
         mock_worker_cls.return_value = mock_instance
 
@@ -182,7 +182,7 @@ def test_analysis_view_integration(qtbot) -> None:
 
 def test_analysis_view_open_document_inspector(qtbot, mock_db) -> None:
     """Vérifie que open_document_inspector active l'onglet Documents et pré-remplit la recherche."""
-    from ankiforge.database.models import DocumentModel
+    from ankidraft.database.models import DocumentModel
 
     doc = DocumentModel.create(title="Cours Anatomie Cardio", file_type="md")
     view = AnalysisView()
@@ -231,7 +231,7 @@ def test_run_duplicate_scan_rejects_phantom_worker_pointer(qtbot) -> None:
     qtbot.waitUntil(lambda: not isValid(phantom), timeout=5000)
     tab.worker = phantom
 
-    with patch("ankiforge.ui.views.analysis_view.tabs.duplicates_merge_tab.DuplicateWorker") as mock_worker_cls:
+    with patch("ankidraft.ui.views.analysis_view.tabs.duplicates_merge_tab.DuplicateWorker") as mock_worker_cls:
         mock_worker_cls.return_value = MagicMock()
         tab.run_duplicate_scan()
 
@@ -243,7 +243,7 @@ def test_scan_signals_release_worker_reference(qtbot) -> None:
     tab = AIDuplicatesMergeTab()
     qtbot.addWidget(tab)
 
-    with patch("ankiforge.ui.views.analysis_view.tabs.duplicates_merge_tab.DuplicateWorker") as mock_worker_cls:
+    with patch("ankidraft.ui.views.analysis_view.tabs.duplicates_merge_tab.DuplicateWorker") as mock_worker_cls:
         mock_worker = MagicMock()
         mock_worker_cls.return_value = mock_worker
 
@@ -277,7 +277,7 @@ def test_scan_guard_ignores_relaunch_while_worker_running(qtbot) -> None:
     tab = AIDuplicatesMergeTab()
     qtbot.addWidget(tab)
 
-    with patch("ankiforge.ui.views.analysis_view.tabs.duplicates_merge_tab.DuplicateWorker") as mock_worker_cls:
+    with patch("ankidraft.ui.views.analysis_view.tabs.duplicates_merge_tab.DuplicateWorker") as mock_worker_cls:
         mock_worker = MagicMock()
         mock_worker.isRunning.return_value = True
         mock_worker_cls.return_value = mock_worker
@@ -324,7 +324,7 @@ def test_destroyed_signal_joins_worker_through_lambda(qtbot, monkeypatch) -> Non
     """
     joined: list[int] = []
     monkeypatch.setattr(
-        "ankiforge.ui.views.analysis_view.tabs.duplicates_merge_tab._join_worker",
+        "ankidraft.ui.views.analysis_view.tabs.duplicates_merge_tab._join_worker",
         lambda holder: joined.append(id(holder)),
     )
 

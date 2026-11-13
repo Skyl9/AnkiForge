@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     MediaModel,
@@ -17,8 +17,8 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.mcp_tool_registry import (
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.mcp_tool_registry import (
     DEFAULT_CONSULTANT_TOOLS,
     MCPToolRegistry,
 )
@@ -211,7 +211,7 @@ def test_generate_card_audio_success_with_mocked_tts(audio_note_dataset, monkeyp
         def synthesize(self, text: str, voice: str | None = None, rate: str = "+0%", pitch: str = "+0Hz") -> bytes:
             return b"FAKE_AUDIO_BYTES_" + text.encode("utf-8")
 
-    from ankiforge.services.cards.tts_service import TTSService
+    from ankidraft.services.cards.tts_service import TTSService
 
     monkeypatch.setattr(TTSService, "get_provider", lambda self, engine=None: FakeProvider())
 
@@ -262,7 +262,7 @@ def test_generate_card_audio_cleans_html_tags(audio_note_dataset, monkeypatch):
             assert "Bonjour le monde" in text
             return b"FAKE_AUDIO"
 
-    from ankiforge.services.cards.tts_service import TTSService
+    from ankidraft.services.cards.tts_service import TTSService
 
     monkeypatch.setattr(TTSService, "get_provider", lambda self, engine=None: FakeProvider())
 
@@ -293,7 +293,7 @@ def test_generate_card_audio_cleans_cloze(audio_note_dataset, monkeypatch):
             assert "東京 est la capitale" in text
             return b"FAKE_AUDIO"
 
-    from ankiforge.services.cards.tts_service import TTSService
+    from ankidraft.services.cards.tts_service import TTSService
 
     monkeypatch.setattr(TTSService, "get_provider", lambda self, engine=None: FakeProvider())
 
@@ -308,7 +308,7 @@ def test_generate_card_audio_cleans_cloze(audio_note_dataset, monkeypatch):
 
 def test_generate_card_audio_no_tts_available(audio_note_dataset, monkeypatch):
     """generate_card_audio doit retourner une erreur si aucun moteur TTS n'est disponible."""
-    from ankiforge.services.cards.tts_service import TTSService
+    from ankidraft.services.cards.tts_service import TTSService
 
     def _fail_synthesize(self, text, engine=None, voice=None, rate=None, pitch=None, strip_cloze=True):
         raise RuntimeError("Aucun moteur TTS disponible")
@@ -340,7 +340,7 @@ def test_generate_cards_batch_audio_success(audio_note_dataset, monkeypatch):
         def synthesize(self, text: str, voice: str | None = None, rate: str = "+0%", pitch: str = "+0Hz") -> bytes:
             return b"FAKE_AUDIO_BYTES"
 
-    from ankiforge.services.cards.tts_service import TTSService
+    from ankidraft.services.cards.tts_service import TTSService
 
     monkeypatch.setattr(TTSService, "get_provider", lambda self, engine=None: FakeProvider())
 
@@ -378,7 +378,7 @@ def test_generate_cards_batch_audio_partial_failure(audio_note_dataset, monkeypa
         def synthesize(self, text: str, voice: str | None = None, rate: str = "+0%", pitch: str = "+0Hz") -> bytes:
             return b"FAKE_AUDIO"
 
-    from ankiforge.services.cards.tts_service import TTSService
+    from ankidraft.services.cards.tts_service import TTSService
 
     monkeypatch.setattr(TTSService, "get_provider", lambda self, engine=None: FakeProvider())
 
@@ -429,7 +429,7 @@ def test_generate_card_audio_audio_tag_format(audio_note_dataset, monkeypatch):
         def synthesize(self, text: str, voice: str | None = None, rate: str = "+0%", pitch: str = "+0Hz") -> bytes:
             return b"FAKE_AUDIO"
 
-    from ankiforge.services.cards.tts_service import TTSService
+    from ankidraft.services.cards.tts_service import TTSService
 
     monkeypatch.setattr(TTSService, "get_provider", lambda self, engine=None: FakeProvider())
 

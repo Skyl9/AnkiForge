@@ -3,18 +3,18 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtWidgets import QLabel
 
-from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.ui.components.topbar import TopBar
-from ankiforge.ui.main_window import MainWindow
-from ankiforge.ui.views.batch_view import BatchView
-from ankiforge.ui.views.edition_view import EditionView
+from ankidraft.database.models import NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.ui.components.topbar import TopBar
+from ankidraft.ui.main_window import MainWindow
+from ankidraft.ui.views.batch_view import BatchView
+from ankidraft.ui.views.edition_view import EditionView
 
 pytestmark = pytest.mark.ui
 
 
 @pytest.mark.slow
 def test_main_window_creation(qtbot, mock_db):
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
         assert window is not None
@@ -39,7 +39,7 @@ def test_topbar_notification_badge_is_not_clipped(qtbot):
 
 @pytest.mark.slow
 def test_main_window_breadcrumb_navigation(qtbot, mock_db):
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
 
@@ -98,9 +98,9 @@ def test_edition_view_placeholder_stack(qtbot, mock_db):
 
 def test_open_consultant_event_switches_main_window_tab(qtbot, mock_db):
     """Vérifie que la publication de OpenConsultantRequestedEvent bascule MainWindow sur la vue Consultant."""
-    from ankiforge.utils.event_bus import OpenConsultantRequestedEvent, event_bus
+    from ankidraft.utils.event_bus import OpenConsultantRequestedEvent, event_bus
 
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
 
@@ -138,9 +138,9 @@ def test_main_window_injects_addon_custom_view(qtbot, mock_db):
             return AddonAPI()
 
     with (
-        patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"),
+        patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"),
         patch(
-            "ankiforge.services.plugins.plugin_manager.get_plugin_manager",
+            "ankidraft.services.plugins.plugin_manager.get_plugin_manager",
             return_value=PluginManagerStub(),
         ),
     ):
@@ -156,9 +156,9 @@ def test_main_window_injects_addon_custom_view(qtbot, mock_db):
 
 def test_open_export_dialog_instantiates_and_shows_dialog(qtbot, mock_db):
     """Vérifie que l'appel à _open_export_dialog instancie bien ExportDialog et l'exécute."""
-    from ankiforge.ui.dialogs.export_dialog import ExportDialog
+    from ankidraft.ui.dialogs.export_dialog import ExportDialog
 
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
 
@@ -174,10 +174,10 @@ def test_open_export_dialog_instantiates_and_shows_dialog(qtbot, mock_db):
 
 def test_open_feedback_dialog_via_event_bus(qtbot, mock_db):
     """Vérifie que la publication de OpenFeedbackRequestedEvent ouvre FeedbackDialog."""
-    from ankiforge.ui.dialogs.feedback_dialog import FeedbackDialog
-    from ankiforge.utils.event_bus import OpenFeedbackRequestedEvent, event_bus
+    from ankidraft.ui.dialogs.feedback_dialog import FeedbackDialog
+    from ankidraft.utils.event_bus import OpenFeedbackRequestedEvent, event_bus
 
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
 
@@ -188,9 +188,9 @@ def test_open_feedback_dialog_via_event_bus(qtbot, mock_db):
 
 def test_main_window_update_check_lifecycle_and_badge(qtbot, mock_db):
     """Vérifie que MainWindow retient le worker et réapplique le badge de mise à jour après changement de layout."""
-    from ankiforge.services.update_checker import UpdateInfo
+    from ankidraft.services.update_checker import UpdateInfo
 
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
 
@@ -235,7 +235,7 @@ def test_main_window_update_check_lifecycle_and_badge(qtbot, mock_db):
 
 def test_main_window_navigates_to_analysis_with_doc_id(qtbot, mock_db):
     """Vérifie que la navigation vers analysis avec doc_id appelle open_document_inspector."""
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
 
@@ -252,7 +252,7 @@ def test_main_window_consultant_mcp_wiring_and_title(qtbot, mock_db):
     assert registry["consultant"][1] == "plugs-connected"
     assert registry["consultant"][2] == "Serveur MCP & Agents"
 
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
 

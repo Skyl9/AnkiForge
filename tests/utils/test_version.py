@@ -1,4 +1,4 @@
-"""Tests unitaires pour le module de version et métadonnées ankiforge.version."""
+"""Tests unitaires pour le module de version et métadonnées ankidraft.version."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.version import (
+from ankidraft.version import (
     AppVersionInfo,
     __version__,
     get_version_info,

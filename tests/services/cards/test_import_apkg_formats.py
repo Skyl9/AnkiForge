@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import zstandard as zstd
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentChunkModel,
@@ -22,8 +22,8 @@ from ankiforge.database.models import (
     PipelineModel,
     SettingModel,
 )
-from ankiforge.services.cards import import_manager as import_manager_mod
-from ankiforge.services.cards.import_manager import (
+from ankidraft.services.cards import import_manager as import_manager_mod
+from ankidraft.services.cards.import_manager import (
     MAX_APKG_DECOMPRESSED_BYTES,
     MAX_COLPKG_DECOMPRESSED_BYTES,
     ApkgSizeLimitError,
@@ -326,7 +326,7 @@ def test_import_incomplete_model_fails_before_commit(tmp_path: Path) -> None:
 @pytest.mark.parametrize("size_limit", [None, 1000])
 def test_import_configurable_decompressed_size_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, size_limit: int | None) -> None:
     """Le plafond anti zip-bomb est réglable : la même archive est acceptée ou rejetée selon la valeur."""
-    from ankiforge.services.cards import import_manager as import_manager_mod
+    from ankidraft.services.cards import import_manager as import_manager_mod
 
     db_file = tmp_path / "limit.db"
     conn = sqlite3.connect(str(db_file))
@@ -358,7 +358,7 @@ def test_import_configurable_decompressed_size_limit(tmp_path: Path, monkeypatch
 
 def test_apkg_size_limit_default_and_disabled_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
     """Le défaut 1 Gio s'applique sans réglage enregistré ; une valeur <= 0 désactive le plafond."""
-    from ankiforge.services.cards import import_manager as import_manager_mod
+    from ankidraft.services.cards import import_manager as import_manager_mod
 
     monkeypatch.setattr(
         import_manager_mod.SettingsService,
@@ -378,8 +378,8 @@ def test_apkg_size_limit_default_and_disabled_resolution(monkeypatch: pytest.Mon
 @pytest.mark.parametrize(("provenance", "expected_origin"), [("default", "plafond par défaut"), ("user", "réglage utilisateur")])
 def test_apkg_size_limit_error_message_rich(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, provenance: str, expected_origin: str) -> None:
     """Le message d'erreur de plafond expose la taille, le plafond appliqué, la provenance et le raccourci vers les réglages."""
-    from ankiforge.services.cards import import_manager as import_manager_mod
-    from ankiforge.services.cards.import_manager import ApkgSizeLimitError
+    from ankidraft.services.cards import import_manager as import_manager_mod
+    from ankidraft.services.cards.import_manager import ApkgSizeLimitError
 
     db_file = tmp_path / "limit_msg.db"
     conn = sqlite3.connect(str(db_file))
@@ -507,7 +507,7 @@ def test_import_apkg_reassigns_note_type(tmp_path: Path) -> None:
 
 def test_import_colpkg_prunes_empty_orphan_models(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Vérifie que l'import d'une collection (.colpkg) supprime les modèles locaux vierges absents de la collection entrante."""
-    monkeypatch.setattr("ankiforge.services.cards.import_manager.backup_before_colpkg_import", lambda: tmp_path / "backup.db")
+    monkeypatch.setattr("ankidraft.services.cards.import_manager.backup_before_colpkg_import", lambda: tmp_path / "backup.db")
 
     NoteTypeModel.create(name="ModelOrphan", fields_schema='["Front", "Back"]', templates="[]", css_style="")
     NoteTypeModel.create(name="ModelKept", anki_id=4001, fields_schema='["Front", "Back"]', templates="[]", css_style="")
@@ -616,7 +616,7 @@ def test_colpkg_replacement_routes_and_aborts_if_backup_fails(tmp_path: Path, mo
     def _fail_backup(profile_name: str | None = None) -> Path:
         raise RuntimeError("Instantané pré-colpkg impossible (disque plein).")
 
-    monkeypatch.setattr("ankiforge.services.cards.import_manager.backup_before_colpkg_import", _fail_backup)
+    monkeypatch.setattr("ankidraft.services.cards.import_manager.backup_before_colpkg_import", _fail_backup)
 
     with pytest.raises(RuntimeError, match="Instantané pré-colpkg impossible"):
         manager.commit_import(analysis)
@@ -628,7 +628,7 @@ def test_colpkg_replacement_routes_and_aborts_if_backup_fails(tmp_path: Path, mo
 
 def test_colpkg_replacement_eliminates_zombie_cards_and_updates_notetypes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Le remplacement .colpkg purge les cartes zombies et met à jour les schémas de modèles sans corruption."""
-    monkeypatch.setattr("ankiforge.services.cards.import_manager.backup_before_colpkg_import", lambda: tmp_path / "mock_backup.db")
+    monkeypatch.setattr("ankidraft.services.cards.import_manager.backup_before_colpkg_import", lambda: tmp_path / "mock_backup.db")
 
     # 1. État initial de la base locale : cartes et modèles obsolètes (zombies)
     deck_old = DeckModel.create(name="Ancien Paquet")
@@ -725,7 +725,7 @@ def test_colpkg_replacement_eliminates_zombie_cards_and_updates_notetypes(tmp_pa
 
 def test_colpkg_replacement_sanctuarizes_studio_scope(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Le remplacement .colpkg préserve intégralement et fidèlement 100% du Périmètre Studio."""
-    monkeypatch.setattr("ankiforge.services.cards.import_manager.backup_before_colpkg_import", lambda: tmp_path / "mock_backup.db")
+    monkeypatch.setattr("ankidraft.services.cards.import_manager.backup_before_colpkg_import", lambda: tmp_path / "mock_backup.db")
 
     # 1. Enregistrement des entités du Périmètre Studio
     folder = FolderModel.create(name="Dossier Neuroanatomie")

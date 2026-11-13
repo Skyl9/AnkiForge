@@ -9,9 +9,9 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.database.models import PipelineStepModel
-from ankiforge.services.ai.orchestrator import PipelineOrchestrator
-from ankiforge.services.ai.state import PipelineRunState
+from ankidraft.database.models import PipelineStepModel
+from ankidraft.services.ai.orchestrator import PipelineOrchestrator
+from ankidraft.services.ai.state import PipelineRunState
 
 pytestmark = pytest.mark.integration
 
@@ -60,7 +60,7 @@ def test_orchestrator_audio_tts_append_mode() -> None:
     progress_reports: list[tuple[int, int, str]] = []
     orchestrator.signals.step_progress.connect(lambda cur, tot, msg: progress_reports.append((cur, tot, msg)))
 
-    with patch("ankiforge.services.cards.tts_service.get_tts_service", return_value=MockTTSSvc()):
+    with patch("ankidraft.services.cards.tts_service.get_tts_service", return_value=MockTTSSvc()):
         orchestrator._execute_audio_tts(step)
 
     updated_cards = state.get_variable("generated_cards")
@@ -106,7 +106,7 @@ def test_orchestrator_audio_tts_replace_field_mode() -> None:
 
     orchestrator = PipelineOrchestrator(steps=[step], initial_state=state)
 
-    with patch("ankiforge.services.cards.tts_service.get_tts_service", return_value=MockTTSSvc()):
+    with patch("ankidraft.services.cards.tts_service.get_tts_service", return_value=MockTTSSvc()):
         orchestrator._execute_audio_tts(step)
 
     updated_cards = state.get_variable("generated_cards")
@@ -143,7 +143,7 @@ def test_orchestrator_audio_tts_resilience_to_failures() -> None:
 
     orchestrator = PipelineOrchestrator(steps=[step], initial_state=state)
 
-    with patch("ankiforge.services.cards.tts_service.get_tts_service", return_value=FlakyTTSSvc()):
+    with patch("ankidraft.services.cards.tts_service.get_tts_service", return_value=FlakyTTSSvc()):
         orchestrator._execute_audio_tts(step)
 
     updated = state.get_variable("generated_cards")

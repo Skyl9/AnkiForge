@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.database.models import DEFAULT_LATEX_POST, DEFAULT_LATEX_PRE, NoteTypeModel
-from ankiforge.services.cards.card_model_io import BUNDLE_EXTENSION, CardModelIO
+from ankidraft.database.models import DEFAULT_LATEX_POST, DEFAULT_LATEX_PRE, NoteTypeModel
+from ankidraft.services.cards.card_model_io import BUNDLE_EXTENSION, CardModelIO
 
 pytestmark = pytest.mark.integration
 

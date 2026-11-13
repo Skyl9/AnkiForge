@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     AuditRecordModel,
     CardModel,
     DeckModel,
@@ -16,7 +16,7 @@ from ankiforge.database.models import (
     NoteVersionModel,
     TokenUsageModel,
 )
-from ankiforge.services.audit.metrics_service import MetricsService
+from ankidraft.services.audit.metrics_service import MetricsService
 
 pytestmark = pytest.mark.integration
 

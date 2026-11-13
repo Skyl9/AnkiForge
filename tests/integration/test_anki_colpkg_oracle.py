@@ -27,7 +27,7 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentChunkModel,
@@ -38,7 +38,7 @@ from ankiforge.database.models import (
     NoteVersionModel,
     PersonaModel,
 )
-from ankiforge.services.cards.import_manager import ImportManager
+from ankidraft.services.cards.import_manager import ImportManager
 
 pytestmark = [pytest.mark.integration, pytest.mark.slow]
 
@@ -52,9 +52,9 @@ PARENT_DECK = "OracleRacine"
 CHILD_DECK = "OracleRacine::Sous"
 
 IMAGE_NAME = "oracle_img.png"
-IMAGE_BYTES = b"\x89PNG\r\n\x1a\n" + b"ankiforge-colpkg-oracle-image\n"
+IMAGE_BYTES = b"\x89PNG\r\n\x1a\n" + b"ankidraft-colpkg-oracle-image\n"
 AUDIO_NAME = "oracle_audio.mp3"
-AUDIO_BYTES = b"ID3\x04\x00\x00\x00\x00\x00\x00" + b"ankiforge-colpkg-oracle-audio\n"
+AUDIO_BYTES = b"ID3\x04\x00\x00\x00\x00\x00\x00" + b"ankidraft-colpkg-oracle-audio\n"
 
 BASIC_CONTENT = ('<img src="oracle_img.png">Que certifie l\'oracle ?', "L'ingestion sans corruption.")
 CLOZE_CONTENT = "Le {{c1::cœur}} et le {{c2::poumon}}."
@@ -157,7 +157,7 @@ def _prepare_media_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Redirige le dossier média de la Forge vers un dossier temporaire vide."""
     media_dir = tmp_path / "forge_media"
     media_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr("ankiforge.services.cards.import_manager.get_media_dir", lambda: media_dir)
+    monkeypatch.setattr("ankidraft.services.cards.import_manager.get_media_dir", lambda: media_dir)
     return media_dir
 
 
@@ -238,7 +238,7 @@ def test_official_colpkg_replacement_purges_zombies_and_preserves_studio(tmp_pat
         return backup_path
 
     monkeypatch.setattr(
-        "ankiforge.services.cards.import_manager.backup_before_colpkg_import",
+        "ankidraft.services.cards.import_manager.backup_before_colpkg_import",
         _record_backup,
     )
     seed = _seed_zombies_and_studio()
@@ -271,7 +271,7 @@ def test_official_colpkg_content_fidelity(tmp_path: Path, monkeypatch: pytest.Mo
     colpkg_path, expected = _build_official_colpkg(tmp_path)
     media_dir = _prepare_media_dir(tmp_path, monkeypatch)
     monkeypatch.setattr(
-        "ankiforge.services.cards.import_manager.backup_before_colpkg_import",
+        "ankidraft.services.cards.import_manager.backup_before_colpkg_import",
         lambda: tmp_path / "backup.db",
     )
 

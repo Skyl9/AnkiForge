@@ -8,9 +8,9 @@ from typing import Any
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.ui.components.buttons import COMPACT_BUTTON_HEIGHT
-from ankiforge.ui.components.linter_widgets import SourceDiagnosticCardWidget
-from ankiforge.ui.style_engine import JETBRAINS_DARK, get_style_engine
+from ankidraft.ui.components.buttons import COMPACT_BUTTON_HEIGHT
+from ankidraft.ui.components.linter_widgets import SourceDiagnosticCardWidget
+from ankidraft.ui.style_engine import JETBRAINS_DARK, get_style_engine
 
 pytestmark = pytest.mark.ui
 

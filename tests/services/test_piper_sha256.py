@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from ankiforge.services.cards.tts_service import (
+from ankidraft.services.cards.tts_service import (
     _MAX_PIPER_ARCHIVE_BYTES,
     _PIPER_ASSETS,
     _PIPER_VOICE_SHA256,

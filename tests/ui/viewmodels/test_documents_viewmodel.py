@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.repositories.document_repository import DocumentRepository
-from ankiforge.ui.viewmodels.documents_viewmodel import DocumentsViewModel
-from ankiforge.utils.event_bus import AppEventBus, DocumentAddedEvent, DocumentDeletedEvent
+from ankidraft.repositories.document_repository import DocumentRepository
+from ankidraft.ui.viewmodels.documents_viewmodel import DocumentsViewModel
+from ankidraft.utils.event_bus import AppEventBus, DocumentAddedEvent, DocumentDeletedEvent
 
 pytestmark = pytest.mark.integration
 

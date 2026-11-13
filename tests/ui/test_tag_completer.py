@@ -9,8 +9,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLineEdit
 from pytestqt.qtbot import QtBot
 
-from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel
-from ankiforge.ui.components.tag_completer import TagAutocompleter
+from ankidraft.database.models import DeckModel, NoteModel, NoteTypeModel
+from ankidraft.ui.components.tag_completer import TagAutocompleter
 
 pytestmark = pytest.mark.ui
 

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.services.ai.model_catalog import (
+from ankidraft.services.ai.model_catalog import (
     ModelCatalog,
 )
 

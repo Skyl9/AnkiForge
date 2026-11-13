@@ -7,8 +7,8 @@ import pytest
 from PySide6.QtWidgets import QDialog
 from pytestqt.qtbot import QtBot
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, db
-from ankiforge.ui.dialogs.change_note_type_dialog import ChangeNoteTypeDialog
+from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, db
+from ankidraft.ui.dialogs.change_note_type_dialog import ChangeNoteTypeDialog
 
 pytestmark = pytest.mark.ui
 
@@ -197,7 +197,7 @@ def test_cloze_to_standard_clean_cloze(qtbot: QtBot, sample_setup: dict[str, Any
 
 def test_edition_view_ribbon_button_state_and_dialog_trigger(qtbot: QtBot, sample_setup: Any, monkeypatch: Any) -> None:
     """Vérifie l'activation du bouton du ruban selon la sélection et le déclenchement du dialogue."""
-    from ankiforge.ui.views.edition_view import EditionView
+    from ankidraft.ui.views.edition_view import EditionView
 
     view = EditionView(ai_manager=None)
     qtbot.addWidget(view)
@@ -229,7 +229,7 @@ def test_edition_view_ribbon_button_state_and_dialog_trigger(qtbot: QtBot, sampl
 
 def test_edition_view_migration_success_toast_and_refresh(qtbot: QtBot, sample_setup: Any, monkeypatch: Any) -> None:
     """Vérifie qu'après acceptation du dialogue, la vue se rafraîchit et la note est mise à jour."""
-    from ankiforge.ui.views.edition_view import EditionView
+    from ankidraft.ui.views.edition_view import EditionView
 
     view = EditionView(ai_manager=None)
     qtbot.addWidget(view)

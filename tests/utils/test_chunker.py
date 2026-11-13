@@ -1,6 +1,6 @@
 import pytest
 
-from ankiforge.utils.chunker import (
+from ankidraft.utils.chunker import (
     _get_protected_intervals,
     _is_safe_split,
     smart_chunk_text,

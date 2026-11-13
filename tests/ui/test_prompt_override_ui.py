@@ -7,14 +7,14 @@ from typing import Any
 import pytest
 from PySide6.QtWidgets import QLabel
 
-from ankiforge.database.models import PersonaModel
-from ankiforge.services.ai.persona_override import (
+from ankidraft.database.models import PersonaModel
+from ankidraft.services.ai.persona_override import (
     OVERRIDE_FROZEN_AT_KEY,
     PROMPT_OVERRIDE_KEY,
     apply_persona_override,
 )
-from ankiforge.ui.dialogs.persona_prompt_override_dialog import PersonaPromptOverrideDialog
-from ankiforge.ui.views.pipelines_view.widgets.step_inspector import StepInspectorPanel
+from ankidraft.ui.dialogs.persona_prompt_override_dialog import PersonaPromptOverrideDialog
+from ankidraft.ui.views.pipelines_view.widgets.step_inspector import StepInspectorPanel
 
 pytestmark = pytest.mark.ui
 
@@ -258,7 +258,7 @@ def test_indicateur_reste_muet_si_l_agent_na_bouge_puis(qtbot: Any) -> None:
 
 def test_surcharge_ne_cree_aucune_version_de_persona(qtbot: Any) -> None:
     """Critère d'acceptation : une surcharge est un réglage du pipeline, pas une version d'agent."""
-    from ankiforge.database.models import PersonaVersionModel
+    from ankidraft.database.models import PersonaVersionModel
 
     persona = PersonaModel.create(name="Partage", system_prompt="PROMPT AGENT", output_format="text")
     versions_avant = PersonaVersionModel.select().count()

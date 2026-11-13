@@ -5,9 +5,9 @@ from typing import Any
 import pytest
 from PySide6.QtCore import QObject, Signal
 
-from ankiforge.ui.viewmodels.batch_viewmodel import BatchViewModel
-from ankiforge.ui.viewmodels.creation_viewmodel import CreationViewModel
-from ankiforge.ui.viewmodels.documents_viewmodel import DocumentsViewModel
+from ankidraft.ui.viewmodels.batch_viewmodel import BatchViewModel
+from ankidraft.ui.viewmodels.creation_viewmodel import CreationViewModel
+from ankidraft.ui.viewmodels.documents_viewmodel import DocumentsViewModel
 
 pytestmark = pytest.mark.integration
 

@@ -7,20 +7,20 @@ import pytest
 from peewee import SqliteDatabase
 from PySide6.QtCore import Qt
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     NoteTypeModel,
     db,
 )
-from ankiforge.repositories.note_repository import NoteRepository
-from ankiforge.services.search.fts_service import (
+from ankidraft.repositories.note_repository import NoteRepository
+from ankidraft.services.search.fts_service import (
     FTSService,
     clean_html,
     extract_fields_text,
     extract_tags_text,
     sanitize_fts5_query,
 )
-from ankiforge.ui.widgets.omnibox import Omnibox
+from ankidraft.ui.widgets.omnibox import Omnibox
 
 pytestmark = pytest.mark.integration
 
@@ -283,7 +283,7 @@ def test_migration_030_and_perf_indexes(mock_db: SqliteDatabase):
 
     from peewee_migrate import Migrator
 
-    mig_module = importlib.import_module("ankiforge.database.migrations.030_fts5_and_perf_indexes")
+    mig_module = importlib.import_module("ankidraft.database.migrations.030_fts5_and_perf_indexes")
     migrator = Migrator(mock_db)
 
     # Exécution de migrate
@@ -313,7 +313,7 @@ def test_migration_030_and_perf_indexes(mock_db: SqliteDatabase):
 
 def test_fts_bulk_deletion_via_store_manager(mock_db: SqliteDatabase) -> None:
     """Vérifie que StoreManager.delete_notes synchronise l'index FTS5."""
-    from ankiforge.services.cards.store_manager import StoreManager
+    from ankidraft.services.cards.store_manager import StoreManager
 
     deck = DeckModel.create(name="FTS Bulk Deck")
     nt = NoteTypeModel.create(name="FTS Bulk Type", fields_schema="[]", templates="[]", css_style="")

@@ -8,8 +8,8 @@ from unittest.mock import patch
 import pytest
 from pytestqt.qtbot import QtBot
 
-from ankiforge.services.crash_reporter_service import CrashReport
-from ankiforge.ui.main_window import MainWindow
+from ankidraft.services.crash_reporter_service import CrashReport
+from ankidraft.ui.main_window import MainWindow
 
 pytestmark = pytest.mark.ui
 
@@ -38,9 +38,9 @@ class TestMainWindowCrashReport:
     ) -> None:
         """Vérifie que _check_pending_crash_report instancie et affiche CrashReportDialog si un crash est en attente."""
         with (
-            patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"),
-            patch("ankiforge.services.crash_reporter_service.CrashReporterService.has_pending_crash", return_value=True),
-            patch("ankiforge.services.crash_reporter_service.CrashReporterService.get_latest_crash", return_value=sample_crash_report),
+            patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"),
+            patch("ankidraft.services.crash_reporter_service.CrashReporterService.has_pending_crash", return_value=True),
+            patch("ankidraft.services.crash_reporter_service.CrashReporterService.get_latest_crash", return_value=sample_crash_report),
         ):
             window = MainWindow(ai_manager=None, profile_name="test")
             qtbot.addWidget(window)
@@ -58,8 +58,8 @@ class TestMainWindowCrashReport:
     ) -> None:
         """Vérifie qu'aucun dialogue n'est ouvert si aucun crash n'est en attente."""
         with (
-            patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"),
-            patch("ankiforge.services.crash_reporter_service.CrashReporterService.has_pending_crash", return_value=False),
+            patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"),
+            patch("ankidraft.services.crash_reporter_service.CrashReporterService.has_pending_crash", return_value=False),
         ):
             window = MainWindow(ai_manager=None, profile_name="test")
             qtbot.addWidget(window)
@@ -74,8 +74,8 @@ class TestMainWindowCrashReport:
     ) -> None:
         """Vérifie l'ouverture via l'action action.crash_report de la palette de commandes."""
         with (
-            patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"),
-            patch("ankiforge.services.crash_reporter_service.CrashReporterService.get_latest_crash", return_value=sample_crash_report),
+            patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"),
+            patch("ankidraft.services.crash_reporter_service.CrashReporterService.get_latest_crash", return_value=sample_crash_report),
         ):
             window = MainWindow(ai_manager=None, profile_name="test")
             qtbot.addWidget(window)

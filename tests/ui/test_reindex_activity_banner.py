@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 import pytest
 
-from ankiforge.ui.widgets.reindex_activity_banner import ReindexActivityBanner
+from ankidraft.ui.widgets.reindex_activity_banner import ReindexActivityBanner
 
 pytestmark = pytest.mark.ui
 
@@ -92,7 +92,7 @@ def test_cancel_button_hidden_for_single_document_pass(qtbot) -> None:
 
 def test_refresh_theme_reapplies_current_tokens(qtbot, monkeypatch) -> None:
     """Le bandeau se recolore au changement de thème (jetons réassignés à chaud)."""
-    from ankiforge.ui.theme import DesignTokens
+    from ankidraft.ui.theme import DesignTokens
 
     banner = ReindexActivityBanner()
     qtbot.addWidget(banner)
@@ -120,9 +120,9 @@ def test_banner_hosted_outside_layouts_and_survives_switch(qtbot, mock_db) -> No
     """Le bandeau vit dans MainWindow, hors des layouts enfichables, et y survit (ADR 0021)."""
     from unittest.mock import patch
 
-    from ankiforge.ui.main_window import MainWindow
+    from ankidraft.ui.main_window import MainWindow
 
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
     qtbot.addWidget(window)
 

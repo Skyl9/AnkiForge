@@ -15,21 +15,21 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentChunkModel,
     DocumentModel,
     NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
 )
-from ankiforge.services.audit.coverage_alignment_service import (
+from ankidraft.services.audit.coverage_alignment_service import (
     RESOLUTION_LEXICAL,
     RESOLUTION_PAGE,
     RESOLUTION_SECTION,
     CoverageAlignmentService,
 )
-from ankiforge.services.cards.import_manager import ImportManager
-from ankiforge.utils.tags import clean_source_slug, section_key
+from ankidraft.services.cards.import_manager import ImportManager
+from ankidraft.utils.tags import clean_source_slug, section_key
 
 
 def _create_colpkg_file(
@@ -82,8 +82,8 @@ def _create_colpkg_file(
 
 
 def test_rag_reexport_coverage_alignment_service() -> None:
-    """Vérifie que CoverageAlignmentService est accessible depuis ankiforge.services.rag.coverage_alignment_service."""
-    from ankiforge.services.rag.coverage_alignment_service import (
+    """Vérifie que CoverageAlignmentService est accessible depuis ankidraft.services.rag.coverage_alignment_service."""
+    from ankidraft.services.rag.coverage_alignment_service import (
         CoverageAlignmentService as RagCoverageAlignmentService,
     )
 
@@ -113,7 +113,7 @@ def test_colpkg_replacement_realigns_coverage_deterministically(tmp_path: Path, 
     4. Cartes sans tag de provenance laissées hors couverture sans erreur.
     """
     monkeypatch.setattr(
-        "ankiforge.services.cards.import_manager.backup_before_colpkg_import",
+        "ankidraft.services.cards.import_manager.backup_before_colpkg_import",
         lambda: tmp_path / "mock_backup.db",
     )
 

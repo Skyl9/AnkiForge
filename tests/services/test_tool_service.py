@@ -1,8 +1,8 @@
 import pytest
 
-from ankiforge.services.ai.state import PipelineRunState
-from ankiforge.services.tools.mcp_tool_service import MCPToolService
-from ankiforge.services.tools.tool_service import (
+from ankidraft.services.ai.state import PipelineRunState
+from ankidraft.services.tools.mcp_tool_service import MCPToolService
+from ankidraft.services.tools.tool_service import (
     ToolService,
     tool_clean_html_latex,
     tool_compute_metrics,

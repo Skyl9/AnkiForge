@@ -5,8 +5,8 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.ui.widgets.time_machine_dialog import DiffViewerWidget, TimeMachineDialog
+from ankidraft.database.models import NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.ui.widgets.time_machine_dialog import DiffViewerWidget, TimeMachineDialog
 
 pytestmark = pytest.mark.ui
 

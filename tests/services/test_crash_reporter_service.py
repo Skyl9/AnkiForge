@@ -11,10 +11,10 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.services.crash_reporter_service import (
+from ankidraft.services.crash_reporter_service import (
     CrashReporterService,
 )
-from ankiforge.services.feedback_service import SystemDiagnosticInfo
+from ankidraft.services.feedback_service import SystemDiagnosticInfo
 
 pytestmark = pytest.mark.unit
 
@@ -23,9 +23,9 @@ CRASH REPORT [2026-10-10 14:30:00 UTC] - Darwin-24.1.0-arm64 | Python 3.12.9
 Profil actif : test_profile
 ======================================================================
 Traceback (most recent call last):
-  File "src/ankiforge/ui/components/panels.py", line 739, in dragEnterEvent
+  File "src/ankidraft/ui/components/panels.py", line 739, in dragEnterEvent
     if tabs_mod._dragged_tab_info:
-AttributeError: module 'ankiforge.ui.components.tabs' has no attribute '_dragged_tab_info'
+AttributeError: module 'ankidraft.ui.components.tabs' has no attribute '_dragged_tab_info'
 """
 
 SAMPLE_CRASH_BLOCK_WITH_SECRETS = """======================================================================
@@ -33,7 +33,7 @@ CRASH REPORT [2026-10-10 15:00:00 UTC] - Linux-6.5.0-x86_64 | Python 3.12.9
 Profil actif : default
 ======================================================================
 Traceback (most recent call last):
-  File "src/ankiforge/services/ai.py", line 42, in query
+  File "src/ankidraft/services/ai.py", line 42, in query
     client = OpenAI(api_key="sk-abcdef1234567890abcdef1234567890")
 RuntimeError: Échec avec Bearer eyJhbGciOiJIUzI1NiJ9.secret12345
 """
@@ -118,7 +118,7 @@ class TestCrashReporterServiceLifecycle:
         def mock_set_value(key: str, val: object) -> None:
             mock_settings[key] = val
 
-        with patch("ankiforge.services.crash_reporter_service.get_app_qsettings") as mock_get_settings:
+        with patch("ankidraft.services.crash_reporter_service.get_app_qsettings") as mock_get_settings:
             mock_q = mock_get_settings.return_value
             mock_q.value.side_effect = mock_value
             mock_q.setValue.side_effect = mock_set_value
@@ -146,7 +146,7 @@ class TestCrashReporterServiceLifecycle:
             "feedback/last_acknowledged_crash_hash": "",
         }
 
-        with patch("ankiforge.services.crash_reporter_service.get_app_qsettings") as mock_get_settings:
+        with patch("ankidraft.services.crash_reporter_service.get_app_qsettings") as mock_get_settings:
             mock_q = mock_get_settings.return_value
             mock_q.value.side_effect = lambda k, d=None, type=None: mock_settings.get(k, d)
 

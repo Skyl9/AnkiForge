@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.utils.paths import (
+from ankidraft.utils.paths import (
     get_active_profile,
     get_app_data_dir,
     get_media_dir,
@@ -77,7 +77,7 @@ def test_ensure_media_decompressed(tmp_path):
     """Vérifie la décompression automatique des fichiers Zstandard (Anki v3)."""
     import zstandard as zstd
 
-    from ankiforge.utils.paths import ensure_media_decompressed
+    from ankidraft.utils.paths import ensure_media_decompressed
 
     raw_content = b"Contenu d'image PNG non compresse"
     cctx = zstd.ZstdCompressor()

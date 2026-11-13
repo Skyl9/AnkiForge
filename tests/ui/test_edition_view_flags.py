@@ -13,16 +13,16 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.cards.flag_service import FlagService
-from ankiforge.ui.models.note_table_model import NoteVirtualTableModel
-from ankiforge.ui.views.edition_view import EditionView
+from ankidraft.services.cards.flag_service import FlagService
+from ankidraft.ui.models.note_table_model import NoteVirtualTableModel
+from ankidraft.ui.views.edition_view import EditionView
 
 pytestmark = pytest.mark.ui
 

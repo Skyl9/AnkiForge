@@ -3,13 +3,13 @@ import json
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.cards.import_manager import ImportAnalysisResult, ImportManager
+from ankidraft.services.cards.import_manager import ImportAnalysisResult, ImportManager
 
 pytestmark = pytest.mark.integration
 

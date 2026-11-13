@@ -1,6 +1,6 @@
 import pytest
 
-from ankiforge.utils.anki_renderer import render_anki_card
+from ankidraft.utils.anki_renderer import render_anki_card
 
 pytestmark = pytest.mark.unit
 
@@ -108,7 +108,7 @@ def test_audio_sample_preview_renders_controls():
 
 def test_generate_preview_mock_fields_heuristic():
     """Vérifie que la fonction de génération de champs factices identifie correctement les types de champs."""
-    from ankiforge.ui.views.card_models_view.view import generate_preview_mock_fields
+    from ankidraft.ui.views.card_models_view.view import generate_preview_mock_fields
 
     fields = ["Front", "Back", "Audio", "Illustration", "MonScore", "Indice", "Texte"]
     mocks = generate_preview_mock_fields(fields)

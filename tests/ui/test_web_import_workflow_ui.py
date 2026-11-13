@@ -5,8 +5,8 @@ import uuid
 import pytest
 from PySide6.QtCore import QObject, Signal
 
-from ankiforge.database.models import DocumentModel
-from ankiforge.ui.views.documents_view import DocumentsView
+from ankidraft.database.models import DocumentModel
+from ankidraft.ui.views.documents_view import DocumentsView
 
 pytestmark = pytest.mark.ui
 
@@ -36,7 +36,7 @@ def test_web_import_flow_through_documents_view(qtbot, monkeypatch) -> None:
             self.cards_requested.emit(doc.id)
             return 1
 
-    monkeypatch.setattr("ankiforge.ui.views.documents_view.view.UrlImportDialog", StubDialog)
+    monkeypatch.setattr("ankidraft.ui.views.documents_view.view.UrlImportDialog", StubDialog)
 
     view = DocumentsView(ai_manager=None)
     qtbot.addWidget(view)

@@ -5,7 +5,7 @@ from PySide6.QtCore import QSize
 from PySide6.QtGui import QFont, QResizeEvent
 from PySide6.QtWidgets import QWidget
 
-from ankiforge.ui.components.elided_label import ElidedLabel
+from ankidraft.ui.components.elided_label import ElidedLabel
 
 pytestmark = pytest.mark.ui
 

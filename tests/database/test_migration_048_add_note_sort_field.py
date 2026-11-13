@@ -10,9 +10,9 @@ from pathlib import Path
 import peewee as pw
 import pytest
 
-from ankiforge.utils.anki_renderer import compute_sort_field, strip_html_for_sort
+from ankidraft.utils.anki_renderer import compute_sort_field, strip_html_for_sort
 
-mig_048 = importlib.import_module("ankiforge.database.migrations.048_add_note_sort_field")
+mig_048 = importlib.import_module("ankidraft.database.migrations.048_add_note_sort_field")
 
 
 @pytest.mark.unit

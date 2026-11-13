@@ -23,7 +23,7 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentModel,
@@ -31,10 +31,10 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.ui.main_window import MainWindow
-from ankiforge.ui.views.card_models_view import CardModelsView
-from ankiforge.ui.views.documents_view import DocumentsView
-from ankiforge.ui.views.edition_view import EditionView
+from ankidraft.ui.main_window import MainWindow
+from ankidraft.ui.views.card_models_view import CardModelsView
+from ankidraft.ui.views.documents_view import DocumentsView
+from ankidraft.ui.views.edition_view import EditionView
 
 pytestmark = pytest.mark.ui
 
@@ -90,7 +90,7 @@ def _install_mock_views(window: MainWindow) -> dict[str, Any]:
 
 def test_main_window_routes_mutation_to_domain_views_only(qtbot, mock_db: Any) -> None:
     """Seules les vues du domaine impacté sont réveillées par une mutation MCP."""
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="test_mcp_routing")
         qtbot.addWidget(window)
         mocks = _install_mock_views(window)
@@ -124,7 +124,7 @@ def test_main_window_routes_mutation_to_domain_views_only(qtbot, mock_db: Any) -
 
 def test_main_window_legacy_apply_patch_refreshes_card_models(qtbot, mock_db: Any) -> None:
     """Un patch legacy `type=model` atteint bien la vue des types de note."""
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="test_mcp_legacy")
         qtbot.addWidget(window)
         mocks = _install_mock_views(window)
@@ -139,7 +139,7 @@ def test_main_window_legacy_apply_patch_refreshes_card_models(qtbot, mock_db: An
 
 def test_main_window_prefers_granular_handler(qtbot, mock_db: Any) -> None:
     """`apply_mcp_mutation()` est préféré à `refresh_data()` lorsqu'il est exposé."""
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="test_mcp_granular")
         qtbot.addWidget(window)
         mocks = _install_mock_views(window)

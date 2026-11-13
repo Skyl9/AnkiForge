@@ -4,19 +4,19 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import (
+from ankidraft.ui.views.consultant_view.widgets.mcp_garde_fou_widget import (
     MCPGardeFouWidget,
 )
-from ankiforge.ui.views.consultant_view.widgets.mcp_supervision_widget import (
+from ankidraft.ui.views.consultant_view.widgets.mcp_supervision_widget import (
     MCPSupervisionWidget,
 )
-from ankiforge.ui.views.consultant_view.widgets.mcp_telemetry_widget import (
+from ankidraft.ui.views.consultant_view.widgets.mcp_telemetry_widget import (
     MCPTelemetryWidget,
 )
-from ankiforge.ui.views.consultant_view.widgets.mcp_tool_catalog_widget import (
+from ankidraft.ui.views.consultant_view.widgets.mcp_tool_catalog_widget import (
     MCPToolCatalogWidget,
 )
-from ankiforge.ui.views.consultant_view.widgets.mcp_workspace_guide_widget import (
+from ankidraft.ui.views.consultant_view.widgets.mcp_workspace_guide_widget import (
     MCPWorkspaceGuideWidget,
 )
 

@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PySide6.QtWidgets import QApplication, QHeaderView, QLineEdit, QMessageBox
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     LLMConfigModel,
@@ -21,9 +21,9 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.style_engine import get_style_engine
-from ankiforge.ui.widgets.settings_modal import (
+from ankidraft.services.settings_service import SettingsService
+from ankidraft.ui.style_engine import get_style_engine
+from ankidraft.ui.widgets.settings_modal import (
     AIEnginesTab,
     AnkiSyncTab,
     GeneralTab,
@@ -32,7 +32,7 @@ from ankiforge.ui.widgets.settings_modal import (
     StorageMaintenanceTab,
     TTSSettingsTab,
 )
-from ankiforge.utils import i18n
+from ankidraft.utils import i18n
 from tests.conftest import MINIMAL_VALID_MP3_BYTES
 
 pytestmark = pytest.mark.ui
@@ -93,7 +93,7 @@ def test_settings_modal_save_skips_when_no_changes(qtbot):
         patch.object(modal.anki_tab, "save_tab") as anki_save,
         patch.object(modal.tts_tab, "save_tab") as tts_save,
         patch.object(modal.maint_tab, "save_tab") as maint_save,
-        patch("ankiforge.ui.widgets.theme_transition_overlay.show_theme_transition") as transition,
+        patch("ankidraft.ui.widgets.theme_transition_overlay.show_theme_transition") as transition,
     ):
         modal._save_all()
 
@@ -123,8 +123,8 @@ def test_settings_modal_shows_saved_status_after_save(qtbot):
         patch.object(modal.anki_tab, "save_tab"),
         patch.object(modal.tts_tab, "save_tab"),
         patch.object(modal.maint_tab, "save_tab"),
-        patch("ankiforge.ui.widgets.settings_modal.modal.show_toast"),
-        patch("ankiforge.ui.widgets.theme_transition_overlay.show_theme_transition") as transition,
+        patch("ankidraft.ui.widgets.settings_modal.modal.show_toast"),
+        patch("ankidraft.ui.widgets.theme_transition_overlay.show_theme_transition") as transition,
     ):
         modal._save_all()
 
@@ -208,8 +208,8 @@ def test_general_tab_language_combo_lists_endonyms_and_stores_codes(qtbot):
 
 def test_general_tab_layout_grid_selection_and_persistence(qtbot):
     """Vérifie la sélection de layout via la grille de miniatures et sa persistance par profil."""
-    from ankiforge.ui.layouts.layout_manager import LayoutManager
-    from ankiforge.ui.widgets.settings_modal.components.layout_grid_selector import LayoutGridSelector
+    from ankidraft.ui.layouts.layout_manager import LayoutManager
+    from ankidraft.ui.widgets.settings_modal.components.layout_grid_selector import LayoutGridSelector
 
     LayoutManager.save_layout_id("default", "ide")
 
@@ -237,7 +237,7 @@ def test_general_tab_layout_grid_selection_and_persistence(qtbot):
 
 def test_general_tab_writes_the_two_appearance_axes(qtbot):
     """L'onglet persiste la Famille choisie et la Source du Mode, jamais une Variante."""
-    from ankiforge.ui.style_engine import ModeSource, get_style_engine
+    from ankidraft.ui.style_engine import ModeSource, get_style_engine
 
     engine = get_style_engine()
 
@@ -273,8 +273,8 @@ def test_general_tab_mode_change_preserves_the_selected_family(qtbot):
 
 def test_general_tab_prompt_crash_report_preference(qtbot):
     """Vérifie la persistance de la préférence de prompt de crash report dans GeneralTab."""
-    from ankiforge.services.crash_reporter_service import CrashReporterService
-    from ankiforge.utils.environment import get_app_qsettings
+    from ankidraft.services.crash_reporter_service import CrashReporterService
+    from ankidraft.utils.environment import get_app_qsettings
 
     settings = get_app_qsettings()
     settings.setValue("feedback/prompt_on_crash", True)
@@ -304,8 +304,8 @@ def test_general_tab_keeps_an_absent_family_absent_across_a_mode_change(qtbot):
     `dashboard`). Si l'onglet écrivait la première Famille de la liste, enregistrer le Mode
     suffirait à convertir « suit le layout » en choix explicite et à changer le rendu.
     """
-    from ankiforge.ui.layouts.layout_manager import LayoutManager
-    from ankiforge.ui.style_engine import ModeSource, get_style_engine
+    from ankidraft.ui.layouts.layout_manager import LayoutManager
+    from ankidraft.ui.style_engine import ModeSource, get_style_engine
 
     engine = get_style_engine()
     LayoutManager.save_layout_id("default", "dashboard")
@@ -329,7 +329,7 @@ def test_general_tab_keeps_a_family_unknown_to_the_library(qtbot):
     Sans entrée de repli, la Famille tomberait sur « aucune » et un simple changement de Mode
     la remplacerait définitivement en base.
     """
-    from ankiforge.ui.style_engine import AppearancePreference, ModeSource, get_style_engine
+    from ankidraft.ui.style_engine import AppearancePreference, ModeSource, get_style_engine
 
     engine = get_style_engine()
     engine.save_appearance_preference(
@@ -358,7 +358,7 @@ def test_general_tab_mode_source_offers_three_options(qtbot):
 
 def test_general_tab_system_source_displays_summary_and_neutral_families(qtbot):
     """Quand la Source est « Système », les familles sont neutres et le résumé séparé est visible."""
-    from ankiforge.ui.style_engine import AppearancePreference, ModeSource, force_system_mode_source, get_style_engine
+    from ankidraft.ui.style_engine import AppearancePreference, ModeSource, force_system_mode_source, get_style_engine
 
     engine = get_style_engine()
     force_system_mode_source(ModeSource.DARK)
@@ -388,7 +388,7 @@ def test_general_tab_system_source_displays_summary_and_neutral_families(qtbot):
 
 def test_general_tab_preserves_system_source_until_an_explicit_choice(qtbot):
     """« Système » survit à un simple changement de Famille : seul un choix manuel l'écrase."""
-    from ankiforge.ui.style_engine import AppearancePreference, ModeSource, get_style_engine
+    from ankidraft.ui.style_engine import AppearancePreference, ModeSource, get_style_engine
 
     engine = get_style_engine()
     engine.save_appearance_preference("default", AppearancePreference(family_id="nord", mode_source=ModeSource.SYSTEM, last_manual_mode=ModeSource.DARK))
@@ -422,11 +422,11 @@ def test_general_tab_update_channel_and_interval_persistence(qtbot, monkeypatch)
     """Vérifie la sélection et la persistance du canal et de la fréquence de vérification des màj."""
     from PySide6.QtCore import QSettings
 
-    from ankiforge.services.update_checker import SETTINGS_KEY_CHANNEL, SETTINGS_KEY_CHECK_INTERVAL
+    from ankidraft.services.update_checker import SETTINGS_KEY_CHANNEL, SETTINGS_KEY_CHECK_INTERVAL
 
     temp_settings = QSettings("AnkiForgeTest", "UpdateIntervalTest")
     temp_settings.clear()
-    monkeypatch.setattr("ankiforge.utils.environment.get_app_qsettings", lambda *args, **kwargs: temp_settings)
+    monkeypatch.setattr("ankidraft.utils.environment.get_app_qsettings", lambda *args, **kwargs: temp_settings)
 
     tab = GeneralTab()
     qtbot.addWidget(tab)
@@ -564,7 +564,7 @@ def test_ai_engines_tab_restores_keys_from_keyring_and_validates(qtbot):
             return "sk-or-v1-abcdef1234567890"
         return None
 
-    with patch("ankiforge.utils.secret_store.load_llm_key", side_effect=_mock_load_key):
+    with patch("ankidraft.utils.secret_store.load_llm_key", side_effect=_mock_load_key):
         tab = AIEnginesTab()
         qtbot.addWidget(tab)
 
@@ -576,7 +576,7 @@ def test_ai_engines_tab_restores_keys_from_keyring_and_validates(qtbot):
 
         # 2. Ajout rapide d'un moteur sans retaper la clé : héritage de la clé du trousseau
         tab.key_edits["opencode"].setText("")
-        with patch("ankiforge.utils.secret_store.store_llm_key", return_value=True):
+        with patch("ankidraft.utils.secret_store.store_llm_key", return_value=True):
             tab._quick_add_engine("OpenCode Restored", "opencode", "deepseek-v4-flash", False)
             created = LLMConfigModel.select().where((LLMConfigModel.provider == "opencode") & (LLMConfigModel.model_id == "deepseek-v4-flash")).first()
             assert created is not None
@@ -590,7 +590,7 @@ def test_ai_engines_tab_key_test_surfaces_save_failure_without_crashing(qtbot):
     qtbot.addWidget(tab)
     tab.key_edits["openai"].setText("sk-proj-1234567890abcdef1234567890")
 
-    with patch("ankiforge.utils.secret_store.store_llm_key", return_value=False), patch("ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab.show_toast") as toast:
+    with patch("ankidraft.utils.secret_store.store_llm_key", return_value=False), patch("ankidraft.ui.widgets.settings_modal.tabs.ai_engines_tab.show_toast") as toast:
         tab._test_cloud_key("openai", "OpenAI")
 
     toast.assert_called_once()
@@ -655,7 +655,7 @@ def test_storage_maintenance_tab_actions(qtbot):
     assert tab.table_backups.horizontalHeader().sectionResizeMode(4) == QHeaderView.ResizeMode.Fixed
     assert tab.table_backups.columnWidth(4) == 110
     fake_b = MagicMock(created_at=datetime.datetime.now(), size_bytes=2048, is_prerestore=False, is_valid=True)
-    with patch("ankiforge.ui.widgets.settings_modal.tabs.storage_tab.list_profile_backups", return_value=[fake_b]):
+    with patch("ankidraft.ui.widgets.settings_modal.tabs.storage_tab.list_profile_backups", return_value=[fake_b]):
         tab.refresh_metrics()
         btn = tab.table_backups.cellWidget(0, 4)
         assert btn is not None
@@ -685,12 +685,12 @@ def test_storage_maintenance_tab_actions(qtbot):
         assert not NoteVersionModel.select().where(NoteVersionModel.id == nv.id).exists()
 
     # 5. Snapshot Backup
-    with patch("ankiforge.ui.widgets.settings_modal.backup_database") as mock_backup:
+    with patch("ankidraft.ui.widgets.settings_modal.backup_database") as mock_backup:
         tab._create_snapshot()
         mock_backup.assert_called_once()
 
     # 6. Purge cache audio TTS
-    with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes), patch("ankiforge.services.cards.tts_service.get_tts_service") as mock_get_tts:
+    with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes), patch("ankidraft.services.cards.tts_service.get_tts_service") as mock_get_tts:
         mock_svc = MagicMock()
         mock_svc.purge_audio_cache.return_value = (3, 1024 * 1024)
         mock_get_tts.return_value = mock_svc
@@ -748,8 +748,8 @@ def test_tts_settings_tab_actions(qtbot, tmp_path):
 
     # Vérification des callbacks installateur et rafraîchissement UI (Ticket 6)
     with (
-        patch("ankiforge.services.cards.tts_service.PiperSidecarProvider.get_piper_executable", return_value="/usr/local/bin/piper"),
-        patch("ankiforge.services.cards.tts_service.PiperSidecarProvider.is_functional", return_value=(True, "OK")),
+        patch("ankidraft.services.cards.tts_service.PiperSidecarProvider.get_piper_executable", return_value="/usr/local/bin/piper"),
+        patch("ankidraft.services.cards.tts_service.PiperSidecarProvider.is_functional", return_value=(True, "OK")),
         patch.object(tab, "_populate_engines") as mock_pop,
         patch.object(tab, "_on_engine_changed") as mock_eng_changed,
     ):
@@ -764,8 +764,8 @@ def test_tts_settings_tab_actions(qtbot, tmp_path):
 
     # Vérification que même avec un message d'erreur d'architecture très long, la largeur du contenu reste contenue (< 650px)
     with (
-        patch("ankiforge.services.cards.tts_service.PiperSidecarProvider.get_piper_executable", return_value="/usr/local/bin/piper"),
-        patch("ankiforge.services.cards.tts_service.PiperSidecarProvider.is_functional", return_value=(False, "[Errno 86] Bad CPU type in executable: " + "path/" * 25)),
+        patch("ankidraft.services.cards.tts_service.PiperSidecarProvider.get_piper_executable", return_value="/usr/local/bin/piper"),
+        patch("ankidraft.services.cards.tts_service.PiperSidecarProvider.is_functional", return_value=(False, "[Errno 86] Bad CPU type in executable: " + "path/" * 25)),
     ):
         tab._update_piper_status_ui()
         assert tab.content_widget.sizeHint().width() <= 650
@@ -824,7 +824,7 @@ def test_tts_settings_tab_collapsible_sections_sync(qtbot):
 
 def test_tts_settings_tab_kokoro_integration(qtbot):
     """Vérifie la détection dynamique de Kokoro, son statut et les callbacks d'installation."""
-    with patch("ankiforge.services.cards.tts_service.KokoroSidecarProvider.is_functional", return_value=(False, "Absent")):
+    with patch("ankidraft.services.cards.tts_service.KokoroSidecarProvider.is_functional", return_value=(False, "Absent")):
         tab = TTSSettingsTab()
         qtbot.addWidget(tab)
 
@@ -841,7 +841,7 @@ def test_tts_settings_tab_kokoro_integration(qtbot):
         if tab._discovery_worker and tab._discovery_worker.isRunning():
             tab._discovery_worker.wait(1000)
 
-    with patch("ankiforge.services.cards.tts_service.KokoroSidecarProvider.is_functional", return_value=(True, "Opérationnel")):
+    with patch("ankidraft.services.cards.tts_service.KokoroSidecarProvider.is_functional", return_value=(True, "Opérationnel")):
         tab2 = TTSSettingsTab()
         qtbot.addWidget(tab2)
         engine_ids2 = [tab2.cb_engine.itemData(i) for i in range(tab2.cb_engine.count())]
@@ -860,9 +860,9 @@ def test_tts_settings_tab_kokoro_integration(qtbot):
 
     # Troisième cas : Runner présent mais modèles ONNX manquants (Statut Partiel)
     with (
-        patch("ankiforge.services.cards.tts_service.KokoroSidecarProvider.is_functional", return_value=(False, "Modèles ONNX manquants")),
-        patch("ankiforge.services.cards.tts_service.KokoroSidecarProvider.has_runner", return_value=True),
-        patch("ankiforge.services.cards.tts_service.KokoroSidecarProvider.has_models", return_value=False),
+        patch("ankidraft.services.cards.tts_service.KokoroSidecarProvider.is_functional", return_value=(False, "Modèles ONNX manquants")),
+        patch("ankidraft.services.cards.tts_service.KokoroSidecarProvider.has_runner", return_value=True),
+        patch("ankidraft.services.cards.tts_service.KokoroSidecarProvider.has_models", return_value=False),
     ):
         tab3 = TTSSettingsTab()
         qtbot.addWidget(tab3)
@@ -904,10 +904,10 @@ def test_ai_engines_tab_save_syncs_models_and_reloads_provider(qtbot):
 
 def test_flexible_service_empty_credentials_fallback():
     """Vérifie que create_provider replie gracieusement sur MockProvider quand aucune clé n'est configurée."""
-    from ankiforge.services.ai.base import MockProvider
-    from ankiforge.services.ai.flexible_service import AIManager
+    from ankidraft.services.ai.base import MockProvider
+    from ankidraft.services.ai.flexible_service import AIManager
 
-    with patch("ankiforge.services.settings_service.SettingsService.get", return_value=""), patch.dict("os.environ", {}, clear=False):
+    with patch("ankidraft.services.settings_service.SettingsService.get", return_value=""), patch.dict("os.environ", {}, clear=False):
         # Clé vide pour OpenAI -> MockProvider au lieu d'exception
         p_openai = AIManager.create_provider("openai", "gpt-4o", api_key="")
         assert isinstance(p_openai, MockProvider)
@@ -919,7 +919,7 @@ def test_flexible_service_empty_credentials_fallback():
 
 def test_katex_editor_text_under_cursor_multiline(qtbot):
     """Vérifie que textUnderCursor ne lève pas IndexError sur un document multiligne."""
-    from ankiforge.ui.widgets.katex_editor import KaTeXTextEdit
+    from ankidraft.ui.widgets.katex_editor import KaTeXTextEdit
 
     editor = KaTeXTextEdit()
     qtbot.addWidget(editor)
@@ -958,7 +958,7 @@ def test_general_tab_option_buttons_are_named_and_identifiable(qtbot):
 
 def test_general_tab_check_updates_retains_worker(qtbot):
     """Vérifie que GeneralTab retient bien le worker et le libère une fois terminé."""
-    from ankiforge.services.update_checker import UpdateInfo
+    from ankidraft.services.update_checker import UpdateInfo
 
     tab = GeneralTab()
     qtbot.addWidget(tab)
@@ -980,7 +980,7 @@ def test_general_tab_check_updates_retains_worker(qtbot):
             published_at="2026-09-12T00:00:00Z",
             channel="stable",
         )
-        with patch("ankiforge.ui.dialogs.update_dialog.UpdateDialog.exec"):
+        with patch("ankidraft.ui.dialogs.update_dialog.UpdateDialog.exec"):
             tab._update_worker.signals.update_available.emit(info)
 
         assert tab._update_worker is None
@@ -1002,7 +1002,7 @@ def test_collapsible_section_defaults_collapsed_and_toggles(qtbot):
     """La section repliable est masquée par défaut et son contenu suit l'état replié."""
     from PySide6.QtWidgets import QLabel
 
-    from ankiforge.ui.widgets.settings_modal.components import CollapsibleSection
+    from ankidraft.ui.widgets.settings_modal.components import CollapsibleSection
 
     section = CollapsibleSection("Options avancées")
     qtbot.addWidget(section)
@@ -1035,7 +1035,7 @@ def test_ai_engines_tab_advanced_sections_are_collapsed_by_default(qtbot):
 
 def test_settings_modal_dirty_check_triggers_zero_db_queries(qtbot):
     """Vérifie que la surveillance périodique de dirty checking n'émet AUCUNE requête SQL en BDD."""
-    from ankiforge.database.base import db
+    from ankidraft.database.base import db
 
     modal = SettingsModal()
     qtbot.addWidget(modal)
@@ -1156,8 +1156,8 @@ def test_settings_modal_select_tab_activation_guard(qtbot):
 
 def test_settings_nav_buttons_style(qtbot):
     """Les boutons de navigation latérale de la modale des paramètres conservent leur style sobre épuré avec liseré accentué."""
-    from ankiforge.ui.theme import DesignTokens
-    from ankiforge.ui.widgets.settings_modal.components import SettingsNavButton
+    from ankidraft.ui.theme import DesignTokens
+    from ankidraft.ui.widgets.settings_modal.components import SettingsNavButton
 
     btn = SettingsNavButton("Test", "ph.gear", 0)
     qtbot.addWidget(btn)
@@ -1205,7 +1205,7 @@ def test_settings_modal_tabs_no_horizontal_scrollbar(qtbot: Any, size: tuple[int
     """Aux tailles 820x560 et 880x620, le contenu des 4 onglets s'adapte sans imposer de barre de défilement horizontale."""
     from PySide6.QtWidgets import QScrollArea
 
-    with patch("ankiforge.utils.environment.is_development", return_value=True):
+    with patch("ankidraft.utils.environment.is_development", return_value=True):
         modal = SettingsModal()
         qtbot.addWidget(modal)
         modal.resize(*size)
@@ -1225,7 +1225,7 @@ def test_settings_modal_tabs_no_horizontal_scrollbar(qtbot: Any, size: tuple[int
 
         # Sur l'onglet Général, vérifier que les cartes de layout conservent leurs informations visibles
         if tab_index == 0:
-            from ankiforge.ui.widgets.settings_modal.components.layout_grid_selector import LayoutGridSelector
+            from ankidraft.ui.widgets.settings_modal.components.layout_grid_selector import LayoutGridSelector
 
             selector = tab.findChild(LayoutGridSelector)
             if selector:

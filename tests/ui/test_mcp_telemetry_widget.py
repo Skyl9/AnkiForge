@@ -8,8 +8,8 @@ import pytest
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QTableWidget
 
-from ankiforge.services.ai.mcp_tracker import MCPActivityTracker
-from ankiforge.ui.views.consultant_view.widgets.mcp_telemetry_widget import (
+from ankidraft.services.ai.mcp_tracker import MCPActivityTracker
+from ankidraft.ui.views.consultant_view.widgets.mcp_telemetry_widget import (
     MCPTelemetryWidget,
 )
 
@@ -264,7 +264,7 @@ def test_mcp_telemetry_widget_realtime_update_of_selected_call(qtbot, custom_tra
 
 def test_mcp_telemetry_widget_refresh_theme(qtbot, custom_tracker: MCPActivityTracker) -> None:
     """Vérifie que refresh_theme applique les styles sans lever d'exception."""
-    from ankiforge.ui.style_engine import JETBRAINS_LIGHT
+    from ankidraft.ui.style_engine import JETBRAINS_LIGHT
 
     widget = MCPTelemetryWidget(tracker=custom_tracker)
     qtbot.addWidget(widget)

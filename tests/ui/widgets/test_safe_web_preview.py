@@ -8,7 +8,7 @@ from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
 from PySide6.QtWidgets import QWidget
 from pytestqt.qtbot import QtBot
 
-from ankiforge.ui.widgets.safe_web_preview import (
+from ankidraft.ui.widgets.safe_web_preview import (
     AnkiForgeWebProfile,
     SafeWebEnginePage,
     SafeWebEngineView,
@@ -46,11 +46,11 @@ def test_safe_web_engine_page_security_and_actions(qtbot: QtBot) -> None:
     assert page.javaScriptConfirm(QUrl("https://example.com"), "Test confirm") is False
     assert page.javaScriptPrompt(QUrl("https://example.com"), "Test prompt", "default") == (False, "")
 
-    # 2. Interception du protocole applicatif ankiforge://
+    # 2. Interception du protocole applicatif ankidraft://
     actions_received: list[tuple[str, dict]] = []
     page.action_requested.connect(lambda action, params: actions_received.append((action, params)))
 
-    test_url = QUrl("ankiforge://inject/A/Recto")
+    test_url = QUrl("ankidraft://inject/A/Recto")
     handled = page.acceptNavigationRequest(test_url, QWebEnginePage.NavigationType.NavigationTypeLinkClicked, True)
 
     assert handled is False  # La navigation Chromium normale doit être annulée

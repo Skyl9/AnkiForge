@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from PySide6.QtCore import Qt
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     DocumentChunkModel,
     DocumentModel,
@@ -19,12 +19,12 @@ from ankiforge.database.models import (
     PipelineModel,
     PipelineStepModel,
 )
-from ankiforge.services.ai.base import LLMProvider
-from ankiforge.ui.dialogs.human_validation_dialog import HumanValidationDialog
-from ankiforge.ui.views.creation_view import CreationView
-from ankiforge.ui.views.creation_view.dialogs import CardEditDialog
-from ankiforge.ui.views.creation_view.widgets.document_editor import DocumentEditorWidget
-from ankiforge.utils.tags import clean_source_slug
+from ankidraft.services.ai.base import LLMProvider
+from ankidraft.ui.dialogs.human_validation_dialog import HumanValidationDialog
+from ankidraft.ui.views.creation_view import CreationView
+from ankidraft.ui.views.creation_view.dialogs import CardEditDialog
+from ankidraft.ui.views.creation_view.widgets.document_editor import DocumentEditorWidget
+from ankidraft.utils.tags import clean_source_slug
 
 pytestmark = pytest.mark.ui
 
@@ -55,7 +55,7 @@ def test_creation_view_creation(qtbot: Any, mock_db: Any) -> None:
 
 def test_creation_view_create_new_deck_via_dialog_hierarchical(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
     """Le « Nouveau Paquet » du Studio ouvre CreateDeckDialog et crée la hiérarchie complète."""
-    from ankiforge.ui.dialogs.create_deck_dialog import CreateDeckDialog
+    from ankidraft.ui.dialogs.create_deck_dialog import CreateDeckDialog
 
     uid = uuid.uuid4().hex[:6]
     view = CreationView(ai_manager=None)
@@ -65,7 +65,7 @@ def test_creation_view_create_new_deck_via_dialog_hierarchical(qtbot: Any, mock_
 
     new_name = f"Maths_{uid}::Algebre_{uid}::Polynomes_{uid}"
     toasts: list[str] = []
-    monkeypatch.setattr("ankiforge.ui.views.creation_view.view.show_toast", lambda parent, msg, **kwargs: toasts.append(msg))
+    monkeypatch.setattr("ankidraft.ui.views.creation_view.view.show_toast", lambda parent, msg, **kwargs: toasts.append(msg))
 
     dialog_opened = False
 
@@ -106,7 +106,7 @@ def test_creation_view_create_new_deck_via_dialog_hierarchical(qtbot: Any, mock_
 
 def test_creation_view_create_deck_dialog_rejected(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
     """Si l'utilisateur annule CreateDeckDialog, le paquet courant et le cache restent inchangés."""
-    from ankiforge.ui.dialogs.create_deck_dialog import CreateDeckDialog
+    from ankidraft.ui.dialogs.create_deck_dialog import CreateDeckDialog
 
     view = CreationView(ai_manager=None)
     qtbot.addWidget(view)
@@ -196,7 +196,7 @@ def test_creation_view_dag_generation_flow(qtbot: Any, mock_db: Any) -> None:
 
 def test_human_validation_dialog(qtbot: Any, mock_db: Any) -> None:
     """Vérifie le fonctionnement de la modale HumanValidationDialog."""
-    from ankiforge.services.ai.state import PipelineRunState
+    from ankidraft.services.ai.state import PipelineRunState
 
     state = PipelineRunState()
     state.set_variable("last_output", {"concepts_cles": ["Concept 1", "Concept 2"]})
@@ -497,7 +497,7 @@ def test_validate_and_reject_card_feedback(qtbot: Any, mock_db: Any, monkeypatch
 
     et mettent à jour le badge d'état in-situ dans FlashcardPreview.
     """
-    from ankiforge.ui.widgets.toast import ToastManager
+    from ankidraft.ui.widgets.toast import ToastManager
 
     view = CreationView(ai_manager=None)
     qtbot.addWidget(view)
@@ -518,7 +518,7 @@ def test_validate_and_reject_card_feedback(qtbot: Any, mock_db: Any, monkeypatch
     def mock_show_toast(parent: Any, msg: str, *args: Any, **kwargs: Any) -> None:
         toasts_emitted.append(msg)
 
-    monkeypatch.setattr("ankiforge.ui.views.creation_view.view.show_toast", mock_show_toast)
+    monkeypatch.setattr("ankidraft.ui.views.creation_view.view.show_toast", mock_show_toast)
 
     # 1. Validation de la 1ère carte
     view._on_validate_card()
@@ -949,7 +949,7 @@ def test_creation_view_load_context_retains_chunk_and_page(qtbot: Any, mock_db: 
 
 def test_document_scope_dialog_sections_restoration(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que DocumentScopeDialog restaure fidèlement le mode sections et l'état des cases cochées."""
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -1003,7 +1003,7 @@ def test_document_scope_dialog_sections_restoration(qtbot: Any, mock_db: Any) ->
 
 def test_creation_view_second_generation_with_sections_selection(qtbot: Any, mock_db: Any) -> None:
     """Vérifie qu'une deuxième génération dans CreationView conserve fidèlement la sélection par section."""
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
     uid = uuid.uuid4().hex[:6]
     deck = DeckModel.create(name=f"Deck Test {uid}")
@@ -1154,7 +1154,7 @@ def test_creation_view_multi_selection_and_mark_all(qtbot: Any, mock_db: Any) ->
 
 def test_creation_view_logs_and_stores_thought(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que CreationView journalise [REASONING] et active la consultation des réflexions avec sanitisation."""
-    from ankiforge.services.ai.state import PipelineRunState
+    from ankidraft.services.ai.state import PipelineRunState
 
     view = CreationView(ai_manager=None)
     qtbot.addWidget(view)
@@ -1183,7 +1183,7 @@ def test_creation_view_logs_and_stores_thought(qtbot: Any, mock_db: Any) -> None
 
 def test_reasoning_viewer_dialog(qtbot: Any) -> None:
     """Vérifie l'affichage et l'interaction avec ReasoningViewerDialog."""
-    from ankiforge.ui.views.creation_view.dialogs import ReasoningViewerDialog
+    from ankidraft.ui.views.creation_view.dialogs import ReasoningViewerDialog
 
     thoughts = {
         1: "Penser aux questions clés avec sk-ant-abcdefghijklmnop1234.",
@@ -1248,7 +1248,7 @@ def test_creation_view_long_document_title_does_not_overflow_config_panel(qtbot:
 
 def test_creation_view_temperature_slider_sync_and_start_generation(qtbot: Any, mock_db: Any, monkeypatch: Any) -> None:
     """Vérifie que la sélection d'un moteur synchronise le slider de température et que start_generation l'injecte dans le state."""
-    from ankiforge.services.ai.orchestrator import PipelineOrchestrator
+    from ankidraft.services.ai.orchestrator import PipelineOrchestrator
 
     uid = uuid.uuid4().hex[:6]
     deck = DeckModel.create(name=f"Deck Temp {uid}")

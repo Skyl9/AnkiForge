@@ -7,9 +7,9 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel
-from ankiforge.services.cards.bulk_hygiene_service import TagCluster, TagFrequency
-from ankiforge.ui.dialogs.tag_hygiene_dialog import TagClusterCard, TagHygieneDialog
+from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel
+from ankidraft.services.cards.bulk_hygiene_service import TagCluster, TagFrequency
+from ankidraft.ui.dialogs.tag_hygiene_dialog import TagClusterCard, TagHygieneDialog
 
 pytestmark = pytest.mark.ui
 

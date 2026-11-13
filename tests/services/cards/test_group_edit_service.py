@@ -5,16 +5,16 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.cards.group_edit_service import (
+from ankidraft.services.cards.group_edit_service import (
     GroupEditOptions,
     GroupEditService,
 )
-from ankiforge.utils.tags import parse_note_tags
+from ankidraft.utils.tags import parse_note_tags
 
 pytestmark = pytest.mark.integration
 

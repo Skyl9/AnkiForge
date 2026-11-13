@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.services.auto_updater import (
+from ankidraft.services.auto_updater import (
     MAX_DOWNLOAD_SIZE_BYTES,
     UpdateDownloaderWorker,
     _validate_download_url,
@@ -43,7 +43,7 @@ def test_find_asset_for_current_platform() -> None:
 
 def test_validate_update_file_confinement_success(tmp_path: Path) -> None:
     """Vérifie qu'un fichier légitime situé dans le dossier de mises à jour est accepté."""
-    with patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path):
+    with patch("ankidraft.services.auto_updater.get_updates_storage_dir", return_value=tmp_path):
         valid_file = tmp_path / "AnkiForge-Update.dmg"
         valid_file.write_bytes(b"test binary content")
 
@@ -62,7 +62,7 @@ def test_validate_update_file_confinement_rejects_path_traversal(tmp_path: Path)
     outside_file.write_bytes(b"malicious")
 
     with (
-        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=trusted_dir),
+        patch("ankidraft.services.auto_updater.get_updates_storage_dir", return_value=trusted_dir),
         pytest.raises(ValueError, match="Alerte de sécurité : Le fichier .* est situé hors du répertoire sécurisé"),
     ):
         validate_update_file_confinement(outside_file)
@@ -80,7 +80,7 @@ def test_validate_update_file_confinement_rejects_symlink(tmp_path: Path) -> Non
         pytest.skip("Les liens symboliques ne sont pas supportés sur ce système.")
 
     with (
-        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+        patch("ankidraft.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
         pytest.raises(ValueError, match="est un lien symbolique non autorisé"),
     ):
         validate_update_file_confinement(symlink_file)
@@ -136,7 +136,7 @@ def test_downloader_rejects_oversized_content_length(tmp_path: Path) -> None:
 
     with (
         patch("requests.get", return_value=fake_response),
-        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+        patch("ankidraft.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
     ):
         worker.run()
 
@@ -171,7 +171,7 @@ def test_downloader_worker_streams_and_computes_sha256(tmp_path: Path) -> None:
 
     with (
         patch("requests.get", return_value=fake_response),
-        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+        patch("ankidraft.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
     ):
         worker.run()
 
@@ -241,7 +241,7 @@ def test_downloader_worker_verifies_valid_signature_and_sha256(tmp_path: Path) -
 
     with (
         patch("requests.get", side_effect=fake_requests_get),
-        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+        patch("ankidraft.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
     ):
         worker.run()
 
@@ -288,7 +288,7 @@ def test_downloader_worker_fail_closed_on_invalid_signature(tmp_path: Path) -> N
 
     with (
         patch("requests.get", side_effect=fake_requests_get),
-        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+        patch("ankidraft.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
     ):
         worker.run()
 
@@ -309,7 +309,7 @@ def test_downloader_worker_fail_closed_on_missing_signature_files(tmp_path: Path
     errors: list[str] = []
     worker.signals.download_error.connect(lambda err: errors.append(err))
 
-    with patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path):
+    with patch("ankidraft.services.auto_updater.get_updates_storage_dir", return_value=tmp_path):
         worker.run()
 
     assert len(errors) == 1
@@ -361,7 +361,7 @@ def test_legitimate_official_release_update_succeeds(tmp_path: Path) -> None:
 
     with (
         patch("requests.get", side_effect=fake_requests_get),
-        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+        patch("ankidraft.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
     ):
         worker.run()
 
@@ -407,7 +407,7 @@ def test_release_without_signature_rejected_on_sha256_mismatch_and_purges(tmp_pa
 
     with (
         patch("requests.get", side_effect=fake_requests_get),
-        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+        patch("ankidraft.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
     ):
         worker.run()
 
@@ -461,7 +461,7 @@ def test_downloader_worker_fail_closed_on_sha256_mismatch_and_purges_file(tmp_pa
 
     with (
         patch("requests.get", side_effect=fake_requests_get),
-        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+        patch("ankidraft.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
     ):
         worker.run()
 
@@ -474,7 +474,7 @@ def test_downloader_worker_fail_closed_on_sha256_mismatch_and_purges_file(tmp_pa
 
 def test_apply_update_and_restart_dev_mode_safety(tmp_path: Path) -> None:
     """Vérifie que le mode développement est strictement préservé sans altération système."""
-    with patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path):
+    with patch("ankidraft.services.auto_updater.get_updates_storage_dir", return_value=tmp_path):
         dummy_file = tmp_path / "dummy_update.bin"
         dummy_file.write_bytes(b"content")
 
@@ -507,14 +507,14 @@ def test_apply_update_and_restart_macos_detache_attend_mort_pid(tmp_path: Path) 
     popen_mock = MagicMock()
 
     with (
-        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
-        patch("ankiforge.services.auto_updater.platform.system", return_value="Darwin"),
-        patch("ankiforge.services.auto_updater.validate_update_file_confinement", return_value=fake_update),
-        patch("ankiforge.services.auto_updater.is_standalone_app", return_value=True),
-        patch("ankiforge.services.auto_updater.os.getpid", return_value=4242),
-        patch("ankiforge.services.auto_updater._find_current_macos_app_bundle", return_value=dest_app),
-        patch("ankiforge.services.auto_updater.subprocess.run", run_mock),
-        patch("ankiforge.services.auto_updater.subprocess.Popen", popen_mock),
+        patch("ankidraft.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+        patch("ankidraft.services.auto_updater.platform.system", return_value="Darwin"),
+        patch("ankidraft.services.auto_updater.validate_update_file_confinement", return_value=fake_update),
+        patch("ankidraft.services.auto_updater.is_standalone_app", return_value=True),
+        patch("ankidraft.services.auto_updater.os.getpid", return_value=4242),
+        patch("ankidraft.services.auto_updater._find_current_macos_app_bundle", return_value=dest_app),
+        patch("ankidraft.services.auto_updater.subprocess.run", run_mock),
+        patch("ankidraft.services.auto_updater.subprocess.Popen", popen_mock),
     ):
         success, msg = apply_update_and_restart(fake_update)
 
@@ -546,13 +546,13 @@ def test_apply_update_and_restart_linux_detache_attend_mort_pid(tmp_path: Path, 
     monkeypatch.setenv("APPIMAGE", str(target_appimage))
 
     with (
-        patch("ankiforge.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
-        patch("ankiforge.services.auto_updater.platform.system", return_value="Linux"),
-        patch("ankiforge.services.auto_updater.validate_update_file_confinement", return_value=fake_update),
-        patch("ankiforge.services.auto_updater.is_standalone_app", return_value=True),
-        patch("ankiforge.services.auto_updater.os.getpid", return_value=7777),
-        patch("ankiforge.services.auto_updater.os.replace", replace_mock),
-        patch("ankiforge.services.auto_updater.subprocess.Popen", popen_mock),
+        patch("ankidraft.services.auto_updater.get_updates_storage_dir", return_value=tmp_path),
+        patch("ankidraft.services.auto_updater.platform.system", return_value="Linux"),
+        patch("ankidraft.services.auto_updater.validate_update_file_confinement", return_value=fake_update),
+        patch("ankidraft.services.auto_updater.is_standalone_app", return_value=True),
+        patch("ankidraft.services.auto_updater.os.getpid", return_value=7777),
+        patch("ankidraft.services.auto_updater.os.replace", replace_mock),
+        patch("ankidraft.services.auto_updater.subprocess.Popen", popen_mock),
     ):
         success, msg = apply_update_and_restart(fake_update)
 

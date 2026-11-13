@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.services.cards.flag_service import FlagService
-from ankiforge.utils.event_bus import FlagLabelsUpdatedEvent, event_bus
+from ankidraft.services.cards.flag_service import FlagService
+from ankidraft.utils.event_bus import FlagLabelsUpdatedEvent, event_bus
 
 pytestmark = pytest.mark.integration
 

@@ -11,9 +11,9 @@ import json
 
 import pytest
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.services.ai.linter import WozniakLinterEngine
-from ankiforge.services.ai.mcp_tool_registry import (
+from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.services.ai.linter import WozniakLinterEngine
+from ankidraft.services.ai.mcp_tool_registry import (
     MCP_TOOLS,
     ConsultantToolRegistry,
     MCPToolRegistry,
@@ -112,7 +112,7 @@ def test_mcp_tool_registry_get_collection_panorama_360(mock_db):
 
 
 # =====================================================================
-# TESTS RESOURCE MCP : INTROSPECTION DE SCHÉMA (ankiforge://schema/{table})
+# TESTS RESOURCE MCP : INTROSPECTION DE SCHÉMA (ankidraft://schema/{table})
 # =====================================================================
 
 

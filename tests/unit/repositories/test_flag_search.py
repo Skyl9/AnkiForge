@@ -7,15 +7,15 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.repositories.note_repository import NoteRepository
-from ankiforge.services.cards.flag_service import FlagService
+from ankidraft.repositories.note_repository import NoteRepository
+from ankidraft.services.cards.flag_service import FlagService
 
 pytestmark = pytest.mark.integration
 

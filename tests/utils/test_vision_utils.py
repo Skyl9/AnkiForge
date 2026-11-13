@@ -2,7 +2,7 @@ import base64
 
 import pytest
 
-from ankiforge.utils.vision_utils import (
+from ankidraft.utils.vision_utils import (
     _encode_image_base64,
     prepare_multimodal_payload,
     strip_image_tags,

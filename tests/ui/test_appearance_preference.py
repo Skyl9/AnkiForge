@@ -11,11 +11,11 @@ from collections.abc import Iterator
 
 import pytest
 
-from ankiforge.database.models import SettingModel
-from ankiforge.ui.layouts.layout_manager import LayoutManager
-from ankiforge.ui.style_engine import ModeSource, StyleEngine, ThemeFamily, get_style_engine
-from ankiforge.ui.style_engine.appearance import AppearancePreference
-from ankiforge.utils.environment import get_app_qsettings
+from ankidraft.database.models import SettingModel
+from ankidraft.ui.layouts.layout_manager import LayoutManager
+from ankidraft.ui.style_engine import ModeSource, StyleEngine, ThemeFamily, get_style_engine
+from ankidraft.ui.style_engine.appearance import AppearancePreference
+from ankidraft.utils.environment import get_app_qsettings
 
 pytestmark = pytest.mark.ui
 
@@ -26,7 +26,7 @@ MANUAL_SOURCES = (ModeSource.DARK, ModeSource.LIGHT)
 @pytest.fixture(autouse=True)
 def clear_appearance_store() -> Iterator[None]:
     """Isole la BDD et le QSettings scopé « obsidian » où vivent les préférences d'apparence."""
-    from ankiforge.ui.style_engine import appearance
+    from ankidraft.ui.style_engine import appearance
 
     appearance.release_system_mode_source()
     get_app_qsettings("obsidian").clear()
@@ -61,7 +61,7 @@ def test_manual_mode_source_forces_the_regime(source: ModeSource) -> None:
 
 
 def test_system_source_uses_the_regime_declared_by_the_platform() -> None:
-    from ankiforge.ui.style_engine import appearance
+    from ankidraft.ui.style_engine import appearance
 
     engine = get_style_engine()
     appearance.force_system_mode_source(ModeSource.LIGHT)
@@ -74,7 +74,7 @@ def test_system_source_uses_the_regime_declared_by_the_platform() -> None:
 
 
 def test_system_source_falls_back_to_last_manual_mode_when_platform_declares_nothing() -> None:
-    from ankiforge.ui.style_engine import appearance
+    from ankidraft.ui.style_engine import appearance
 
     engine = get_style_engine()
     appearance.release_system_mode_source()
@@ -86,7 +86,7 @@ def test_system_source_falls_back_to_last_manual_mode_when_platform_declares_not
 
 
 def test_manual_mode_source_ignores_the_platform_regime() -> None:
-    from ankiforge.ui.style_engine import appearance
+    from ankidraft.ui.style_engine import appearance
 
     engine = get_style_engine()
     appearance.force_system_mode_source(ModeSource.LIGHT)
@@ -272,7 +272,7 @@ def test_apply_appearance_updates_tokens_and_signal() -> None:
 
 
 def test_apply_appearance_for_profile_reads_then_resolves() -> None:
-    from ankiforge.ui.theme import DesignTokens
+    from ankidraft.ui.theme import DesignTokens
 
     engine = get_style_engine()
     engine.save_appearance_preference("applique", AppearancePreference(family_id="glassmorphism", mode_source=ModeSource.DARK, last_manual_mode=ModeSource.DARK))
@@ -316,7 +316,7 @@ def test_unknown_legacy_theme_id_keeps_the_silent_fallback_regime() -> None:
 
 def test_system_mode_precedence_over_manual_regime() -> None:
     """Activée à « Système », la préférence prend le pas sur le mode manuel selon le régime déclaré."""
-    from ankiforge.ui.style_engine import appearance
+    from ankidraft.ui.style_engine import appearance
 
     engine = get_style_engine()
 
@@ -337,8 +337,8 @@ def test_system_mode_precedence_over_manual_regime() -> None:
 
 def test_hot_system_regime_change_updates_style_engine_and_indicators() -> None:
     """Un changement de régime système pendant l'exécution est répercuté à chaud avec ses indicateurs."""
-    from ankiforge.ui.style_engine import appearance
-    from ankiforge.ui.theme import DesignTokens, is_dark_mode
+    from ankidraft.ui.style_engine import appearance
+    from ankidraft.ui.theme import DesignTokens, is_dark_mode
 
     engine = get_style_engine()
 
@@ -376,8 +376,8 @@ def test_hot_system_regime_change_updates_style_engine_and_indicators() -> None:
 
 def test_hot_system_regime_change_ignored_when_manual_mode_is_active() -> None:
     """Un changement système est ignoré si le mode actif est manuel (Sombre ou Clair)."""
-    from ankiforge.ui.style_engine import appearance
-    from ankiforge.ui.theme import DesignTokens
+    from ankidraft.ui.style_engine import appearance
+    from ankidraft.ui.theme import DesignTokens
 
     engine = get_style_engine()
     appearance.force_system_mode_source(ModeSource.DARK)
@@ -397,7 +397,7 @@ def test_hot_system_regime_change_ignored_when_manual_mode_is_active() -> None:
 
 def test_system_mode_listener_registration_and_notification() -> None:
     """Vérifie l'enregistrement, la notification et le désenregistrement des écouteurs de régime."""
-    from ankiforge.ui.style_engine import add_system_mode_listener, appearance, remove_system_mode_listener
+    from ankidraft.ui.style_engine import add_system_mode_listener, appearance, remove_system_mode_listener
 
     received: list[ModeSource | None] = []
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.utils.region_address import (
+from ankidraft.utils.region_address import (
     RegionAddress,
     RegionScope,
     covers_region,

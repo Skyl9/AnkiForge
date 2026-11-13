@@ -20,10 +20,10 @@ import pytest
 from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtWidgets import QWidget
 
-from ankiforge.ui.preferences_dialog import PreferencesDialog, SettingsModal
-from ankiforge.ui.widgets.mcp_status_widget import MCPStatusWidget
-from ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
-from ankiforge.utils.environment import get_app_qsettings
+from ankidraft.ui.preferences_dialog import PreferencesDialog, SettingsModal
+from ankidraft.ui.widgets.mcp_status_widget import MCPStatusWidget
+from ankidraft.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
+from ankidraft.utils.environment import get_app_qsettings
 
 pytestmark = pytest.mark.ui
 
@@ -98,7 +98,7 @@ def test_mcp_status_widget_icons_by_status(qtbot: Any) -> None:
         "error": "ph.warning-circle",
     }
 
-    with patch("ankiforge.ui.widgets.mcp_status_widget.load_phosphor_icon") as mock_icon:
+    with patch("ankidraft.ui.widgets.mcp_status_widget.load_phosphor_icon") as mock_icon:
         mock_icon.return_value = QIcon()
         for status, icon_name in expected.items():
             mock_icon.reset_mock()
@@ -118,9 +118,9 @@ def test_mcp_status_widget_client_config(qtbot: Any) -> None:
 
     config = widget.get_client_config()
     assert "mcpServers" in config
-    assert "ankiforge" in config["mcpServers"]
-    assert config["mcpServers"]["ankiforge"]["url"] == "http://127.0.0.1:8765/mcp"
-    assert config["mcpServers"]["ankiforge"]["headers"]["Authorization"] == "Bearer test-token-12345"
+    assert "ankidraft" in config["mcpServers"]
+    assert config["mcpServers"]["ankidraft"]["url"] == "http://127.0.0.1:8765/mcp"
+    assert config["mcpServers"]["ankidraft"]["headers"]["Authorization"] == "Bearer test-token-12345"
 
     config_json = widget.get_client_config_json()
     parsed = json.loads(config_json)
@@ -253,9 +253,9 @@ def test_ai_engines_tab_rotate_mcp_token_trigger(qtbot: Any, monkeypatch: pytest
 
 def test_main_window_mcp_integration(qtbot: Any, mock_db: Any) -> None:
     """Vérifie la présence du widget MCP dans la barre d'état et la réactivité au signal mcp_data_mutated."""
-    from ankiforge.ui.main_window import MainWindow
+    from ankidraft.ui.main_window import MainWindow
 
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="test_mcp_profile")
         qtbot.addWidget(window)
 
@@ -265,7 +265,7 @@ def test_main_window_mcp_integration(qtbot: Any, mock_db: Any) -> None:
         assert hasattr(window, "rotate_mcp_token")
 
         # Test rotation directe depuis MainWindow
-        with patch("ankiforge.ui.widgets.toast.show_toast"):
+        with patch("ankidraft.ui.widgets.toast.show_toast"):
             new_token = window.rotate_mcp_token()
             assert len(new_token) >= 32
             assert window.mcp_status_widget.token == new_token

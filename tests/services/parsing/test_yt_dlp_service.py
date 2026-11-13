@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.services.parsing.yt_dlp_service import YtDlpService, YtDlpUnavailableError
+from ankidraft.services.parsing.yt_dlp_service import YtDlpService, YtDlpUnavailableError
 
 pytestmark = pytest.mark.unit
 

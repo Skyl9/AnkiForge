@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.database.models import DeckModel
-from ankiforge.repositories.note_repository import NoteRepository
+from ankidraft.database.models import DeckModel
+from ankidraft.repositories.note_repository import NoteRepository
 
 pytestmark = pytest.mark.integration
 

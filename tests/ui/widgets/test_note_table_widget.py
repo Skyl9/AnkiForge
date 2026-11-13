@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel, db
-from ankiforge.ui.widgets.note_table_widget import NoteTableWidget
+from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel, db
+from ankidraft.ui.widgets.note_table_widget import NoteTableWidget
 
 pytestmark = pytest.mark.ui
 

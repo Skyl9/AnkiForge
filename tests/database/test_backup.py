@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.database.backup import (
+from ankidraft.database.backup import (
     backup_before_colpkg_import,
     backup_database,
     check_db_integrity,
@@ -22,7 +22,7 @@ def test_backup_database_skips_if_no_db(tmp_path: Path):
     """Vérifie que la fonction s'arrête silencieusement si la base source n'existe pas."""
     fake_db_path = tmp_path / "non_existent.db"
 
-    with patch("ankiforge.database.backup.ProfileManager.get_db_path") as mock_get_db_path:
+    with patch("ankidraft.database.backup.ProfileManager.get_db_path") as mock_get_db_path:
         mock_get_db_path.return_value = fake_db_path
 
         # L'exécution ne doit lever aucune exception
@@ -32,7 +32,7 @@ def test_backup_database_skips_if_no_db(tmp_path: Path):
 def test_backup_database_creates_and_rotates(tmp_path: Path):
     """Vérifie que la sauvegarde copie bien le fichier et supprime les sauvegardes les plus anciennes pour respecter la limite imposée."""
     # 1. Préparation de l'environnement de test (fichiers temporaires)
-    fake_db = tmp_path / "ankiforge.db"
+    fake_db = tmp_path / "ankidraft.db"
     fake_db.write_text("fake sqlite data")
 
     fake_profile_dir = tmp_path / "profile"
@@ -40,9 +40,9 @@ def test_backup_database_creates_and_rotates(tmp_path: Path):
 
     # On détourne les variables globales pour pointer vers notre dossier temporaire
     with (
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=fake_db),
-        patch("ankiforge.database.backup.get_active_profile", return_value="default"),
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", fake_profile_dir),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=fake_db),
+        patch("ankidraft.database.backup.get_active_profile", return_value="default"),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", fake_profile_dir),
     ):
         # Création de 3 fausses anciennes sauvegardes avec des dates antérieures
         backup_dir = fake_profile_dir / "default" / "backups"
@@ -55,7 +55,7 @@ def test_backup_database_creates_and_rotates(tmp_path: Path):
         backup_database(keep_last=2)
 
         # 3. Vérifications
-        backups = sorted(list(backup_dir.glob("ankiforge_backup_*.db")))
+        backups = sorted(list(backup_dir.glob("*_backup_*.db")))
 
         # Il doit rester exactement 2 fichiers (la limite configurée)
         assert len(backups) == 2, "La rotation n'a pas respecté la limite de fichiers."
@@ -67,7 +67,7 @@ def test_backup_database_creates_and_rotates(tmp_path: Path):
 
 def test_backup_database_closes_all_sqlite_connections(tmp_path: Path, monkeypatch):
     """Régression Windows : les connexions ouvertes par la sauvegarde doivent être fermées pour ne pas retenir un verrou de fichier sur la base source ou la copie."""
-    fake_db = tmp_path / "ankiforge.db"
+    fake_db = tmp_path / "ankidraft.db"
     seed = sqlite3.connect(str(fake_db))
     seed.execute("CREATE TABLE t (id int);")
     seed.commit()
@@ -84,12 +84,12 @@ def test_backup_database_closes_all_sqlite_connections(tmp_path: Path, monkeypat
         opened.append(connection)
         return connection
 
-    monkeypatch.setattr("ankiforge.database.backup.sqlite3.connect", tracking_connect)
+    monkeypatch.setattr("ankidraft.database.backup.sqlite3.connect", tracking_connect)
 
     with (
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=fake_db),
-        patch("ankiforge.database.backup.get_active_profile", return_value="default"),
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", fake_profile_dir),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=fake_db),
+        patch("ankidraft.database.backup.get_active_profile", return_value="default"),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", fake_profile_dir),
     ):
         backup_database()
 
@@ -115,7 +115,7 @@ def test_check_db_integrity_closes_connection(tmp_path: Path, monkeypatch):
         opened.append(connection)
         return connection
 
-    monkeypatch.setattr("ankiforge.database.backup.sqlite3.connect", tracking_connect)
+    monkeypatch.setattr("ankidraft.database.backup.sqlite3.connect", tracking_connect)
 
     assert check_db_integrity(db_path) is True
 
@@ -152,19 +152,19 @@ def test_check_db_integrity_and_restore(tmp_path: Path):
     shutil.copy2(healthy_db, valid_backup)
 
     # Base active corrompue
-    active_db = p_dir / "ankiforge.db"
+    active_db = p_dir / "ankidraft.db"
     active_db.write_bytes(b"CORRUPT ACTIVE DB")
 
     with (
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", fake_profile_dir),
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", fake_profile_dir),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=active_db),
     ):
         restored = restore_latest_valid_backup(profile_name)
         assert restored is True
         assert check_db_integrity(active_db) is True
 
         # Vérifie qu'un fichier de quarantaine a été créé
-        quarantined = list(p_dir.glob("ankiforge_corrupt_*.db"))
+        quarantined = list(p_dir.glob("*_corrupt_*.db"))
         assert len(quarantined) == 1
 
 
@@ -174,7 +174,7 @@ def _seed_backup_profile(tmp_path: Path) -> tuple[Path, Path]:
     profile_dir = profiles_dir / "default"
     (profile_dir / "backups").mkdir(parents=True)
 
-    active_db = profile_dir / "ankiforge.db"
+    active_db = profile_dir / "ankidraft.db"
     seed = sqlite3.connect(str(active_db))
     seed.execute("CREATE TABLE notes (id int, front text);")
     seed.execute("INSERT INTO notes VALUES (1, 'Question');")
@@ -189,15 +189,15 @@ def test_backup_before_colpkg_import_creates_valid_snapshot(tmp_path: Path):
     profiles_dir, active_db = _seed_backup_profile(tmp_path)
 
     with (
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
-        patch("ankiforge.database.backup.get_active_profile", return_value="default"),
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankidraft.database.backup.get_active_profile", return_value="default"),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
     ):
         backup_path = backup_before_colpkg_import()
 
     backup_dir = profiles_dir / "default" / "backups"
     assert backup_path.parent == backup_dir
-    assert re.fullmatch(r"ankiforge_backup_precolpkg_\d{8}_\d{6}\.db", backup_path.name)
+    assert re.fullmatch(r"ankidraft_backup_precolpkg_\d{8}_\d{6}\.db", backup_path.name)
     assert backup_path.exists()
     assert check_db_integrity(backup_path) is True
 
@@ -214,9 +214,9 @@ def test_backup_before_colpkg_import_survives_standard_rotation(tmp_path: Path):
         (backup_dir / f"ankiforge_backup_2020010{day}_000000.db").write_text("ancienne")
 
     with (
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
-        patch("ankiforge.database.backup.get_active_profile", return_value="default"),
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankidraft.database.backup.get_active_profile", return_value="default"),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
     ):
         precolpkg_path = backup_before_colpkg_import()
 
@@ -227,19 +227,19 @@ def test_backup_before_colpkg_import_survives_standard_rotation(tmp_path: Path):
     assert precolpkg_path.exists(), "La sauvegarde pré-colpkg a été emportée par la rotation."
     assert check_db_integrity(precolpkg_path) is True
 
-    standard_backups = [b for b in backup_dir.glob("ankiforge_backup_*.db") if "_precolpkg_" not in b.name]
+    standard_backups = [b for b in backup_dir.glob("*_backup_*.db") if "_precolpkg_" not in b.name]
     assert len(standard_backups) == 1, "La rotation standard n'a pas respecté la limite."
 
 
 def test_backup_before_colpkg_import_raises_when_no_database(tmp_path: Path):
     """Sans base à sauvegarder, l'import doit être interrompu par une erreur explicite."""
     profiles_dir = tmp_path / "profiles"
-    missing_db = profiles_dir / "default" / "ankiforge.db"
+    missing_db = profiles_dir / "default" / "ankidraft.db"
 
     with (
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=missing_db),
-        patch("ankiforge.database.backup.get_active_profile", return_value="default"),
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=missing_db),
+        patch("ankidraft.database.backup.get_active_profile", return_value="default"),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
         pytest.raises(RuntimeError),
     ):
         backup_before_colpkg_import()
@@ -257,12 +257,12 @@ def test_backup_before_colpkg_import_closes_all_sqlite_connections(tmp_path: Pat
         opened.append(connection)
         return connection
 
-    monkeypatch.setattr("ankiforge.database.backup.sqlite3.connect", tracking_connect)
+    monkeypatch.setattr("ankidraft.database.backup.sqlite3.connect", tracking_connect)
 
     with (
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
-        patch("ankiforge.database.backup.get_active_profile", return_value="default"),
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankidraft.database.backup.get_active_profile", return_value="default"),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", profiles_dir),
     ):
         backup_before_colpkg_import()
 
@@ -289,7 +289,7 @@ def _make_restore_env(tmp_path: Path) -> tuple[Path, Path, Path]:
     valid_backup = backup_dir / "ankiforge_backup_20260906_120000.db"
     shutil.copy2(healthy_db, valid_backup)
 
-    active_db = p_dir / "ankiforge.db"
+    active_db = p_dir / "ankidraft.db"
     active_db.write_bytes(b"CORRUPT ACTIVE DB")
 
     return p_dir, valid_backup, active_db
@@ -312,12 +312,12 @@ def test_restore_latest_valid_backup_ecriture_atomique(tmp_path: Path, monkeypat
         replace_calls.append((str(src), str(dst)))
         return real_replace(src, dst, *args, **kwargs)
 
-    monkeypatch.setattr("ankiforge.database.backup.shutil.copy2", spy_copy2)
-    monkeypatch.setattr("ankiforge.database.backup.os.replace", spy_replace)
+    monkeypatch.setattr("ankidraft.database.backup.shutil.copy2", spy_copy2)
+    monkeypatch.setattr("ankidraft.database.backup.os.replace", spy_replace)
 
     with (
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", tmp_path / "profiles"),
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", tmp_path / "profiles"),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=active_db),
     ):
         assert restore_latest_valid_backup("test_restore_atomic") is True
 
@@ -347,13 +347,13 @@ def test_restore_granular_backup_ecriture_atomique(tmp_path: Path, monkeypatch):
         replace_calls.append((str(src), str(dst)))
         return real_replace(src, dst, *args, **kwargs)
 
-    monkeypatch.setattr("ankiforge.database.backup.shutil.copy2", spy_copy2)
-    monkeypatch.setattr("ankiforge.database.backup.os.replace", spy_replace)
+    monkeypatch.setattr("ankidraft.database.backup.shutil.copy2", spy_copy2)
+    monkeypatch.setattr("ankidraft.database.backup.os.replace", spy_replace)
 
     with (
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", tmp_path / "profiles"),
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=active_db),
-        patch("ankiforge.database.backup.get_active_profile", return_value="test_restore_atomic"),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", tmp_path / "profiles"),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankidraft.database.backup.get_active_profile", return_value="test_restore_atomic"),
     ):
         assert restore_granular_backup("test_restore_atomic", valid_backup.name, create_safety_snapshot=False) is True
 

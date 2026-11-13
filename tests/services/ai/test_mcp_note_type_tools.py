@@ -13,7 +13,7 @@ import json
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
@@ -21,7 +21,7 @@ from ankiforge.database.models import (
     NoteVersionModel,
     db,
 )
-from ankiforge.services.ai.mcp_server import mcp
+from ankidraft.services.ai.mcp_server import mcp
 
 pytestmark = pytest.mark.integration
 

@@ -8,15 +8,15 @@ from typing import Any
 import pytest
 from PySide6.QtCore import Qt
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.audit.leech_service import LeechService
-from ankiforge.ui.dialogs.leech_wozniak_split_dialog import LeechWozniakSplitDialog
+from ankidraft.services.audit.leech_service import LeechService
+from ankidraft.ui.dialogs.leech_wozniak_split_dialog import LeechWozniakSplitDialog
 
 pytestmark = pytest.mark.ui
 

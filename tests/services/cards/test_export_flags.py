@@ -13,12 +13,12 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
 )
-from ankiforge.repositories.note_repository import NoteRepository
-from ankiforge.services.cards.export_manager import ExportManager
-from ankiforge.services.cards.flag_service import FlagService
+from ankidraft.repositories.note_repository import NoteRepository
+from ankidraft.services.cards.export_manager import ExportManager
+from ankidraft.services.cards.flag_service import FlagService
 
 pytestmark = pytest.mark.integration
 

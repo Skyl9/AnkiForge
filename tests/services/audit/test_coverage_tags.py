@@ -10,7 +10,7 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentChunkModel,
@@ -19,10 +19,10 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
 )
-from ankiforge.repositories.document_repository import DocumentRepository
-from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
-from ankiforge.services.parsing.chunking_service import ChunkingService
-from ankiforge.utils.tags import (
+from ankidraft.repositories.document_repository import DocumentRepository
+from ankidraft.services.audit.coverage_alignment_service import CoverageAlignmentService
+from ankidraft.services.parsing.chunking_service import ChunkingService
+from ankidraft.utils.tags import (
     build_document_tags,
     clean_source_slug,
     extract_tag_metadata,
@@ -110,7 +110,7 @@ def test_build_document_tags() -> None:
         section_name="Introduction",
         extra_tags=["examen_2026"],
     )
-    assert "ankiforge_generated" in tags
+    assert "ankidraft_generated" in tags
     assert not any(t.startswith("doc:") for t in tags)
     assert "source:cardiologie_clinique" in tags
     assert "page:4" in tags

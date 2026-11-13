@@ -5,11 +5,11 @@ from __future__ import annotations
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.database.models import DocumentModel
-from ankiforge.ui.components.flow_layout import FlowLayout
-from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeWidget
-from ankiforge.ui.views.batch_view.dialogs import BatchSliceComposerDialog
-from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import (
+from ankidraft.database.models import DocumentModel
+from ankidraft.ui.components.flow_layout import FlowLayout
+from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeWidget
+from ankidraft.ui.views.batch_view.dialogs import BatchSliceComposerDialog
+from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import (
     DocumentDelimitationDialog,
     DocumentPreviewWidget,
 )

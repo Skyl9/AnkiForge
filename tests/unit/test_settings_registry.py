@@ -10,7 +10,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from ankiforge.ui.widgets.settings_modal.search_registry import (
+from ankidraft.ui.widgets.settings_modal.search_registry import (
     SettingDescriptor,
     SettingSearchResult,
     SettingsRegistry,

@@ -7,8 +7,8 @@ import pytest
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QTextDocument
 
-from ankiforge.ui.dialogs.doc_reader_dialog import DocReaderDialog
-from ankiforge.utils.paths import get_docs_path
+from ankidraft.ui.dialogs.doc_reader_dialog import DocReaderDialog
+from ankidraft.utils.paths import get_docs_path
 
 
 @pytest.mark.ui
@@ -108,8 +108,8 @@ def test_doc_reader_dialog_zoom_controls(qtbot: Any) -> None:
 
 @pytest.mark.ui
 def test_help_tab_in_settings_modal(qtbot: Any) -> None:
-    from ankiforge.ui.widgets.settings_modal.modal import SettingsModal
-    from ankiforge.ui.widgets.settings_modal.tabs.help_tab import HelpTab
+    from ankidraft.ui.widgets.settings_modal.modal import SettingsModal
+    from ankidraft.ui.widgets.settings_modal.tabs.help_tab import HelpTab
 
     modal = SettingsModal()
     qtbot.addWidget(modal)
@@ -132,7 +132,7 @@ def test_help_tab_in_settings_modal(qtbot: Any) -> None:
 
 @pytest.mark.ui
 def test_main_window_routing_lifecycle_guide(qtbot: Any) -> None:
-    from ankiforge.ui.main_window import MainWindow
+    from ankidraft.ui.main_window import MainWindow
 
     win = MagicMock(spec=MainWindow)
     # Test _on_command_selected

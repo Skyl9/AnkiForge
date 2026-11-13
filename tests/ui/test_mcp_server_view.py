@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.ui.views.consultant_view import ConsultantView, MCPServerView
-from ankiforge.ui.views.consultant_view.widgets.mcp_dashboard_widget import MCPServerDashboardWidget
+from ankidraft.ui.views.consultant_view import ConsultantView, MCPServerView
+from ankidraft.ui.views.consultant_view.widgets.mcp_dashboard_widget import MCPServerDashboardWidget
 
 pytestmark = pytest.mark.ui
 
@@ -73,7 +73,7 @@ def test_mcp_server_view_signals_relay(qtbot, mock_db):
 
 def test_mcp_server_view_theme_refresh(qtbot, mock_db):
     """Vérifie que refresh_theme ne lève aucune exception et s'exécute proprement."""
-    from ankiforge.ui.style_engine import get_style_engine
+    from ankidraft.ui.style_engine import get_style_engine
 
     view = MCPServerView()
     qtbot.addWidget(view)

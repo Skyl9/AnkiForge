@@ -2,7 +2,7 @@
 
 import pytest
 
-from ankiforge.services.ai.context_compactor import ContextCompactor
+from ankidraft.services.ai.context_compactor import ContextCompactor
 
 pytestmark = pytest.mark.unit
 

@@ -15,10 +15,10 @@ from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
-from ankiforge.services.crash_reporter_service import CrashReport
-from ankiforge.ui.components.buttons import IconButton
-from ankiforge.ui.dialogs.crash_report_dialog import CrashReportDialog
-from ankiforge.ui.theme import DesignTokens
+from ankidraft.services.crash_reporter_service import CrashReport
+from ankidraft.ui.components.buttons import IconButton
+from ankidraft.ui.dialogs.crash_report_dialog import CrashReportDialog
+from ankidraft.ui.theme import DesignTokens
 
 pytestmark = pytest.mark.ui
 
@@ -112,7 +112,7 @@ class TestCrashReportDialog:
         dialog = CrashReportDialog(crash_info=sample_crash_report)
         qtbot.addWidget(dialog)
 
-        with patch("ankiforge.services.crash_reporter_service.CrashReporterService.acknowledge_crash") as mock_ack:
+        with patch("ankidraft.services.crash_reporter_service.CrashReporterService.acknowledge_crash") as mock_ack:
             dialog._on_copy_clicked()
             assert mock_ack.called
 
@@ -130,7 +130,7 @@ class TestCrashReportDialog:
         target_file = str(tmp_path / "crash_export.md")
         with (
             patch("PySide6.QtWidgets.QFileDialog.getSaveFileName", return_value=(target_file, "Markdown (*.md)")),
-            patch("ankiforge.services.crash_reporter_service.CrashReporterService.acknowledge_crash") as mock_ack,
+            patch("ankidraft.services.crash_reporter_service.CrashReporterService.acknowledge_crash") as mock_ack,
         ):
             dialog._on_export_clicked()
             assert mock_ack.called
@@ -146,7 +146,7 @@ class TestCrashReportDialog:
 
         with (
             patch("PySide6.QtGui.QDesktopServices.openUrl") as mock_open_url,
-            patch("ankiforge.services.crash_reporter_service.CrashReporterService.acknowledge_crash") as mock_ack,
+            patch("ankidraft.services.crash_reporter_service.CrashReporterService.acknowledge_crash") as mock_ack,
         ):
             dialog._on_send_clicked()
             assert mock_open_url.called
@@ -173,8 +173,8 @@ class TestCrashReportDialog:
         qtbot.addWidget(dialog)
 
         with (
-            patch("ankiforge.ui.dialogs.feedback_dialog.FeedbackDialog.exec") as mock_exec,
-            patch("ankiforge.services.crash_reporter_service.CrashReporterService.acknowledge_crash") as mock_ack,
+            patch("ankidraft.ui.dialogs.feedback_dialog.FeedbackDialog.exec") as mock_exec,
+            patch("ankidraft.services.crash_reporter_service.CrashReporterService.acknowledge_crash") as mock_ack,
         ):
             dialog._on_customize_clicked()
             assert mock_exec.called
@@ -185,7 +185,7 @@ class TestCrashReportDialog:
         dialog = CrashReportDialog(crash_info=sample_crash_report)
         qtbot.addWidget(dialog)
 
-        with patch("ankiforge.services.crash_reporter_service.CrashReporterService.acknowledge_crash") as mock_ack:
+        with patch("ankidraft.services.crash_reporter_service.CrashReporterService.acknowledge_crash") as mock_ack:
             dialog._on_ignore_clicked()
             assert mock_ack.called
 
@@ -194,7 +194,7 @@ class TestCrashReportDialog:
         dialog = CrashReportDialog(crash_info=sample_crash_report)
         qtbot.addWidget(dialog)
 
-        with patch("ankiforge.services.crash_reporter_service.CrashReporterService.set_prompt_enabled") as mock_set_prompt:
+        with patch("ankidraft.services.crash_reporter_service.CrashReporterService.set_prompt_enabled") as mock_set_prompt:
             dialog.chk_dont_ask.setChecked(True)
             # Vérifier que le changement d'état appelle set_prompt_enabled(False)
             assert mock_set_prompt.called
@@ -235,7 +235,7 @@ class TestCrashReportDialog:
         dialog.show()
 
         with patch(
-            "ankiforge.services.crash_reporter_service.CrashReporterService.acknowledge_crash",
+            "ankidraft.services.crash_reporter_service.CrashReporterService.acknowledge_crash",
             side_effect=RuntimeError("boom"),
         ):
             dialog.btn_ignore.click()

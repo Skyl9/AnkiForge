@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # On importe le module complet pour pouvoir patcher ses variables globales
-import ankiforge.utils.c_bridge as c_bridge
+import ankidraft.utils.c_bridge as c_bridge
 
 pytestmark = pytest.mark.unit
 
@@ -49,7 +49,7 @@ def test_init_c_matcher_missing_file_logs_warning(caplog):
     import logging
     from pathlib import Path
 
-    with caplog.at_level(logging.WARNING, logger="ankiforge.utils.c_bridge"):
+    with caplog.at_level(logging.WARNING, logger="ankidraft.utils.c_bridge"):
         loaded = c_bridge.init_c_matcher(Path("/path/to/nonexistent/levenshtein.so"))
         assert loaded is False
         assert any(record.levelno == logging.WARNING and "Extension C Levenshtein non trouvée" in record.message for record in caplog.records)
@@ -62,7 +62,7 @@ def test_init_c_matcher_load_error_logs_warning(caplog, tmp_path):
     corrupt_lib = tmp_path / "corrupt.so"
     corrupt_lib.write_text("invalid binary")
 
-    with caplog.at_level(logging.WARNING, logger="ankiforge.utils.c_bridge"):
+    with caplog.at_level(logging.WARNING, logger="ankidraft.utils.c_bridge"):
         loaded = c_bridge.init_c_matcher(corrupt_lib)
         assert loaded is False
         assert any(record.levelno == logging.WARNING and "Erreur lors du chargement de l'extension C" in record.message for record in caplog.records)

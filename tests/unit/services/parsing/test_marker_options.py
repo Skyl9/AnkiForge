@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.services.parsing.marker_service import (
+from ankidraft.services.parsing.marker_service import (
     MarkerOptions,
     detect_default_device,
 )
@@ -119,14 +119,14 @@ def test_rejects_use_llm() -> None:
 
 def test_detect_default_device_torch_cuda() -> None:
     """Valide la détection prioritaire de CUDA lorsque PyTorch le rapporte disponible."""
-    with patch("ankiforge.services.parsing.marker_service._detect_torch_device", return_value="cuda"):
+    with patch("ankidraft.services.parsing.marker_service._detect_torch_device", return_value="cuda"):
         assert detect_default_device() == "cuda"
         assert MarkerOptions.detect_default_device() == "cuda"
 
 
 def test_detect_default_device_torch_mps() -> None:
     """Valide la détection de MPS lorsque PyTorch le rapporte disponible."""
-    with patch("ankiforge.services.parsing.marker_service._detect_torch_device", return_value="mps"):
+    with patch("ankidraft.services.parsing.marker_service._detect_torch_device", return_value="mps"):
         assert detect_default_device() == "mps"
         assert MarkerOptions.detect_default_device() == "mps"
 
@@ -134,9 +134,9 @@ def test_detect_default_device_torch_mps() -> None:
 def test_detect_default_device_macos_arm64() -> None:
     """Valide la détection automatique de 'mps' sur macOS Apple Silicon en absence de torch hôte."""
     with (
-        patch("ankiforge.services.parsing.marker_service._detect_torch_device", return_value=None),
-        patch("ankiforge.services.parsing.marker_service.platform.system", return_value="Darwin"),
-        patch("ankiforge.services.parsing.marker_service.platform.machine", return_value="arm64"),
+        patch("ankidraft.services.parsing.marker_service._detect_torch_device", return_value=None),
+        patch("ankidraft.services.parsing.marker_service.platform.system", return_value="Darwin"),
+        patch("ankidraft.services.parsing.marker_service.platform.machine", return_value="arm64"),
     ):
         assert detect_default_device() == "mps"
         assert MarkerOptions.detect_default_device() == "mps"
@@ -145,10 +145,10 @@ def test_detect_default_device_macos_arm64() -> None:
 def test_detect_default_device_nvidia_cuda() -> None:
     """Valide la détection de 'cuda' sur machine avec GPU Nvidia via nvidia-smi en absence de torch hôte."""
     with (
-        patch("ankiforge.services.parsing.marker_service._detect_torch_device", return_value=None),
-        patch("ankiforge.services.parsing.marker_service.platform.system", return_value="Linux"),
-        patch("ankiforge.services.parsing.marker_service.platform.machine", return_value="x86_64"),
-        patch("ankiforge.services.parsing.marker_service.shutil.which", return_value="/usr/bin/nvidia-smi"),
+        patch("ankidraft.services.parsing.marker_service._detect_torch_device", return_value=None),
+        patch("ankidraft.services.parsing.marker_service.platform.system", return_value="Linux"),
+        patch("ankidraft.services.parsing.marker_service.platform.machine", return_value="x86_64"),
+        patch("ankidraft.services.parsing.marker_service.shutil.which", return_value="/usr/bin/nvidia-smi"),
     ):
         assert detect_default_device() == "cuda"
 
@@ -156,10 +156,10 @@ def test_detect_default_device_nvidia_cuda() -> None:
 def test_detect_default_device_fallback_cpu() -> None:
     """Valide le repli transparent sur 'cpu' en l'absence d'accélérateur matériel."""
     with (
-        patch("ankiforge.services.parsing.marker_service._detect_torch_device", return_value=None),
-        patch("ankiforge.services.parsing.marker_service.platform.system", return_value="Linux"),
-        patch("ankiforge.services.parsing.marker_service.platform.machine", return_value="x86_64"),
-        patch("ankiforge.services.parsing.marker_service.shutil.which", return_value=None),
+        patch("ankidraft.services.parsing.marker_service._detect_torch_device", return_value=None),
+        patch("ankidraft.services.parsing.marker_service.platform.system", return_value="Linux"),
+        patch("ankidraft.services.parsing.marker_service.platform.machine", return_value="x86_64"),
+        patch("ankidraft.services.parsing.marker_service.shutil.which", return_value=None),
     ):
         assert detect_default_device() == "cpu"
 

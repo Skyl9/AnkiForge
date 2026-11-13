@@ -12,9 +12,9 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.services.cards.flag_service import FlagService
-from ankiforge.services.cards.note_manager import NoteManager
+from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.services.cards.flag_service import FlagService
+from ankidraft.services.cards.note_manager import NoteManager
 
 pytestmark = pytest.mark.integration
 

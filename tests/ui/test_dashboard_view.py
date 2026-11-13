@@ -4,14 +4,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.ui.views.dashboard_view import ActivityItem, DashboardView, DiagnosticCardWidget
-from ankiforge.ui.widgets.notification_menu import NotificationMenuPopup
+from ankidraft.ui.views.dashboard_view import ActivityItem, DashboardView, DiagnosticCardWidget
+from ankidraft.ui.widgets.notification_menu import NotificationMenuPopup
 
 pytestmark = pytest.mark.ui
 
 
 def test_dashboard_view_creation(qtbot):
-    with patch("ankiforge.ui.views.dashboard_view.DashboardWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.DashboardWorker.start"):
         view = DashboardView(ai_manager=MagicMock())
         qtbot.addWidget(view)
         assert view is not None
@@ -22,7 +22,7 @@ def test_dashboard_view_creation(qtbot):
 
 
 def test_dashboard_macro_activity_navigation(qtbot):
-    with patch("ankiforge.ui.views.dashboard_view.DashboardWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.DashboardWorker.start"):
         view = DashboardView(ai_manager=MagicMock())
         qtbot.addWidget(view)
 
@@ -128,7 +128,7 @@ def test_notification_menu_popup(qtbot):
     assert popup.count_badge.text() == "1"
 
     # Simuler le clic sur le bouton de l'alerte
-    from ankiforge.ui.widgets.notification_menu import NotificationItemWidget
+    from ankidraft.ui.widgets.notification_menu import NotificationItemWidget
 
     items = popup.findChildren(NotificationItemWidget)
     assert len(items) == 1
@@ -140,7 +140,7 @@ def test_notification_menu_popup(qtbot):
 
 def test_dashboard_multiple_empty_diagnostics_no_crash(qtbot):
     """Vérifie que recharger le dashboard plusieurs fois avec 0 diagnostic ne détruit pas empty_card."""
-    with patch("ankiforge.ui.views.dashboard_view.DashboardWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.DashboardWorker.start"):
         view = DashboardView(ai_manager=MagicMock())
         qtbot.addWidget(view)
         view.show()

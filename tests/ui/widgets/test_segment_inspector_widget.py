@@ -18,8 +18,8 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget
 
-from ankiforge.database.models import DocumentModel
-from ankiforge.ui.widgets.segment_inspector_widget import SegmentInspectorWidget
+from ankidraft.database.models import DocumentModel
+from ankidraft.ui.widgets.segment_inspector_widget import SegmentInspectorWidget
 
 pytestmark = pytest.mark.ui
 
@@ -121,9 +121,9 @@ def test_set_document_markdown_populates_strategies(inspector: SegmentInspectorW
     doc = _make_doc(file_type="md", content=MD_CONTENT)
 
     with (
-        patch("ankiforge.ui.widgets.segment_inspector_widget.ChunkingService") as mock_cs,
-        patch("ankiforge.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc,
-        patch("ankiforge.ui.widgets.segment_inspector_widget.smart_chunk_text") as mock_sct,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.ChunkingService") as mock_cs,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.smart_chunk_text") as mock_sct,
     ):
         mock_cc.estimate_tokens.return_value = 120
         mock_cs.extract_chunks.return_value = []
@@ -152,7 +152,7 @@ def test_set_document_markdown_recompute_produces_segments(inspector: SegmentIns
             inspector.combo_strategy.setCurrentIndex(i)
             break
 
-    with patch("ankiforge.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc:
+    with patch("ankidraft.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc:
         mock_cc.estimate_tokens.return_value = 150
         inspector.recompute_segments()
 
@@ -170,9 +170,9 @@ def test_set_document_pdf_populates_strategies(inspector: SegmentInspectorWidget
     doc = _make_doc(file_type="pdf", content=PDF_CONTENT)
 
     with (
-        patch("ankiforge.ui.widgets.segment_inspector_widget.ChunkingService") as mock_cs,
-        patch("ankiforge.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc,
-        patch("ankiforge.ui.widgets.segment_inspector_widget.smart_chunk_text") as mock_sct,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.ChunkingService") as mock_cs,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.smart_chunk_text") as mock_sct,
     ):
         mock_cc.estimate_tokens.return_value = 80
         mock_cs.extract_chunks.return_value = [
@@ -200,9 +200,9 @@ def test_set_document_pdf_page_strategy_creates_segments(inspector: SegmentInspe
     ]
 
     with (
-        patch("ankiforge.ui.widgets.segment_inspector_widget.ChunkingService") as mock_cs,
-        patch("ankiforge.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc,
-        patch("ankiforge.ui.widgets.segment_inspector_widget.smart_chunk_text") as mock_sct,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.ChunkingService") as mock_cs,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.smart_chunk_text") as mock_sct,
     ):
         mock_cc.estimate_tokens.return_value = 50
         mock_cs.extract_chunks.return_value = fake_chunks
@@ -229,7 +229,7 @@ def test_uncheck_all_makes_active_segments_empty(inspector: SegmentInspectorWidg
     inspector._doc = doc
     inspector._populate_strategies()
 
-    with patch("ankiforge.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc:
+    with patch("ankidraft.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc:
         mock_cc.estimate_tokens.return_value = 100
         inspector.recompute_segments()
 
@@ -247,7 +247,7 @@ def test_check_all_restores_all_segments(inspector: SegmentInspectorWidget) -> N
     inspector._doc = doc
     inspector._populate_strategies()
 
-    with patch("ankiforge.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc:
+    with patch("ankidraft.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc:
         mock_cc.estimate_tokens.return_value = 100
         inspector.recompute_segments()
 
@@ -266,7 +266,7 @@ def test_individual_uncheck_reduces_active_count(inspector: SegmentInspectorWidg
     inspector._doc = doc
     inspector._populate_strategies()
 
-    with patch("ankiforge.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc:
+    with patch("ankidraft.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc:
         mock_cc.estimate_tokens.return_value = 100
         inspector.recompute_segments()
 
@@ -293,7 +293,7 @@ def test_get_total_active_tokens_consistent_with_segments(inspector: SegmentInsp
     inspector._doc = doc
     inspector._populate_strategies()
 
-    with patch("ankiforge.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc:
+    with patch("ankidraft.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc:
         mock_cc.estimate_tokens.return_value = 250
         inspector.recompute_segments()
 
@@ -314,7 +314,7 @@ def test_segments_updated_signal_emitted_on_recompute(qtbot, inspector: SegmentI
     inspector._doc = doc
     inspector._populate_strategies()
 
-    with qtbot.waitSignal(inspector.segments_updated, timeout=3000), patch("ankiforge.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc:
+    with qtbot.waitSignal(inspector.segments_updated, timeout=3000), patch("ankidraft.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc:
         mock_cc.estimate_tokens.return_value = 100
         inspector.recompute_segments()
 
@@ -335,9 +335,9 @@ def test_token_slider_frame_hidden_by_default_for_markdown(inspector: SegmentIns
     doc = _make_doc(file_type="md", content=MD_CONTENT)
 
     with (
-        patch("ankiforge.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc,
-        patch("ankiforge.ui.widgets.segment_inspector_widget.ChunkingService"),
-        patch("ankiforge.ui.widgets.segment_inspector_widget.smart_chunk_text") as mock_sct,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.ChunkingService"),
+        patch("ankidraft.ui.widgets.segment_inspector_widget.smart_chunk_text") as mock_sct,
     ):
         mock_cc.estimate_tokens.return_value = 100
         mock_sct.return_value = []
@@ -366,9 +366,9 @@ def test_fused_scope_and_strategy_differentiation_for_pdf(inspector: SegmentInsp
     ]
 
     with (
-        patch("ankiforge.ui.widgets.segment_inspector_widget.ChunkingService") as mock_cs,
-        patch("ankiforge.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc,
-        patch("ankiforge.ui.widgets.segment_inspector_widget.smart_chunk_text") as mock_sct,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.ChunkingService") as mock_cs,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.smart_chunk_text") as mock_sct,
     ):
         mock_cc.estimate_tokens.return_value = 80
         mock_cs.extract_chunks.return_value = fake_chunks
@@ -407,7 +407,7 @@ def test_segment_item_widget_checkbox_interaction(inspector: SegmentInspectorWid
     """Vérifie que la case à cocher sur chaque fragment permet de l'inclure ou l'exclure."""
     doc = _make_doc(file_type="md", content=MD_CONTENT)
 
-    with patch("ankiforge.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc:
+    with patch("ankidraft.ui.widgets.segment_inspector_widget.ContextCompactor") as mock_cc:
         mock_cc.estimate_tokens.return_value = 100
         inspector.set_document(doc)
 
@@ -442,9 +442,9 @@ def test_set_document_empty_content_shows_no_segments(inspector: SegmentInspecto
     doc = _make_doc(file_type="md", content="")
 
     with (
-        patch("ankiforge.ui.widgets.segment_inspector_widget.ContextCompactor"),
-        patch("ankiforge.ui.widgets.segment_inspector_widget.ChunkingService"),
-        patch("ankiforge.ui.widgets.segment_inspector_widget.smart_chunk_text") as mock_sct,
+        patch("ankidraft.ui.widgets.segment_inspector_widget.ContextCompactor"),
+        patch("ankidraft.ui.widgets.segment_inspector_widget.ChunkingService"),
+        patch("ankidraft.ui.widgets.segment_inspector_widget.smart_chunk_text") as mock_sct,
     ):
         mock_sct.return_value = []
         inspector.set_document(doc)

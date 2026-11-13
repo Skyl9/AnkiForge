@@ -11,10 +11,10 @@ from typing import Any
 import pytest
 from PIL import Image
 
-from ankiforge.database.models import DeckModel
-from ankiforge.services.cards.image_occlusion_service import OcclusionBox
-from ankiforge.ui.dialogs.image_occlusion_dialog import ImageOcclusionDialog
-from ankiforge.ui.widgets.image_occlusion_editor import (
+from ankidraft.database.models import DeckModel
+from ankidraft.services.cards.image_occlusion_service import OcclusionBox
+from ankidraft.ui.dialogs.image_occlusion_dialog import ImageOcclusionDialog
+from ankidraft.ui.widgets.image_occlusion_editor import (
     ImageOcclusionEditor,
     OcclusionGraphicsItem,
 )

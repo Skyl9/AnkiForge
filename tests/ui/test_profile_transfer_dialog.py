@@ -7,8 +7,8 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
-from ankiforge.services.profile_content_transfer import TransferReport
-from ankiforge.ui.dialogs.profile_transfer_dialog import ProfileTransferDialog
+from ankidraft.services.profile_content_transfer import TransferReport
+from ankidraft.ui.dialogs.profile_transfer_dialog import ProfileTransferDialog
 
 pytestmark = pytest.mark.ui
 
@@ -19,13 +19,13 @@ def test_profile_transfer_dialog_init_and_preview(qtbot, tmp_path: Path):
     (profiles_dir / "medecine").mkdir(parents=True)
 
     with (
-        patch("ankiforge.ui.dialogs.profile_transfer_dialog.get_active_profile", return_value="default"),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_decks", return_value=["Anatomie", "Physiologie"]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_tags", return_value=["p1", "difficile"]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_note_types", return_value=[]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_albums", return_value=[]),
+        patch("ankidraft.ui.dialogs.profile_transfer_dialog.get_active_profile", return_value="default"),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_decks", return_value=["Anatomie", "Physiologie"]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_tags", return_value=["p1", "difficile"]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_note_types", return_value=[]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_albums", return_value=[]),
         patch(
-            "ankiforge.services.profile_content_transfer.ProfileContentTransfer.get_transfer_preview",
+            "ankidraft.services.profile_content_transfer.ProfileContentTransfer.get_transfer_preview",
             return_value={
                 "notes_count": 12,
                 "note_types_count": 2,
@@ -63,11 +63,11 @@ def test_profile_transfer_dialog_empty_selection_warning(qtbot, tmp_path: Path):
     (profiles_dir / "source").mkdir(parents=True)
 
     with (
-        patch("ankiforge.ui.dialogs.profile_transfer_dialog.get_active_profile", return_value="default"),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_decks", return_value=["Deck1"]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_tags", return_value=[]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_note_types", return_value=[]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_albums", return_value=[]),
+        patch("ankidraft.ui.dialogs.profile_transfer_dialog.get_active_profile", return_value="default"),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_decks", return_value=["Deck1"]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_tags", return_value=[]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_note_types", return_value=[]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_albums", return_value=[]),
     ):
         dialog = ProfileTransferDialog(profiles_dir=profiles_dir)
         qtbot.addWidget(dialog)
@@ -78,7 +78,7 @@ def test_profile_transfer_dialog_empty_selection_warning(qtbot, tmp_path: Path):
 
         with (
             patch.object(QMessageBox, "warning") as mock_warn,
-            patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.transfer_content") as mock_transfer,
+            patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.transfer_content") as mock_transfer,
         ):
             dialog.btn_transfer.click()
             mock_warn.assert_called_once()
@@ -101,12 +101,12 @@ def test_profile_transfer_dialog_execution(qtbot, tmp_path: Path):
     )
 
     with (
-        patch("ankiforge.ui.dialogs.profile_transfer_dialog.get_active_profile", return_value="default"),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_decks", return_value=["Deck1"]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_tags", return_value=["Tag1"]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_note_types", return_value=[]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_albums", return_value=[]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.transfer_content", return_value=fake_report) as mock_transfer,
+        patch("ankidraft.ui.dialogs.profile_transfer_dialog.get_active_profile", return_value="default"),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_decks", return_value=["Deck1"]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_tags", return_value=["Tag1"]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_note_types", return_value=[]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_albums", return_value=[]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.transfer_content", return_value=fake_report) as mock_transfer,
         patch.object(QMessageBox, "information") as mock_info,
     ):
         dialog = ProfileTransferDialog(profiles_dir=profiles_dir)
@@ -148,13 +148,13 @@ def test_profile_transfer_dialog_populate_modeles_et_albums(qtbot, tmp_path: Pat
     albums = [{"id": 42, "title": "Album Anatomie", "total_pages": 3, "created_at": None}]
 
     with (
-        patch("ankiforge.ui.dialogs.profile_transfer_dialog.get_active_profile", return_value="default"),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_decks", return_value=["Deck1"]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_tags", return_value=["Tag1"]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_note_types", return_value=modeles),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_albums", return_value=albums),
+        patch("ankidraft.ui.dialogs.profile_transfer_dialog.get_active_profile", return_value="default"),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_decks", return_value=["Deck1"]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_tags", return_value=["Tag1"]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_note_types", return_value=modeles),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_albums", return_value=albums),
         patch(
-            "ankiforge.services.profile_content_transfer.ProfileContentTransfer.get_transfer_preview",
+            "ankidraft.services.profile_content_transfer.ProfileContentTransfer.get_transfer_preview",
             return_value={
                 "notes_count": 0,
                 "note_types_count": 0,
@@ -197,23 +197,23 @@ def test_profile_transfer_dialog_transfer_modeles_et_albums(qtbot, tmp_path: Pat
     )
 
     with (
-        patch("ankiforge.ui.dialogs.profile_transfer_dialog.get_active_profile", return_value="default"),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_decks", return_value=["Deck1"]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_tags", return_value=[]),
+        patch("ankidraft.ui.dialogs.profile_transfer_dialog.get_active_profile", return_value="default"),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_decks", return_value=["Deck1"]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_tags", return_value=[]),
         patch(
-            "ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_note_types",
+            "ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_note_types",
             return_value=[
                 {"id": 7, "name": "Modèle A", "description": "", "templates_count": 1, "fields_schema": '["A"]', "templates": "[]", "css_style": ""},
             ],
         ),
         patch(
-            "ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_albums",
+            "ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_albums",
             return_value=[
                 {"id": 42, "title": "Album X", "total_pages": 3, "created_at": None},
             ],
         ),
         patch(
-            "ankiforge.services.profile_content_transfer.ProfileContentTransfer.get_transfer_preview",
+            "ankidraft.services.profile_content_transfer.ProfileContentTransfer.get_transfer_preview",
             return_value={
                 "notes_count": 0,
                 "note_types_count": 0,
@@ -224,9 +224,9 @@ def test_profile_transfer_dialog_transfer_modeles_et_albums(qtbot, tmp_path: Pat
                 "albums_count": 1,
             },
         ),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.transfer_content", return_value=fake_report) as mock_transfer,
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.import_note_type") as mock_import_nt,
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.import_album") as mock_import_album,
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.transfer_content", return_value=fake_report) as mock_transfer,
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.import_note_type") as mock_import_nt,
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.import_album") as mock_import_album,
         patch.object(QMessageBox, "information") as mock_info,
     ):
         dialog = ProfileTransferDialog(profiles_dir=profiles_dir)
@@ -270,12 +270,12 @@ def test_profile_transfer_dialog_transfer_sans_selection_leve_avertissement(qtbo
     (profiles_dir / "source").mkdir(parents=True)
 
     with (
-        patch("ankiforge.ui.dialogs.profile_transfer_dialog.get_active_profile", return_value="default"),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_decks", return_value=["Deck1"]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_tags", return_value=[]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_note_types", return_value=[]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.list_albums", return_value=[]),
-        patch("ankiforge.services.profile_content_transfer.ProfileContentTransfer.transfer_content") as mock_transfer,
+        patch("ankidraft.ui.dialogs.profile_transfer_dialog.get_active_profile", return_value="default"),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_decks", return_value=["Deck1"]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_tags", return_value=[]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_note_types", return_value=[]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.list_albums", return_value=[]),
+        patch("ankidraft.services.profile_content_transfer.ProfileContentTransfer.transfer_content") as mock_transfer,
         patch.object(QMessageBox, "warning") as mock_warn,
     ):
         dialog = ProfileTransferDialog(profiles_dir=profiles_dir)

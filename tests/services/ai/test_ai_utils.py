@@ -2,7 +2,7 @@ import dataclasses
 
 import pytest
 
-from ankiforge.services.ai.utils import AIReponseParser
+from ankidraft.services.ai.utils import AIReponseParser
 
 pytestmark = pytest.mark.unit
 
@@ -108,7 +108,7 @@ def test_parse_with_list_dataclass():
 
 
 def test_extract_cards_from_data():
-    from ankiforge.services.ai.utils import extract_cards_from_data
+    from ankidraft.services.ai.utils import extract_cards_from_data
 
     # Format 1: dict with "notes"
     d1 = {"notes": [{"Front": "Q1", "Back": "A1"}]}
@@ -205,7 +205,7 @@ def test_parse_truncated_json_drops_incomplete_trailing_card():
 
 def test_repair_truncated_json_noop_on_complete():
     """Une réponse JSON valide n'est jamais modifiée par la réparation (aucun candidat inutile)."""
-    from ankiforge.services.ai.utils import AIReponseParser as P
+    from ankidraft.services.ai.utils import AIReponseParser as P
 
     assert P._repair_truncated_json('{"notes": [{"Front": "Q", "Back": "A"}]}') == []
     assert P._repair_truncated_json("texte sans JSON") == []
@@ -213,7 +213,7 @@ def test_repair_truncated_json_noop_on_complete():
 
 def test_extract_cards_multi_model():
     """Vérifie la prise en charge des sorties multi-modèles structurées."""
-    from ankiforge.services.ai.utils import extract_cards_from_data
+    from ankidraft.services.ai.utils import extract_cards_from_data
 
     # Format multi-modèles standard avec clé "fields"
     multi_data = {
@@ -251,7 +251,7 @@ def test_extract_cards_multi_model():
 
 def test_format_available_card_models_prompt():
     """Vérifie le formatage des directives de modèles de cartes pour le prompt Jinja."""
-    from ankiforge.services.ai.utils import format_available_card_models_prompt
+    from ankidraft.services.ai.utils import format_available_card_models_prompt
 
     mock_models = [
         {"name": "Basique", "description": "Questions simples Q/R", "fields_schema": '["Front", "Back"]'},
@@ -269,7 +269,7 @@ def test_format_available_card_models_prompt():
 
 def test_normalize_card_fields():
     """Vérifie la normalisation des cartes générées au schéma de champs du modèle de carte."""
-    from ankiforge.services.ai.utils import normalize_card_fields
+    from ankidraft.services.ai.utils import normalize_card_fields
 
     cards = [
         {"Question": "Requête", "Reponse": "Réponse", "Extra": "ignoré"},
@@ -285,7 +285,7 @@ def test_normalize_card_fields():
 
 def test_get_human_readable_api_error_504_and_timeout():
     """Vérifie la détection et l'explication compréhensible des timeouts 504 et amont."""
-    from ankiforge.services.ai.utils import get_human_readable_api_error
+    from ankidraft.services.ai.utils import get_human_readable_api_error
 
     err_504 = Exception("HTTP 504 Gateway Timeout from upstream proxy")
     msg_504 = get_human_readable_api_error(err_504)
@@ -299,7 +299,7 @@ def test_get_human_readable_api_error_504_and_timeout():
 
 def test_get_human_readable_api_error_empty_choices():
     """Vérifie l'explication lors d'une réponse vide ou sans choix."""
-    from ankiforge.services.ai.utils import get_human_readable_api_error
+    from ankidraft.services.ai.utils import get_human_readable_api_error
 
     err_empty = Exception("choices vide ou nul")
     msg_empty = get_human_readable_api_error(err_empty)
@@ -308,7 +308,7 @@ def test_get_human_readable_api_error_empty_choices():
 
 def test_get_human_readable_api_error_standard_codes():
     """Vérifie le mapping des codes usuels (429, 401, 500)."""
-    from ankiforge.services.ai.utils import get_human_readable_api_error
+    from ankidraft.services.ai.utils import get_human_readable_api_error
 
     assert "quota" in get_human_readable_api_error(Exception("429 Too Many Requests"))
     assert "clé API" in get_human_readable_api_error(Exception("401 Unauthorized"))
@@ -317,7 +317,7 @@ def test_get_human_readable_api_error_standard_codes():
 
 def test_get_human_readable_api_error_openrouter_specific():
     """Vérifie les messages dédiés aux erreurs typiques d'OpenRouter (crédits, paramètres, plafonds)."""
-    from ankiforge.services.ai.utils import get_human_readable_api_error
+    from ankidraft.services.ai.utils import get_human_readable_api_error
 
     # 402 : crédits insuffisants
     msg_402 = get_human_readable_api_error(Exception("402 Insufficient credits"))

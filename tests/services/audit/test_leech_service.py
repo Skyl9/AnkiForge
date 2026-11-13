@@ -6,14 +6,14 @@ import json
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.audit.leech_service import LeechService
+from ankidraft.services.audit.leech_service import LeechService
 
 pytestmark = pytest.mark.integration
 
@@ -152,7 +152,7 @@ def test_leech_service_deck_filter_and_sorting() -> None:
 
 
 def test_leech_service_split_proposal_and_two_phase_commit() -> None:
-    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+    from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
 
     deck = DeckModel.create(name="Philosophie")
     nt = NoteTypeModel.create(name="Basic", fields_schema=json.dumps(["Recto", "Verso"]))

@@ -16,8 +16,8 @@ from typing import Any
 
 import pytest
 
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.workspace_sync_service import (
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.workspace_sync_service import (
     DriftSeverity,
     WorkspaceDriftReport,
     WorkspaceSyncService,
@@ -74,7 +74,7 @@ def test_initialize_workspace_creates_gitignore_agents_and_manifest(ws_root: Pat
     assert ".venv/" in gitignore
     assert "__pycache__/" in gitignore
 
-    manifest = json.loads((ws_root / ".agents/.ankiforge-sync.json").read_text(encoding="utf-8"))
+    manifest = json.loads((ws_root / ".agents/.ankidraft-sync.json").read_text(encoding="utf-8"))
     assert manifest["workspace_path"] == str(ws_root)
     assert "initialized_at" in manifest
     assert "files" in manifest
@@ -126,8 +126,8 @@ def test_sync_workspace_updates_outdated_and_preserves_user_files(ws_root: Path)
     # Le fichier utilisateur est intact.
     assert (user_dir / "perso.md").read_text(encoding="utf-8") == "contenu utilisateur à préserver"
     # Le manifeste a été réécrit (présence du fichier .tmp supprimé par replace).
-    assert not (ws_root / ".agents/.ankiforge-sync.json.tmp").exists()
-    assert (ws_root / ".agents/.ankiforge-sync.json").is_file()
+    assert not (ws_root / ".agents/.ankidraft-sync.json.tmp").exists()
+    assert (ws_root / ".agents/.ankidraft-sync.json").is_file()
 
 
 def test_reentrant_lock_serializes_writes(ws_root: Path) -> None:

@@ -7,13 +7,13 @@ import uuid
 import pytest
 from pytestqt.qtbot import QtBot
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
 )
-from ankiforge.ui.views.edition_view import EditionView
+from ankidraft.ui.views.edition_view import EditionView
 
 pytestmark = pytest.mark.ui
 

@@ -4,11 +4,11 @@ import pytest
 from PySide6.QtWidgets import QDialog
 from pytestqt.qtbot import QtBot
 
-from ankiforge.database.models import DocumentModel
-from ankiforge.services.markdown.models import HeadingRepairItem
-from ankiforge.ui.dialogs.repair_headings_dialog import RepairHeadingsDialog
-from ankiforge.ui.views.documents_view.view import DocumentsView
-from ankiforge.ui.widgets.document_outline import DocumentOutlineWidget
+from ankidraft.database.models import DocumentModel
+from ankidraft.services.markdown.models import HeadingRepairItem
+from ankidraft.ui.dialogs.repair_headings_dialog import RepairHeadingsDialog
+from ankidraft.ui.views.documents_view.view import DocumentsView
+from ankidraft.ui.widgets.document_outline import DocumentOutlineWidget
 
 pytestmark = pytest.mark.ui
 

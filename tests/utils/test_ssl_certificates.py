@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.utils.ssl_certificates import find_valid_ca_bundle, pin_ca_bundle_to_requests, setup_ssl_certificates
+from ankidraft.utils.ssl_certificates import find_valid_ca_bundle, pin_ca_bundle_to_requests, setup_ssl_certificates
 
 pytestmark = pytest.mark.unit
 
@@ -46,7 +46,7 @@ def test_find_valid_ca_bundle_fallback_when_none(tmp_path):
 def test_setup_ssl_certificates_no_crash_on_empty():
     """Vérifie que setup_ssl_certificates ne plante pas même si aucun bundle n'est localisé."""
     with (
-        patch("ankiforge.utils.ssl_certificates.find_valid_ca_bundle", return_value=None),
+        patch("ankidraft.utils.ssl_certificates.find_valid_ca_bundle", return_value=None),
         patch.dict(os.environ, {"SSL_CERT_FILE": "/missing/cacert.pem"}, clear=False),
     ):
         res = setup_ssl_certificates()
@@ -109,7 +109,7 @@ def test_setup_ssl_certificates_pins_requests_bundle(tmp_path):
     fakes = _make_fake_requests_modules("frozen/Contents/MacOS/certifi/cacert.pem")
 
     with (
-        patch("ankiforge.utils.ssl_certificates.find_valid_ca_bundle", return_value=bundle),
+        patch("ankidraft.utils.ssl_certificates.find_valid_ca_bundle", return_value=bundle),
         patch.dict(sys.modules, fakes),
         patch.dict(os.environ, {}, clear=False),
     ):

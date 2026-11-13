@@ -4,12 +4,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.services.parsing.audio_parser import (
+from ankidraft.services.parsing.audio_parser import (
     AudioParser,
     format_seconds_to_timestamp,
 )
-from ankiforge.services.parsing.chunking_service import ChunkingService
-from ankiforge.services.parsing.document_parser import DocumentParser
+from ankidraft.services.parsing.chunking_service import ChunkingService
+from ankidraft.services.parsing.document_parser import DocumentParser
 from tests.conftest import MINIMAL_VALID_MP3_BYTES
 
 pytestmark = pytest.mark.unit

@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 from PySide6.QtCore import QThreadPool
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     NoteModel,
     NoteTypeModel,
@@ -20,9 +20,9 @@ from ankiforge.database.models import (
     PipelineStepModel,
     StagedBundleModel,
 )
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
-from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
+from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
 
 pytestmark = pytest.mark.integration
 
@@ -192,7 +192,7 @@ def test_trigger_pipeline_run_execution_and_staged_finalization(pipeline_env: di
 
 def test_trigger_pipeline_run_with_document_and_variables(pipeline_env: dict[str, Any]) -> None:
     """Vérifie le déclenchement avec document_id et variables_json personnalisées."""
-    from ankiforge.database.models import DocumentModel
+    from ankidraft.database.models import DocumentModel
 
     deck = pipeline_env["deck"]
     pipeline = pipeline_env["clean_pipeline"]

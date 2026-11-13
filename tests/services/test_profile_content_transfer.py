@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from peewee import SqliteDatabase
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentModel,
     DocumentPageModel,
     FolderModel,
@@ -17,7 +17,7 @@ from ankiforge.database.models import (
     PipelineModel,
     PipelineStepModel,
 )
-from ankiforge.services.profile_content_transfer import ProfileContentTransfer
+from ankidraft.services.profile_content_transfer import ProfileContentTransfer
 
 pytestmark = pytest.mark.integration
 
@@ -34,7 +34,7 @@ def _creer_profil_source(
     source_dir.mkdir(parents=True)
     if avec_media:
         (source_dir / "media").mkdir()
-    db_path = source_dir / "ankiforge.db"
+    db_path = source_dir / "ankidraft.db"
     source_db = SqliteDatabase(str(db_path))
     with source_db.bind_ctx(models, bind_refs=False, bind_backrefs=False):
         source_db.connect()
@@ -47,7 +47,7 @@ def test_import_persona_from_another_profile(mock_db, tmp_path: Path) -> None:
     profiles_dir = tmp_path / "profiles"
     source_dir = profiles_dir / "source"
     source_dir.mkdir(parents=True)
-    source_db = SqliteDatabase(str(source_dir / "ankiforge.db"))
+    source_db = SqliteDatabase(str(source_dir / "ankidraft.db"))
     models = [LLMConfigModel, PersonaFolderModel, PersonaModel, PersonaVersionModel, PipelineModel, PipelineStepModel]
     with source_db.bind_ctx(models, bind_refs=False, bind_backrefs=False):
         source_db.connect()
@@ -93,7 +93,7 @@ def test_import_pipeline_imports_missing_personas_and_preserves_links(mock_db, t
     profiles_dir = tmp_path / "profiles"
     source_dir = profiles_dir / "source"
     source_dir.mkdir(parents=True)
-    source_db = SqliteDatabase(str(source_dir / "ankiforge.db"))
+    source_db = SqliteDatabase(str(source_dir / "ankidraft.db"))
     models = [LLMConfigModel, PersonaFolderModel, PersonaModel, PersonaVersionModel, PipelineModel, PipelineStepModel]
     with source_db.bind_ctx(models, bind_refs=False, bind_backrefs=False):
         source_db.connect()
@@ -119,7 +119,7 @@ def _ecriture_cible(profiles_dir: Path, nom: str, models: list[type]) -> Path:
     cible_dir = profiles_dir / nom
     cible_dir.mkdir(parents=True)
     (cible_dir / "media").mkdir()
-    db_path = cible_dir / "ankiforge.db"
+    db_path = cible_dir / "ankidraft.db"
     cible_db = SqliteDatabase(str(db_path))
     with cible_db.bind_ctx(models, bind_refs=False, bind_backrefs=False):
         cible_db.connect()
@@ -131,7 +131,7 @@ def _ecriture_cible(profiles_dir: Path, nom: str, models: list[type]) -> Path:
 def test_list_note_types_renvoie_modeles_ordonnes(mock_db, tmp_path: Path) -> None:
     profiles_dir = tmp_path / "profiles"
     _creer_profil_source(tmp_path, "source", [NoteTypeModel])
-    source_db = SqliteDatabase(str(profiles_dir / "source" / "ankiforge.db"))
+    source_db = SqliteDatabase(str(profiles_dir / "source" / "ankidraft.db"))
     with source_db.bind_ctx([NoteTypeModel], bind_refs=False, bind_backrefs=False):
         source_db.connect()
         NoteTypeModel.create(name="Zebre", description="Dernier", fields_schema='["A"]', templates="[]", css_style="")
@@ -152,7 +152,7 @@ def test_list_note_types_renvoie_modeles_ordonnes(mock_db, tmp_path: Path) -> No
 def test_list_albums_renvoie_albums_avec_compte_planches(mock_db, tmp_path: Path) -> None:
     profiles_dir = tmp_path / "profiles"
     _creer_profil_source(tmp_path, "source", [DocumentModel, DocumentPageModel, MediaModel])
-    source_db = SqliteDatabase(str(profiles_dir / "source" / "ankiforge.db"))
+    source_db = SqliteDatabase(str(profiles_dir / "source" / "ankidraft.db"))
     with source_db.bind_ctx([DocumentModel, DocumentPageModel, MediaModel], bind_refs=False, bind_backrefs=False):
         source_db.connect()
         album = DocumentModel.create(title="Anatomie", file_type="album", total_pages=3)
@@ -175,7 +175,7 @@ def test_import_note_type_cree_nouveau_modele(mock_db, tmp_path: Path) -> None:
     profiles_dir = tmp_path / "profiles"
     _creer_profil_source(tmp_path, "source", [NoteTypeModel])
     _ecriture_cible(profiles_dir, "cible", [NoteTypeModel])
-    source_db = SqliteDatabase(str(profiles_dir / "source" / "ankiforge.db"))
+    source_db = SqliteDatabase(str(profiles_dir / "source" / "ankidraft.db"))
     with source_db.bind_ctx([NoteTypeModel], bind_refs=False, bind_backrefs=False):
         source_db.connect()
         NoteTypeModel.create(
@@ -194,7 +194,7 @@ def test_import_note_type_cree_nouveau_modele(mock_db, tmp_path: Path) -> None:
     assert importe.fields_schema == '["Recto", "Verso"]'
     assert importe.css_style == ".card { color: red; }"
 
-    cible_db = SqliteDatabase(str(profiles_dir / "cible" / "ankiforge.db"))
+    cible_db = SqliteDatabase(str(profiles_dir / "cible" / "ankidraft.db"))
     with cible_db.bind_ctx([NoteTypeModel], bind_refs=False, bind_backrefs=False):
         cible_db.connect()
         assert cible_db.execute_sql("SELECT COUNT(*) FROM notetypemodel WHERE name = 'Modèle Source'").fetchone()[0] == 1
@@ -205,8 +205,8 @@ def test_import_note_type_reutilise_existant_si_meme_schema(mock_db, tmp_path: P
     profiles_dir = tmp_path / "profiles"
     _creer_profil_source(tmp_path, "source", [NoteTypeModel])
     _ecriture_cible(profiles_dir, "cible", [NoteTypeModel])
-    source_db = SqliteDatabase(str(profiles_dir / "source" / "ankiforge.db"))
-    cible_db = SqliteDatabase(str(profiles_dir / "cible" / "ankiforge.db"))
+    source_db = SqliteDatabase(str(profiles_dir / "source" / "ankidraft.db"))
+    cible_db = SqliteDatabase(str(profiles_dir / "cible" / "ankidraft.db"))
     with source_db.bind_ctx([NoteTypeModel], bind_refs=False, bind_backrefs=False):
         source_db.connect()
         NoteTypeModel.create(name="Commun", description="Src", fields_schema='["A", "B"]', templates="[]", css_style="")
@@ -226,8 +226,8 @@ def test_import_note_type_renomme_si_schema_differ(mock_db, tmp_path: Path) -> N
     profiles_dir = tmp_path / "profiles"
     _creer_profil_source(tmp_path, "source", [NoteTypeModel])
     _ecriture_cible(profiles_dir, "cible", [NoteTypeModel])
-    source_db = SqliteDatabase(str(profiles_dir / "source" / "ankiforge.db"))
-    cible_db = SqliteDatabase(str(profiles_dir / "cible" / "ankiforge.db"))
+    source_db = SqliteDatabase(str(profiles_dir / "source" / "ankidraft.db"))
+    cible_db = SqliteDatabase(str(profiles_dir / "cible" / "ankidraft.db"))
     with source_db.bind_ctx([NoteTypeModel], bind_refs=False, bind_backrefs=False):
         source_db.connect()
         NoteTypeModel.create(name="Commun", description="Src", fields_schema='["A"]', templates="[]", css_style="")
@@ -259,7 +259,7 @@ def test_import_album_duplique_document_pages_et_medias(mock_db, tmp_path: Path)
     source_media_dir = profiles_dir / "source" / "media"
     (source_media_dir / "planche1.png").write_bytes(b"image-donnees-planche-1")
 
-    source_db = SqliteDatabase(str(profiles_dir / "source" / "ankiforge.db"))
+    source_db = SqliteDatabase(str(profiles_dir / "source" / "ankidraft.db"))
     with source_db.bind_ctx([DocumentModel, DocumentPageModel, MediaModel], bind_refs=False, bind_backrefs=False):
         source_db.connect()
         album = DocumentModel.create(title="Album Numérise", file_type="album", total_pages=2)
@@ -292,7 +292,7 @@ def test_import_album_duplique_document_pages_et_medias(mock_db, tmp_path: Path)
     assert importe.file_type == "album"
     assert importe.title == "Album Numérise"
 
-    cible_db = SqliteDatabase(str(profiles_dir / "cible" / "ankiforge.db"))
+    cible_db = SqliteDatabase(str(profiles_dir / "cible" / "ankidraft.db"))
     with cible_db.bind_ctx([DocumentModel, DocumentPageModel, MediaModel], bind_refs=False, bind_backrefs=False):
         cible_db.connect()
         pages = list(DocumentPageModel.select().where(DocumentPageModel.document == importe).order_by(DocumentPageModel.page_number))
@@ -320,7 +320,7 @@ def test_import_album_deduplication_par_md5(mock_db, tmp_path: Path) -> None:
     checksum = hashlib.md5(contenu, usedforsecurity=False).hexdigest()
     (source_media_dir / "shared.png").write_bytes(contenu)
 
-    source_db = SqliteDatabase(str(profiles_dir / "source" / "ankiforge.db"))
+    source_db = SqliteDatabase(str(profiles_dir / "source" / "ankidraft.db"))
     with source_db.bind_ctx([DocumentModel, DocumentPageModel, MediaModel], bind_refs=False, bind_backrefs=False):
         source_db.connect()
         media = MediaModel.create(filename="shared.png", original_name="Shared.png", checksum=checksum, mime_type="image/png")
@@ -332,7 +332,7 @@ def test_import_album_deduplication_par_md5(mock_db, tmp_path: Path) -> None:
     deuxieme = ProfileContentTransfer.import_album("source", "Album A", target_profile="cible", profiles_dir=profiles_dir)
 
     assert premier.title != deuxieme.title
-    cible_db = SqliteDatabase(str(profiles_dir / "cible" / "ankiforge.db"))
+    cible_db = SqliteDatabase(str(profiles_dir / "cible" / "ankidraft.db"))
     with cible_db.bind_ctx([DocumentModel, DocumentPageModel, MediaModel], bind_refs=False, bind_backrefs=False):
         cible_db.connect()
         assert cible_db.execute_sql("SELECT COUNT(*) FROM mediamodel WHERE checksum = ?", (checksum,)).fetchone()[0] == 1

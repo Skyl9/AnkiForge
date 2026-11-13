@@ -6,13 +6,13 @@ from unittest.mock import patch as mock_patch
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     NoteModel,
     NoteTypeModel,
     StagedPatchModel,
 )
-from ankiforge.services.ai.patch_appliers import (
+from ankidraft.services.ai.patch_appliers import (
     DeckPatchApplier,
     DelegatedStepPatchApplier,
     ModelPatchApplier,
@@ -23,7 +23,7 @@ from ankiforge.services.ai.patch_appliers import (
     TagPatchApplier,
     get_patch_applier,
 )
-from ankiforge.services.cards.note_type_service import NoteTypeService
+from ankidraft.services.cards.note_type_service import NoteTypeService
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def test_note_type(mock_db):
 
 @pytest.fixture
 def test_note(test_deck, test_note_type):
-    from ankiforge.services.cards.note_manager import NoteManager
+    from ankidraft.services.cards.note_manager import NoteManager
 
     return NoteManager.create_note(
         note_type=test_note_type,

@@ -10,9 +10,9 @@ from PySide6.QtCore import QMimeData, QPoint, QPointF, Qt
 from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDragMoveEvent, QDropEvent, QKeyEvent
 from PySide6.QtWidgets import QLabel, QSplitter, QWidget
 
-from ankiforge.ui.components.panels import IdePanel, PanelPlaceholderWidget
-from ankiforge.ui.components.tabs.floating_dock import _floating_windows
-from ankiforge.ui.components.tabs.segmented_tab_bar import (
+from ankidraft.ui.components.panels import IdePanel, PanelPlaceholderWidget
+from ankidraft.ui.components.tabs.floating_dock import _floating_windows
+from ankidraft.ui.components.tabs.segmented_tab_bar import (
     SegmentedTabBar,
     SegmentedTabButton,
     SubTabButton,
@@ -311,7 +311,7 @@ class TestTransverseNavigationRouting:
     """Vérifie le routage transverse des paramètres dans MainWindow."""
 
     def test_documents_view_receives_doc_id(self, monkeypatch: Any) -> None:
-        from ankiforge.ui.main_window import MainWindow
+        from ankidraft.ui.main_window import MainWindow
 
         # Mock app components to test _on_view_selected logic cleanly
         window = MagicMock(spec=MainWindow)
@@ -338,7 +338,7 @@ class TestTabIconColors:
 
     def test_tab_icon_color_persistence_and_detach(self, qtbot: Any) -> None:
         """Vérifie qu'un onglet conserve sa couleur d'icône personnalisée après détachement et rattachement."""
-        from ankiforge.ui.theme import DesignTokens
+        from ankidraft.ui.theme import DesignTokens
 
         splitter = QSplitter()
         panel = IdePanel(parent=splitter)
@@ -375,8 +375,8 @@ class TestTabIconColors:
 
     def test_analysis_view_tab_icon_colors(self, qtbot: Any) -> None:
         """Vérifie que la vue Analyse initialise ses 4 sous-onglets avec les accents sémantiques Or, Bleu, Vert, Violet."""
-        from ankiforge.ui.theme import DesignTokens
-        from ankiforge.ui.views.analysis_view.view import AnalysisView
+        from ankidraft.ui.theme import DesignTokens
+        from ankidraft.ui.views.analysis_view.view import AnalysisView
 
         view = AnalysisView()
         qtbot.addWidget(view)
@@ -474,7 +474,7 @@ class TestTabDragAndDropPanels:
 
     def test_tabs_package_exports_drag_accessors(self) -> None:
         """Vérifie que get_dragged_tab_info et set_dragged_tab_info sont bien ré-exportés par tabs."""
-        from ankiforge.ui.components.tabs import get_dragged_tab_info, set_dragged_tab_info
+        from ankidraft.ui.components.tabs import get_dragged_tab_info, set_dragged_tab_info
 
         dummy_payload = {"title": "Test Tab", "index": 0}
         set_dragged_tab_info(dummy_payload)
@@ -485,7 +485,7 @@ class TestTabDragAndDropPanels:
 
     def test_ide_panel_drag_events_without_attribute_error(self, qtbot: Any) -> None:
         """Vérifie que dragEnter, dragMove et drop sur IdePanel ne lèvent pas AttributeError."""
-        from ankiforge.ui.components.tabs.tab_button import set_dragged_tab_info
+        from ankidraft.ui.components.tabs.tab_button import set_dragged_tab_info
 
         panel1 = IdePanel(detachable=True)
         panel2 = IdePanel(detachable=True)
@@ -505,7 +505,7 @@ class TestTabDragAndDropPanels:
         panel2.add_tab("Tab 3", w3, "ph.note", closable=True)
 
         mime = QMimeData()
-        mime.setData("application/x-ankiforge-tab", b"")
+        mime.setData("application/x-ankidraft-tab", b"")
 
         # 1. dragEnterEvent avec info de drag nulle
         set_dragged_tab_info(None)
@@ -557,7 +557,7 @@ class TestTabDragAndDropPanels:
         panel2.dropEvent(drop_event)
 
         # L'onglet a été transféré de panel1 à panel2 et l'info de drag est nettoyée
-        from ankiforge.ui.components.tabs.tab_button import get_dragged_tab_info
+        from ankidraft.ui.components.tabs.tab_button import get_dragged_tab_info
 
         assert get_dragged_tab_info() is None
         assert panel1.tabs_bar.count() == 1
@@ -565,7 +565,7 @@ class TestTabDragAndDropPanels:
 
     def test_placeholder_drop_event_without_attribute_error(self, qtbot: Any) -> None:
         """Vérifie que dropEvent sur PanelPlaceholderWidget ne lève pas AttributeError."""
-        from ankiforge.ui.components.tabs.tab_button import get_dragged_tab_info, set_dragged_tab_info
+        from ankidraft.ui.components.tabs.tab_button import get_dragged_tab_info, set_dragged_tab_info
 
         src_panel = IdePanel(detachable=True)
         target_panel = IdePanel(detachable=True, permanent=True)
@@ -578,7 +578,7 @@ class TestTabDragAndDropPanels:
         placeholder = target_panel.placeholder_widget
 
         mime = QMimeData()
-        mime.setData("application/x-ankiforge-tab", b"")
+        mime.setData("application/x-ankidraft-tab", b"")
 
         set_dragged_tab_info(
             {
@@ -608,7 +608,7 @@ class TestTabDragAndDropPanels:
         import ast
         from pathlib import Path
 
-        panels_path = Path(__file__).resolve().parent.parent.parent / "src" / "ankiforge" / "ui" / "components" / "panels.py"
+        panels_path = Path(__file__).resolve().parent.parent.parent / "src" / "ankidraft" / "ui" / "components" / "panels.py"
         tree = ast.parse(panels_path.read_text(encoding="utf-8"))
         attrs = {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
         names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}

@@ -1,7 +1,7 @@
 import pytest
 
-from ankiforge.services.cards.import_manager import ConflictItem
-from ankiforge.ui.dialogs.smart_merge_dialog import ConflictFieldRow, SmartMergeDialog
+from ankidraft.services.cards.import_manager import ConflictItem
+from ankidraft.ui.dialogs.smart_merge_dialog import ConflictFieldRow, SmartMergeDialog
 
 pytestmark = pytest.mark.ui
 

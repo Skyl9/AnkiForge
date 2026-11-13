@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
-from ankiforge.services.parsing.chunking_service import ChunkingService
-from ankiforge.services.parsing.document_parser import DocumentParser
+from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
+from ankidraft.services.parsing.chunking_service import ChunkingService
+from ankidraft.services.parsing.document_parser import DocumentParser
 
 pytestmark = pytest.mark.integration
 
@@ -76,8 +76,8 @@ def test_consultant_mcp_structure_document_sections_raw_content() -> None:
 def test_consultant_mcp_structure_transcript_for_ai_raw_content(monkeypatch: pytest.MonkeyPatch) -> None:
     from unittest.mock import MagicMock
 
-    from ankiforge.services.ai.base import LLMProvider
-    from ankiforge.services.markdown.ai_structurer import AIDocumentStructurer
+    from ankidraft.services.ai.base import LLMProvider
+    from ankidraft.services.markdown.ai_structurer import AIDocumentStructurer
 
     mock_provider = MagicMock(spec=LLMProvider)
     mock_provider.generate.return_value = "# Cours de Biologie\n\n## [00:15] Introduction à la cellule\n\nLa cellule est l'unité de base du vivant.\n\nLa formule énergétique est $ATP = ADP + Pi$."

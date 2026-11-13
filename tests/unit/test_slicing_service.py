@@ -2,7 +2,7 @@
 
 import pytest
 
-from ankiforge.services.batch.slicing_service import (
+from ankidraft.services.batch.slicing_service import (
     SliceUnit,
     SlicingMode,
     SlicingService,
@@ -213,7 +213,7 @@ Exemples pratiques commentés étape par étape pour guider l'étudiant dans sa 
 
 
 def test_granularity_presets() -> None:
-    from ankiforge.services.batch.slicing_service import GranularityLevel
+    from ankidraft.services.batch.slicing_service import GranularityLevel
 
     # Headings presets
     depth, min_w = SlicingService.get_headings_preset(GranularityLevel.COARSE)

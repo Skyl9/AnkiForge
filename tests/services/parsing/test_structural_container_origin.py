@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from ankiforge.services.parsing.chunking_service import ChunkingService, ContainerOrigin
+from ankidraft.services.parsing.chunking_service import ChunkingService, ContainerOrigin
 
 pytestmark = pytest.mark.unit
 

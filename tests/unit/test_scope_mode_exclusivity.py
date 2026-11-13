@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.ui.dialogs.scope_mode_exclusivity import (
+from ankidraft.ui.dialogs.scope_mode_exclusivity import (
     ScopeModeExclusivityMixin,
     sync_chapter_cards_from_range,
 )

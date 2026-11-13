@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
@@ -27,9 +27,9 @@ from ankiforge.database.models import (
     PipelineStepModel,
     StagedPatchModel,
 )
-from ankiforge.services.ai.orchestrator import PipelineOrchestrator
-from ankiforge.services.ai.patch_appliers import get_patch_applier
-from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankidraft.services.ai.orchestrator import PipelineOrchestrator
+from ankidraft.services.ai.patch_appliers import get_patch_applier
+from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
 
 
 @pytest.fixture
@@ -183,7 +183,7 @@ def test_delegated_pipeline_end_to_end_with_tts_and_batch_note_create(test_env: 
         ("[sound:inu.mp3]", 1100),
     ]
 
-    with patch("ankiforge.services.cards.tts_service.get_tts_service", return_value=fake_tts):
+    with patch("ankidraft.services.cards.tts_service.get_tts_service", return_value=fake_tts):
         orch.run()
 
     # 1. Les cartes dans l'état ont été enrichies par AUDIO_TTS

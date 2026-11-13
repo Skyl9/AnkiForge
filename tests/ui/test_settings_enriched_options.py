@@ -10,11 +10,11 @@ Couvre :
 import pytest
 from PySide6.QtWidgets import QDoubleSpinBox, QSpinBox
 
-from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
-from ankiforge.ui.widgets.settings_modal.tabs.general_tab import GeneralTab
-from ankiforge.ui.widgets.settings_modal.tabs.tts_tab import TTSSettingsTab
-from ankiforge.utils.environment import get_app_qsettings
+from ankidraft.services.settings_service import SettingsService
+from ankidraft.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
+from ankidraft.ui.widgets.settings_modal.tabs.general_tab import GeneralTab
+from ankidraft.ui.widgets.settings_modal.tabs.tts_tab import TTSSettingsTab
+from ankidraft.utils.environment import get_app_qsettings
 
 pytestmark = pytest.mark.ui
 

@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentModel,
@@ -27,8 +27,8 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
 
 pytestmark = pytest.mark.integration
 
@@ -133,7 +133,7 @@ def test_export_deck_apkg_default_path(sample_deck_with_cards: tuple[DeckModel, 
     """Vérifie l'exportation .apkg avec chemin par défaut généré dans le profil actif."""
     deck, _, _ = sample_deck_with_cards
 
-    with patch("ankiforge.services.ai.mcp_tool_registry.get_active_profile", return_value="test_profile"), patch("ankiforge.services.profile_manager.ProfileManager.PROFILES_DIR", tmp_path):
+    with patch("ankidraft.services.ai.mcp_tool_registry.get_active_profile", return_value="test_profile"), patch("ankidraft.services.profile_manager.ProfileManager.PROFILES_DIR", tmp_path):
         res_raw = MCPToolRegistry.export_deck_apkg(deck_name=deck.name)
         data = json.loads(res_raw)
 
@@ -277,7 +277,7 @@ def test_correct_plate_ocr_unknown_plate() -> None:
 
 def test_trigger_manual_backup_success(tmp_path: Path) -> None:
     """Vérifie la génération d'un snapshot SQLite horodaté dans le profil actif."""
-    fake_db = tmp_path / "ankiforge.db"
+    fake_db = tmp_path / "ankidraft.db"
     # Création d'une base SQLite valide
     with sqlite3.connect(fake_db) as conn:
         conn.execute("CREATE TABLE dummy (id INTEGER PRIMARY KEY);")
@@ -287,9 +287,9 @@ def test_trigger_manual_backup_success(tmp_path: Path) -> None:
     fake_profiles_dir.mkdir(parents=True)
 
     with (
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=fake_db),
-        patch("ankiforge.database.backup.get_active_profile", return_value="default"),
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", fake_profiles_dir),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=fake_db),
+        patch("ankidraft.database.backup.get_active_profile", return_value="default"),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", fake_profiles_dir),
     ):
         res_raw = MCPToolRegistry.trigger_manual_backup(reason="pre_major_mutation")
         data = json.loads(res_raw)
@@ -356,7 +356,7 @@ def test_mcp_tool_registry_system_tools_dispatch(
     tmp_path: Path,
 ) -> None:
     """Vérifie la parité de dispatch des 6 outils via MCPToolRegistry directement."""
-    from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
+    from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
 
     deck, note, cards = sample_deck_with_cards
     _, page, _ = sample_album_plate
@@ -383,16 +383,16 @@ def test_mcp_tool_registry_system_tools_dispatch(
     assert json.loads(obs)["status"] == "success"
 
     # 6. trigger_manual_backup
-    fake_db = tmp_path / "ankiforge.db"
+    fake_db = tmp_path / "ankidraft.db"
     with sqlite3.connect(fake_db) as conn:
         conn.execute("CREATE TABLE dummy (id INT);")
     fake_profiles_dir = tmp_path / "profiles_mcp"
     fake_profiles_dir.mkdir(parents=True)
 
     with (
-        patch("ankiforge.database.backup.ProfileManager.get_db_path", return_value=fake_db),
-        patch("ankiforge.database.backup.get_active_profile", return_value="default"),
-        patch("ankiforge.database.backup.ProfileManager.PROFILES_DIR", fake_profiles_dir),
+        patch("ankidraft.database.backup.ProfileManager.get_db_path", return_value=fake_db),
+        patch("ankidraft.database.backup.get_active_profile", return_value="default"),
+        patch("ankidraft.database.backup.ProfileManager.PROFILES_DIR", fake_profiles_dir),
     ):
         obs = MCPToolRegistry.trigger_manual_backup(reason="mcp_test")
         assert json.loads(obs)["status"] == "success"

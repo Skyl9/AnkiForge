@@ -10,17 +10,17 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentChunkModel,
     DocumentModel,
     NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
 )
-from ankiforge.services.audit.coverage_alignment_service import CoverageAlignmentService
-from ankiforge.services.batch.models import BatchSourceBlock
-from ankiforge.services.batch.provenance import scope_provenance, stamp_scope_provenance
-from ankiforge.utils.tags import build_document_tags
+from ankidraft.services.audit.coverage_alignment_service import CoverageAlignmentService
+from ankidraft.services.batch.models import BatchSourceBlock
+from ankidraft.services.batch.provenance import scope_provenance, stamp_scope_provenance
+from ankidraft.utils.tags import build_document_tags
 
 pytestmark = pytest.mark.integration
 
@@ -181,7 +181,7 @@ def test_sync_reports_unlinked_notes_instead_of_dropping_them_silently(caplog: p
     nt = NoteTypeModel.create(name=f"NT Orpheline {uid}", fields_schema='["Front", "Back"]', templates="[]")
     note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt, tags=json.dumps(build_document_tags(doc_id=doc.id, doc_title=doc.title)))
 
-    with caplog.at_level(logging.WARNING, logger="ankiforge.services.audit.coverage_alignment_service"):
+    with caplog.at_level(logging.WARNING, logger="ankidraft.services.audit.coverage_alignment_service"):
         report = CoverageAlignmentService.sync_coverage_from_tags(doc_id=doc.id)
 
     assert report["unlinked_notes"] == 1
@@ -202,7 +202,7 @@ def test_stale_document_raises_an_alert_instead_of_a_silent_zero(caplog: pytest.
         tags=json.dumps(build_document_tags(doc_id=doc.id, doc_title=doc.title, section_name=chunks[0].heading_path)),
     )
 
-    with caplog.at_level(logging.WARNING, logger="ankiforge.services.audit.coverage_alignment_service"):
+    with caplog.at_level(logging.WARNING, logger="ankidraft.services.audit.coverage_alignment_service"):
         report = CoverageAlignmentService.sync_coverage_from_tags(doc_id=doc.id)
 
     assert report["stale_documents"] == [doc.id]

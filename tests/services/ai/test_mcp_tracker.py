@@ -7,7 +7,7 @@ import asyncio
 import pytest
 from mcp.server.mcpserver import MCPServer
 
-from ankiforge.services.ai.mcp_tracker import (
+from ankidraft.services.ai.mcp_tracker import (
     MCPActivityTracker,
     get_mcp_activity_tracker,
     reset_mcp_activity_tracker,

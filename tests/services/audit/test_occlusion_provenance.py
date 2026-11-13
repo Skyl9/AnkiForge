@@ -13,18 +13,18 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentChunkModel,
     DocumentModel,
     NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
 )
-from ankiforge.services.audit.coverage_alignment_service import (
+from ankidraft.services.audit.coverage_alignment_service import (
     RESOLUTION_EXACT,
     CoverageAlignmentService,
 )
-from ankiforge.utils.tags import clean_source_slug, parse_note_tags
+from ankidraft.utils.tags import clean_source_slug, parse_note_tags
 
 pytestmark = pytest.mark.integration
 

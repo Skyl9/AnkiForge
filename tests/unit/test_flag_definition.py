@@ -4,10 +4,10 @@
 import pytest
 from peewee import IntegrityError
 
-from ankiforge.database.models import FlagDefinitionModel, ProfileFlagLabelModel
-from ankiforge.database.seeds.initial_seed import seed_initial_data
-from ankiforge.services.cards.flag_service import FlagService
-from ankiforge.utils.paths import set_active_profile
+from ankidraft.database.models import FlagDefinitionModel, ProfileFlagLabelModel
+from ankidraft.database.seeds.initial_seed import seed_initial_data
+from ankidraft.services.cards.flag_service import FlagService
+from ankidraft.utils.paths import set_active_profile
 
 
 @pytest.fixture(autouse=True)
@@ -216,7 +216,7 @@ class TestFlagService:
 
     def test_migrate_legacy_settings(self, mock_db, active_profile):
         """migrate_legacy_settings migre depuis SettingsService."""
-        from ankiforge.services.settings_service import SettingsService
+        from ankidraft.services.settings_service import SettingsService
 
         # Simuler un paramètre legacy
         SettingsService.set("anki/flag_labels", {"1": "Urgent", "2": "Important"}, category="anki")
@@ -238,7 +238,7 @@ class TestFlagService:
 
     def test_migrate_legacy_settings_skips_native(self, mock_db, active_profile):
         """migrate_legacy_settings ignore les valeurs identiques aux natives."""
-        from ankiforge.services.settings_service import SettingsService
+        from ankidraft.services.settings_service import SettingsService
 
         # Valeur identique au natif
         SettingsService.set("anki/flag_labels", {"1": "Rouge"}, category="anki")

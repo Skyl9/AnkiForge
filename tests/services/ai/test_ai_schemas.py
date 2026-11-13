@@ -1,12 +1,12 @@
 import pytest
 
-from ankiforge.services.ai.schemas import (
+from ankidraft.services.ai.schemas import (
     GeneratedCardSchema,
     GeneratedCardsContainerSchema,
     SelfHealingValidator,
     WozniakAuditResultSchema,
 )
-from ankiforge.services.ai.utils import extract_cards_from_data
+from ankidraft.services.ai.utils import extract_cards_from_data
 
 pytestmark = pytest.mark.unit
 

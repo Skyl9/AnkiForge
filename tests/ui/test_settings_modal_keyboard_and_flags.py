@@ -13,7 +13,7 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     LLMConfigModel,
@@ -22,9 +22,9 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.cards.flag_service import FlagService
-from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.widgets.settings_modal import SettingsModal
+from ankidraft.services.cards.flag_service import FlagService
+from ankidraft.services.settings_service import SettingsService
+from ankidraft.ui.widgets.settings_modal import SettingsModal
 
 pytestmark = pytest.mark.ui
 

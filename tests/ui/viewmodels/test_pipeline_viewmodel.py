@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.repositories.persona_repository import PersonaRepository
-from ankiforge.repositories.pipeline_repository import PipelineRepository
-from ankiforge.ui.viewmodels.pipeline_viewmodel import PipelineViewModel
-from ankiforge.utils.event_bus import AppEventBus
+from ankidraft.repositories.persona_repository import PersonaRepository
+from ankidraft.repositories.pipeline_repository import PipelineRepository
+from ankidraft.ui.viewmodels.pipeline_viewmodel import PipelineViewModel
+from ankidraft.utils.event_bus import AppEventBus
 
 pytestmark = pytest.mark.integration
 

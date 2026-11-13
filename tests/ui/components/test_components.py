@@ -1,7 +1,7 @@
 import pytest
 
-from ankiforge.database.models import DeckModel
-from ankiforge.ui.components import DBComboBox
+from ankidraft.database.models import DeckModel
+from ankidraft.ui.components import DBComboBox
 
 pytestmark = pytest.mark.ui
 
@@ -55,7 +55,7 @@ def test_combobox_wheel_filter_prevents_accidental_selection_change_when_closed(
     from PySide6.QtGui import QWheelEvent
     from PySide6.QtWidgets import QApplication, QComboBox, QScrollArea, QVBoxLayout, QWidget
 
-    from ankiforge.ui.components import ComboBoxWheelFilter, StyledComboBox
+    from ankidraft.ui.components import ComboBoxWheelFilter, StyledComboBox
 
     app = QApplication.instance()
     assert isinstance(app, QApplication)
@@ -125,7 +125,7 @@ def test_styled_combobox_wheel_event_ignores_when_closed(qtbot: pytest.FixtureRe
     from PySide6.QtCore import QPoint, QPointF, Qt
     from PySide6.QtGui import QWheelEvent
 
-    from ankiforge.ui.components import StyledComboBox
+    from ankidraft.ui.components import StyledComboBox
 
     combo = StyledComboBox()
     combo.addItems(["Option 1", "Option 2", "Option 3"])
@@ -154,7 +154,7 @@ def test_combobox_wheel_filter_is_popup_open_predicate(qtbot: pytest.FixtureRequ
     """Vérifie la détection d'ouverture et de fermeture du menu déroulant."""
     from PySide6.QtWidgets import QComboBox
 
-    from ankiforge.ui.components import ComboBoxWheelFilter
+    from ankidraft.ui.components import ComboBoxWheelFilter
 
     combo = QComboBox()
     combo.addItems(["A", "B", "C"])

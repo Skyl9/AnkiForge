@@ -9,8 +9,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ankiforge.services.cards.media_manager import MediaManager
-from ankiforge.services.cards.tts_service import (
+from ankidraft.services.cards.media_manager import MediaManager
+from ankidraft.services.cards.tts_service import (
     SystemSpeechProvider,
     TextNormalizer,
     TTSProvider,

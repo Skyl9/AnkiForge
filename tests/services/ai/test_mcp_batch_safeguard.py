@@ -18,7 +18,7 @@ import pytest
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     NoteModel,
     NoteTypeModel,
@@ -26,14 +26,14 @@ from ankiforge.database.models import (
     StagedBundleModel,
     StagedPatchModel,
 )
-from ankiforge.services.ai.mcp_batch_safeguard import (
+from ankidraft.services.ai.mcp_batch_safeguard import (
     MAX_BATCH_CHARS,
     MAX_BATCH_NOTES,
     MCPBatchSafeguard,
 )
-from ankiforge.services.ai.mcp_daemon import MCPServerDaemon
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankidraft.services.ai.mcp_daemon import MCPServerDaemon
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
 
 
 def _extract_text(tool_result: Any) -> str:
@@ -334,7 +334,7 @@ def test_nominal_batch_logs_only_metadata_without_payload_content(
     asyncio.run(_run())
 
     # Vérification stricte : aucun contenu métier n'apparaît dans les journaux applicatifs MCP / IA
-    ai_records = [r for r in caplog.records if r.name.startswith("ankiforge.services.ai")]
+    ai_records = [r for r in caplog.records if r.name.startswith("ankidraft.services.ai")]
     for rec in ai_records:
         assert sentinel_word not in rec.getMessage()
 

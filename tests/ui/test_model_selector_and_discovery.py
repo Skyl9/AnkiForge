@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.database.models import LLMConfigModel
-from ankiforge.ui.components.model_selector.badges import CapabilityPill, ModelCapabilityBadgesWidget
-from ankiforge.ui.components.model_selector.dialog import ModelCardWidget, ModelDiscoveryDialog
-from ankiforge.ui.components.model_selector.selector import ModelSelectorWidget
+from ankidraft.database.models import LLMConfigModel
+from ankidraft.ui.components.model_selector.badges import CapabilityPill, ModelCapabilityBadgesWidget
+from ankidraft.ui.components.model_selector.dialog import ModelCardWidget, ModelDiscoveryDialog
+from ankidraft.ui.components.model_selector.selector import ModelSelectorWidget
 
 pytestmark = pytest.mark.ui
 
@@ -317,8 +317,8 @@ def test_album_transcription_dialog_dimensions_bounded_on_small_screens(qtbot, m
     from PySide6.QtCore import QRect
     from PySide6.QtWidgets import QApplication
 
-    from ankiforge.database.models import DocumentModel
-    from ankiforge.ui.dialogs.album_transcription_dialog import AlbumTranscriptionDialog
+    from ankidraft.database.models import DocumentModel
+    from ankidraft.ui.dialogs.album_transcription_dialog import AlbumTranscriptionDialog
 
     screen = QApplication.primaryScreen()
     assert screen is not None

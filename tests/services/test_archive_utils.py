@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.utils.archive_utils import safe_extract_tar, safe_extract_zip
+from ankidraft.utils.archive_utils import safe_extract_tar, safe_extract_zip
 
 pytestmark = pytest.mark.unit
 

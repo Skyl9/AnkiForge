@@ -21,9 +21,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QFrame, QLabel, QWidget
 
-from ankiforge.database.models import DocumentChunkModel, DocumentModel
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.views.analysis_view.tabs.sources_tab import AISourcesDiagnosticTab
+from ankidraft.database.models import DocumentChunkModel, DocumentModel
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.ui.views.analysis_view.tabs.sources_tab import AISourcesDiagnosticTab
 
 pytestmark = pytest.mark.ui
 

@@ -7,9 +7,9 @@ import json
 import pytest
 from pytestqt.qtbot import QtBot
 
-from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel
-from ankiforge.ui.dialogs.taxonomy_audit_dialog import TaxonomyAuditDialog
-from ankiforge.utils.tags import parse_note_tags
+from ankidraft.database.models import DeckModel, NoteModel, NoteTypeModel
+from ankidraft.ui.dialogs.taxonomy_audit_dialog import TaxonomyAuditDialog
+from ankidraft.utils.tags import parse_note_tags
 
 pytestmark = pytest.mark.ui
 

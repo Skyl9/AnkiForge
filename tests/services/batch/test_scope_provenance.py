@@ -8,8 +8,8 @@ premier bloc.
 
 import pytest
 
-from ankiforge.services.batch.models import BatchSourceBlock
-from ankiforge.services.batch.provenance import scope_provenance, stamp_scope_provenance
+from ankidraft.services.batch.models import BatchSourceBlock
+from ankidraft.services.batch.provenance import scope_provenance, stamp_scope_provenance
 
 pytestmark = pytest.mark.unit
 

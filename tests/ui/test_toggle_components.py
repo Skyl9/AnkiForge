@@ -6,7 +6,7 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
-from ankiforge.ui.components.inputs import OptionToggleRow, ToggleSwitch
+from ankidraft.ui.components.inputs import OptionToggleRow, ToggleSwitch
 
 pytestmark = pytest.mark.ui
 
@@ -125,7 +125,7 @@ def test_option_toggle_row_set_checked_programmatic(qtbot: Any) -> None:
 
 def test_option_toggle_row_theme_profile_application(qtbot: Any) -> None:
     """Vérifie l'application d'un profil de thème personnalisé sur OptionToggleRow et ToggleSwitch."""
-    from ankiforge.ui.style_engine.themes import JETBRAINS_DARK
+    from ankidraft.ui.style_engine.themes import JETBRAINS_DARK
 
     profile = JETBRAINS_DARK
 

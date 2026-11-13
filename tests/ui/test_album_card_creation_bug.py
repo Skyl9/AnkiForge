@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     DocumentModel,
     DocumentPageModel,
@@ -13,8 +13,8 @@ from ankiforge.database.models import (
     PipelineModel,
     PipelineStepModel,
 )
-from ankiforge.services.ai.base import LLMResult, MockProvider
-from ankiforge.ui.views.creation_view.view import CreationView
+from ankidraft.services.ai.base import LLMResult, MockProvider
+from ankidraft.ui.views.creation_view.view import CreationView
 
 pytestmark = pytest.mark.ui
 
@@ -195,7 +195,7 @@ def test_album_vision_mode_sends_images_and_ignores_ocr_text(qtbot, mock_db, tmp
     """Directive Vision : En Mode Vision, l'extraction de texte OCR est ignorée, et le pipeline envoie directement les images des planches sélectionnées en base64 au VLM."""
     from PIL import Image
 
-    from ankiforge.utils.paths import get_media_dir
+    from ankidraft.utils.paths import get_media_dir
 
     # Créer un vrai fichier image dans le répertoire média
     media_dir = get_media_dir()
@@ -208,7 +208,7 @@ def test_album_vision_mode_sends_images_and_ignores_ocr_text(qtbot, mock_db, tmp
     doc = DocumentModel.create(title="Album Vision Test", file_type="album", total_pages=1, content="")
     DocumentPageModel.create(document=doc, media=media, page_number=1, ocr_text="", status="ready")
 
-    from ankiforge.database.models import LLMConfigModel
+    from ankidraft.database.models import LLMConfigModel
 
     engine = LLMConfigModel.create(
         display_name="GPT-4o Vision",
@@ -263,7 +263,7 @@ def test_album_vision_mode_sends_images_and_ignores_ocr_text(qtbot, mock_db, tmp
 
 def test_segment_inspector_displays_album_planches(qtbot, mock_db):
     """Hypothèse 2 : SegmentInspectorWidget doit afficher les planches de l'album avec leurs titres, tokens et cases à cocher au lieu d'afficher 0 fragment."""
-    from ankiforge.ui.widgets.segment_inspector_widget import SegmentInspectorWidget
+    from ankidraft.ui.widgets.segment_inspector_widget import SegmentInspectorWidget
 
     media1 = MediaModel.create(filename="p1.png", media_type="image", original_name="p1.png", checksum="chk1", mime_type="image/png")
     media2 = MediaModel.create(filename="p2.png", media_type="image", original_name="p2.png", checksum="chk2", mime_type="image/png")
@@ -293,8 +293,8 @@ def test_album_vision_mode_synergy_ocr_and_image(qtbot, mock_db, tmp_path):
     """ADR 0018 : En Mode Vision, quand la planche a une transcription OCR, le prompt multimodal transmet à la fois le texte extrait ET la planche en haute fidélité."""
     from PIL import Image
 
-    from ankiforge.database.models import LLMConfigModel
-    from ankiforge.utils.paths import get_media_dir
+    from ankidraft.database.models import LLMConfigModel
+    from ankidraft.utils.paths import get_media_dir
 
     media_dir = get_media_dir()
     media_dir.mkdir(parents=True, exist_ok=True)
@@ -350,7 +350,7 @@ def test_album_vision_mode_synergy_ocr_and_image(qtbot, mock_db, tmp_path):
 
 def test_album_vision_mode_anthropic_limit_blocked(qtbot, mock_db, tmp_path, monkeypatch):
     """ADR 0018 : Si plus de 20 planches sont sélectionnées avec un modèle Anthropic, la génération est bloquée avec une invitation à utiliser la Batch Factory."""
-    from ankiforge.database.models import LLMConfigModel
+    from ankidraft.database.models import LLMConfigModel
 
     engine = LLMConfigModel.create(display_name="Claude 3.5 Sonnet", provider="anthropic", model_id="claude-3-5-sonnet", supports_vision=True)
     doc = DocumentModel.create(title="Gros Album", file_type="album", total_pages=25, content="")
@@ -388,7 +388,7 @@ def test_album_vision_mode_anthropic_limit_blocked(qtbot, mock_db, tmp_path, mon
     view.segment_inspector.btn_preset_all.click()
 
     toasts = []
-    monkeypatch.setattr("ankiforge.ui.views.creation_view.view.show_toast", lambda parent, msg, **kwargs: toasts.append(msg))
+    monkeypatch.setattr("ankidraft.ui.views.creation_view.view.show_toast", lambda parent, msg, **kwargs: toasts.append(msg))
 
     editor.btn_generate.click()
 

@@ -2,8 +2,8 @@
 
 import pytest
 
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
 
 pytestmark = pytest.mark.integration
 

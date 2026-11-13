@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from ankiforge.dev import (
+from ankidraft.dev import (
     FakeDeckRepository,
     FakeDocumentRepository,
     FakeLLMProvider,
@@ -14,8 +14,8 @@ from ankiforge.dev import (
     is_dev_mode,
     make_fake_collection,
 )
-from ankiforge.dev.fake_data import make_fake_decks
-from ankiforge.utils.environment import AppEnvironment, set_environment
+from ankidraft.dev.fake_data import make_fake_decks
+from ankidraft.utils.environment import AppEnvironment, set_environment
 
 pytestmark = pytest.mark.unit
 
@@ -24,7 +24,7 @@ pytestmark = pytest.mark.unit
 def reset_env():
     original = os.environ.get("ANKIFORGE_ENV")
     yield
-    import ankiforge.utils.environment as env_mod
+    import ankidraft.utils.environment as env_mod
 
     env_mod._current_env = None
     if original is not None:
@@ -73,7 +73,7 @@ def test_fake_repositories_non_empty():
 
 def test_is_dev_mode_via_env_var_without_set_environment():
     os.environ["ANKIFORGE_ENV"] = "development"
-    import ankiforge.utils.environment as env_mod
+    import ankidraft.utils.environment as env_mod
 
     env_mod._current_env = None
     assert is_dev_mode() is True

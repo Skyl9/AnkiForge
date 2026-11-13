@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from ankiforge.database.models import NoteTypeModel, PersonaModel, PipelineModel, PipelineStepModel
-from ankiforge.services.ai.base import MockProvider
-from ankiforge.services.workers.creation_worker import CreationTaskPayload, CreationWorker
+from ankidraft.database.models import NoteTypeModel, PersonaModel, PipelineModel, PipelineStepModel
+from ankidraft.services.ai.base import MockProvider
+from ankidraft.services.workers.creation_worker import CreationTaskPayload, CreationWorker
 
 pytestmark = pytest.mark.integration
 

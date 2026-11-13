@@ -1,7 +1,7 @@
 """Tests d'intégration pour les Resources MCP (ADR 0034 §4).
 
 Vérifie l'enregistrement et le bon fonctionnement des resources MCP exposées
-par le serveur (docs://, agents://, workspace://, ankiforge://schema/{table}).
+par le serveur (docs://, agents://, workspace://, ankidraft://schema/{table}).
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from ankiforge.services.ai.mcp_server import mcp
+from ankidraft.services.ai.mcp_server import mcp
 
 pytestmark = pytest.mark.integration
 
@@ -24,7 +24,7 @@ def test_mcp_resource_docs_topics_registered():
 
 def test_mcp_resource_docs_page_template_works(mock_db):
     """Vérifie que la resource template docs://page/{doc_path} fonctionne."""
-    from ankiforge.services.ai.mcp_server import get_doc_page_resource
+    from ankidraft.services.ai.mcp_server import get_doc_page_resource
 
     # Appel direct - devrait retourner une erreur 404 mais pas planter
     result = get_doc_page_resource("nonexistent/path")
@@ -41,7 +41,7 @@ def test_mcp_resource_agents_list_registered():
 
 def test_mcp_resource_agents_template_works(mock_db):
     """Vérifie que la resource template agents://{agent_name} fonctionne."""
-    from ankiforge.services.ai.mcp_server import get_agent_profile_resource
+    from ankidraft.services.ai.mcp_server import get_agent_profile_resource
 
     result = get_agent_profile_resource("nonexistent_agent")
     assert isinstance(result, str)
@@ -57,8 +57,8 @@ def test_mcp_resource_workspace_agent_guide_registered():
 
 
 def test_mcp_resource_ankiforge_schema_template_works(mock_db):
-    """Vérifie que le template de resource ankiforge://schema/{table_name} fonctionne."""
-    from ankiforge.services.ai.mcp_server import get_table_schema_resource
+    """Vérifie que le template de resource ankidraft://schema/{table_name} fonctionne."""
+    from ankidraft.services.ai.mcp_server import get_table_schema_resource
 
     # Appel direct - doit fonctionner pour une table valide
     result = get_table_schema_resource("notemodel")
@@ -68,8 +68,8 @@ def test_mcp_resource_ankiforge_schema_template_works(mock_db):
 
 
 def test_mcp_resource_ankiforge_schema_read_notes(mock_db):
-    """Vérifie la lecture de la resource ankiforge://schema/notemodel."""
-    from ankiforge.services.ai.mcp_server import get_table_schema_resource
+    """Vérifie la lecture de la resource ankidraft://schema/notemodel."""
+    from ankidraft.services.ai.mcp_server import get_table_schema_resource
 
     result = get_table_schema_resource("notemodel")
     data = json.loads(result)
@@ -91,8 +91,8 @@ def test_mcp_resource_ankiforge_schema_read_notes(mock_db):
 
 
 def test_mcp_resource_ankiforge_schema_read_cards(mock_db):
-    """Vérifie la lecture de la resource ankiforge://schema/cardmodel."""
-    from ankiforge.services.ai.mcp_server import get_table_schema_resource
+    """Vérifie la lecture de la resource ankidraft://schema/cardmodel."""
+    from ankidraft.services.ai.mcp_server import get_table_schema_resource
 
     result = get_table_schema_resource("cardmodel")
     data = json.loads(result)
@@ -109,8 +109,8 @@ def test_mcp_resource_ankiforge_schema_read_cards(mock_db):
 
 
 def test_mcp_resource_ankiforge_schema_read_decks(mock_db):
-    """Vérifie la lecture de la resource ankiforge://schema/deckmodel."""
-    from ankiforge.services.ai.mcp_server import get_table_schema_resource
+    """Vérifie la lecture de la resource ankidraft://schema/deckmodel."""
+    from ankidraft.services.ai.mcp_server import get_table_schema_resource
 
     result = get_table_schema_resource("deckmodel")
     data = json.loads(result)
@@ -124,7 +124,7 @@ def test_mcp_resource_ankiforge_schema_read_decks(mock_db):
 
 def test_mcp_resource_ankiforge_schema_rejects_sqlite_master(mock_db):
     """Vérifie que les tables système sont rejetées avec erreur FORBIDDEN."""
-    from ankiforge.services.ai.mcp_server import get_table_schema_resource
+    from ankidraft.services.ai.mcp_server import get_table_schema_resource
 
     result = get_table_schema_resource("sqlite_master")
     data = json.loads(result)
@@ -137,7 +137,7 @@ def test_mcp_resource_ankiforge_schema_rejects_sqlite_master(mock_db):
 
 def test_mcp_resource_ankiforge_schema_rejects_llm_configs(mock_db):
     """Vérifie que les tables sensibles sont rejetées avec erreur FORBIDDEN."""
-    from ankiforge.services.ai.mcp_server import get_table_schema_resource
+    from ankidraft.services.ai.mcp_server import get_table_schema_resource
 
     result = get_table_schema_resource("llm_configs")
     data = json.loads(result)
@@ -148,7 +148,7 @@ def test_mcp_resource_ankiforge_schema_rejects_llm_configs(mock_db):
 
 def test_mcp_resource_ankiforge_schema_rejects_unknown_table(mock_db):
     """Vérifie que les tables inconnues sont rejetées (non dans l'allow-list)."""
-    from ankiforge.services.ai.mcp_server import get_table_schema_resource
+    from ankidraft.services.ai.mcp_server import get_table_schema_resource
 
     result = get_table_schema_resource("nonexistent_table")
     data = json.loads(result)
@@ -160,7 +160,7 @@ def test_mcp_resource_ankiforge_schema_rejects_unknown_table(mock_db):
 
 def test_mcp_resource_ankiforge_schema_case_insensitive(mock_db):
     """Vérifie que le nom de table est traité de manière insensible à la casse."""
-    from ankiforge.services.ai.mcp_server import get_table_schema_resource
+    from ankidraft.services.ai.mcp_server import get_table_schema_resource
 
     result_lower = json.loads(get_table_schema_resource("notemodel"))
     result_upper = json.loads(get_table_schema_resource("NOTEMODEL"))
@@ -173,7 +173,7 @@ def test_mcp_resource_ankiforge_schema_case_insensitive(mock_db):
 
 def test_mcp_resource_docs_topics_read(mock_db):
     """Vérifie la lecture de la resource docs://topics."""
-    from ankiforge.services.ai.mcp_server import get_docs_topics_resource
+    from ankidraft.services.ai.mcp_server import get_docs_topics_resource
 
     result = get_docs_topics_resource()
     assert isinstance(result, str)
@@ -182,7 +182,7 @@ def test_mcp_resource_docs_topics_read(mock_db):
 
 def test_mcp_resource_agents_list_read(mock_db):
     """Vérifie la lecture de la resource agents://list."""
-    from ankiforge.services.ai.mcp_server import get_agents_list_resource
+    from ankidraft.services.ai.mcp_server import get_agents_list_resource
 
     result = get_agents_list_resource()
     assert isinstance(result, str)

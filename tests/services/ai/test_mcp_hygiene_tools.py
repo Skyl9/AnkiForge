@@ -15,15 +15,15 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.ai.mcp_server import mcp, register_mutation_listener, unregister_mutation_listener
-from ankiforge.utils.tags import parse_note_tags
+from ankidraft.services.ai.mcp_server import mcp, register_mutation_listener, unregister_mutation_listener
+from ankidraft.utils.tags import parse_note_tags
 
 pytestmark = pytest.mark.integration
 

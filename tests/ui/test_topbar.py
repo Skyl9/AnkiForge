@@ -3,8 +3,8 @@
 import pytest
 from PySide6.QtWidgets import QFrame
 
-from ankiforge.ui.components.topbar import TopBar
-from ankiforge.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT
+from ankidraft.ui.components.topbar import TopBar
+from ankidraft.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT
 
 pytestmark = pytest.mark.ui
 

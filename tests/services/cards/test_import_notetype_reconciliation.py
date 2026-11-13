@@ -10,13 +10,13 @@ import json
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.cards.import_manager import ImportAnalysisResult, ImportManager
+from ankidraft.services.cards.import_manager import ImportAnalysisResult, ImportManager
 
 pytestmark = pytest.mark.integration
 
@@ -390,7 +390,7 @@ def test_first_import_adopts_pristine_seed_basic_model(mock_db):
     l'anki_id, le nom, les champs et les gabarits de la collection entrante :
     aucun clone `(Importé)` n'est créé (ADR 0037).
     """
-    from ankiforge.database.seeds.initial_seed import seed_initial_data
+    from ankidraft.database.seeds.initial_seed import seed_initial_data
 
     seed_initial_data()
     seed_basic = NoteTypeModel.get(NoteTypeModel.name == "Basique")

@@ -8,8 +8,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.ui.widgets.settings_modal.components.search_view import SettingsSearchView
-from ankiforge.ui.widgets.settings_modal.search_registry import (
+from ankidraft.ui.widgets.settings_modal.components.search_view import SettingsSearchView
+from ankidraft.ui.widgets.settings_modal.search_registry import (
     SettingDescriptor,
     SettingSearchResult,
     SettingsRegistry,

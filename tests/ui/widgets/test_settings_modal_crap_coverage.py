@@ -6,8 +6,8 @@ from typing import Any
 
 import pytest
 
-from ankiforge.ui.style_engine import JETBRAINS_DARK
-from ankiforge.ui.widgets.settings_modal.modal import SettingsModal
+from ankidraft.ui.style_engine import JETBRAINS_DARK
+from ankidraft.ui.widgets.settings_modal.modal import SettingsModal
 
 pytestmark = pytest.mark.ui
 
@@ -87,7 +87,7 @@ def test_settings_modal_save_and_theme_coverage(qtbot: Any, mock_db: Any, monkey
     monkeypatch.setattr(modal.general_tab, "_mode_field_changed", lambda: False)
     monkeypatch.setattr(modal.general_tab, "save_tab", lambda: ("default", "ide", "default"))
 
-    from ankiforge.ui.widgets import theme_transition_overlay
+    from ankidraft.ui.widgets import theme_transition_overlay
 
     monkeypatch.setattr(
         theme_transition_overlay,

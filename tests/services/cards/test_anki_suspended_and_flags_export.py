@@ -23,23 +23,23 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     db,
 )
-from ankiforge.repositories.note_repository import NoteRepository
-from ankiforge.services.cards.export_manager import ExportManager
-from ankiforge.services.cards.import_manager import ImportManager
-from ankiforge.ui.models.delegates import IS_SUSPENDED_ROLE
-from ankiforge.ui.models.note_table_model import NoteVirtualTableModel
+from ankidraft.repositories.note_repository import NoteRepository
+from ankidraft.services.cards.export_manager import ExportManager
+from ankidraft.services.cards.import_manager import ImportManager
+from ankidraft.ui.models.delegates import IS_SUSPENDED_ROLE
+from ankidraft.ui.models.note_table_model import NoteVirtualTableModel
 
 pytestmark = pytest.mark.integration
 
 
-mig_027 = importlib.import_module("ankiforge.database.migrations.027_card_suspended")
+mig_027 = importlib.import_module("ankidraft.database.migrations.027_card_suspended")
 
 
 def test_card_model_suspended_persistence() -> None:
@@ -282,7 +282,7 @@ def test_note_virtual_table_model_suspended_rendering() -> None:
 
 def test_edition_view_suspend_toggle_and_filter(qtbot: Any) -> None:
     """Vérifie la bascule suspendue et le filtrage par statut dans EditionView."""
-    from ankiforge.ui.views.edition_view.view import EditionView
+    from ankidraft.ui.views.edition_view.view import EditionView
 
     deck = DeckModel.create(name="ViewSusp::Deck")
     nt = NoteTypeModel.create(name="ViewSusp::Model", fields_schema='["Front", "Back"]', templates='[{"name": "C1", "qfmt": "{{Front}}", "afmt": "{{Back}}"}]')

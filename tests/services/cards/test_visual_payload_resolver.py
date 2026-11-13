@@ -4,13 +4,13 @@ import io
 import pytest
 from PIL import Image
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentChunkModel,
     DocumentModel,
     DocumentPageModel,
     MediaModel,
 )
-from ankiforge.services.cards.visual_resolver import (
+from ankidraft.services.cards.visual_resolver import (
     VisualPayloadResolver,
     get_max_vision_images_for_provider,
 )
@@ -23,7 +23,7 @@ def sample_album(tmp_path, monkeypatch):
     """Crée un album avec deux planches physiques dans le répertoire média."""
     media_dir = tmp_path / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr("ankiforge.utils.paths.get_media_dir", lambda: media_dir)
+    monkeypatch.setattr("ankidraft.utils.paths.get_media_dir", lambda: media_dir)
 
     # Image 1 : 200x100 (largeur > hauteur)
     img1_path = media_dir / "p1.png"
@@ -134,7 +134,7 @@ def test_resolve_chunk_with_linked_media_non_album(tmp_path, monkeypatch):
     """Document PDF ou cours non-album avec clé étrangère chunk.media."""
     media_dir = tmp_path / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr("ankiforge.utils.paths.get_media_dir", lambda *args, **kwargs: media_dir)
+    monkeypatch.setattr("ankidraft.utils.paths.get_media_dir", lambda *args, **kwargs: media_dir)
 
     img_path = media_dir / "diagram.jpg"
     img = Image.new("RGB", (50, 50), color="green")

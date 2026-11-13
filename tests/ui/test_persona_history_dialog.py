@@ -5,9 +5,9 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtWidgets import QMessageBox
 
-from ankiforge.database.models import PersonaModel
-from ankiforge.services.ai.persona_version_service import PersonaVersionService
-from ankiforge.ui.dialogs.persona_history_dialog import PersonaHistoryDialog
+from ankidraft.database.models import PersonaModel
+from ankidraft.services.ai.persona_version_service import PersonaVersionService
+from ankidraft.ui.dialogs.persona_history_dialog import PersonaHistoryDialog
 
 pytestmark = pytest.mark.ui
 

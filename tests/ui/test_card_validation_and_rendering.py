@@ -8,9 +8,9 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.ui.models.note_table_model import NoteVirtualTableModel
-from ankiforge.utils.anki_renderer import _is_empty, render_card_text
+from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.ui.models.note_table_model import NoteVirtualTableModel
+from ankidraft.utils.anki_renderer import _is_empty, render_card_text
 
 pytestmark = pytest.mark.ui
 

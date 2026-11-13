@@ -13,8 +13,8 @@ import pytest
 from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import QWidget
 
-from ankiforge.ui.widgets.katex_editor import sanitize_user_markdown_html
-from ankiforge.ui.widgets.safe_web_preview import SafeWebEnginePage, SafeWebEngineView
+from ankidraft.ui.widgets.katex_editor import sanitize_user_markdown_html
+from ankidraft.ui.widgets.safe_web_preview import SafeWebEnginePage, SafeWebEngineView
 
 pytestmark = pytest.mark.unit
 

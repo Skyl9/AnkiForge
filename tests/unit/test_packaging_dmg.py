@@ -24,7 +24,7 @@ def test_dmg_settings_file_and_parameters() -> None:
     with open(DMG_SETTINGS_PATH, encoding="utf-8") as f:
         exec(compile(f.read(), str(DMG_SETTINGS_PATH), "exec"), settings, settings)
 
-    assert settings.get("volume_name") == "AnkiForge"
+    assert settings.get("volume_name") == "AnkiDraft"
     assert settings.get("format") == "UDZO"
     assert settings.get("icon_size") == 120
 
@@ -36,7 +36,7 @@ def test_dmg_settings_file_and_parameters() -> None:
 
     icon_locations = settings.get("icon_locations")
     assert isinstance(icon_locations, dict)
-    assert icon_locations.get("AnkiForge.app") == (160, 205)
+    assert icon_locations.get("AnkiDraft.app") == (160, 205)
     assert icon_locations.get("Applications") == (480, 205)
 
     symlinks = settings.get("symlinks")

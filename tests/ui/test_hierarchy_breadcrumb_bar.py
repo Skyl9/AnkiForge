@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from PySide6.QtCore import Qt
 
-from ankiforge.ui.components.hierarchy_breadcrumb_bar import (
+from ankidraft.ui.components.hierarchy_breadcrumb_bar import (
     BreadcrumbSegmentButton,
     HierarchyBreadcrumbBar,
 )

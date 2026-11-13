@@ -9,15 +9,15 @@ from typing import Any
 import pytest
 from PySide6.QtCore import Qt
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.ui.models.delegates import (
+from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.ui.models.delegates import (
     CARD_ID_ROLE,
     FLAG_ROLE,
     NOTE_ID_ROLE,
     TEMPLATE_INDEX_ROLE,
 )
-from ankiforge.ui.models.note_table_model import NoteVirtualTableModel
-from ankiforge.ui.views.edition_view import EditionView
+from ankidraft.ui.models.note_table_model import NoteVirtualTableModel
+from ankidraft.ui.views.edition_view import EditionView
 
 pytestmark = pytest.mark.ui
 

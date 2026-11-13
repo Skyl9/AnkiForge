@@ -1,4 +1,4 @@
-"""Tests unitaires et d'intégration pour le module de logging asynchrone (src/ankiforge/utils/logger.py).
+"""Tests unitaires et d'intégration pour le module de logging asynchrone (src/ankidraft/utils/logger.py).
 
 Valide la sanitisation des secrets, l'injection de contexte, le formattage,
 le buffer circulaire RingBuffer, le pipeline asynchrone QueueHandler et les gestionnaires de crash.
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.utils.logger import (
+from ankidraft.utils.logger import (
     AnkiForgeLogFormatter,
     ContextInjectionFilter,
     RingBufferHandler,
@@ -20,7 +20,7 @@ from ankiforge.utils.logger import (
     setup_logging,
     shutdown_logging,
 )
-from ankiforge.utils.paths import set_active_profile
+from ankidraft.utils.paths import set_active_profile
 
 pytestmark = pytest.mark.unit
 
@@ -114,7 +114,7 @@ def test_context_injection_filter():
     filter_obj = ContextInjectionFilter()
 
     record = logging.LogRecord(
-        name="ankiforge.services",
+        name="ankidraft.services",
         level=logging.INFO,
         pathname="test.py",
         lineno=20,
@@ -135,7 +135,7 @@ def test_ankiforge_log_formatter():
     formatter_color = AnkiForgeLogFormatter(use_colors=True)
 
     record = logging.LogRecord(
-        name="ankiforge.ui",
+        name="ankidraft.ui",
         level=logging.WARNING,
         pathname="test_ui.py",
         lineno=42,
@@ -149,7 +149,7 @@ def test_ankiforge_log_formatter():
     plain_text = formatter_plain.format(record)
     assert "[WARNING]" in plain_text or "[WARNING]" in plain_text
     assert "[default:Main]" in plain_text
-    assert "[ankiforge.ui:42]" in plain_text
+    assert "[ankidraft.ui:42]" in plain_text
     assert "Avertissement d'incohérence" in plain_text
 
     color_text = formatter_color.format(record)
@@ -213,13 +213,13 @@ def test_setup_logging_and_async_queue(tmp_path: Path):
     )
     assert listener is not None
 
-    test_logger = logging.getLogger("ankiforge.test_async")
+    test_logger = logging.getLogger("ankidraft.test_async")
     test_logger.info("Message asynchrone avec clé sk-123456789012345678901234567890")
 
     # Arrêt propre du QueueListener → flush déterministe de la queue avant lecture du fichier
     shutdown_logging()
 
-    log_file = log_dir / "ankiforge.log"
+    log_file = log_dir / "ankidraft.log"
     assert log_file.exists()
     content = log_file.read_text(encoding="utf-8")
     assert "Message asynchrone" in content
@@ -238,7 +238,7 @@ def test_install_crash_handlers(tmp_path: Path):
         exc_type, exc_val, exc_tb = sys.exc_info()
         sys.excepthook(exc_type, exc_val, exc_tb)
 
-    from ankiforge.utils.logger import get_crash_log_path
+    from ankidraft.utils.logger import get_crash_log_path
 
     crash_file = log_dir / "crash.log"
     assert get_crash_log_path(log_dir) == crash_file
@@ -253,7 +253,7 @@ def test_install_crash_handlers(tmp_path: Path):
 
 def test_log_and_notify_error():
     """Vérifie le fonctionnement du gestionnaire unifié log_and_notify_error."""
-    from ankiforge.utils.logger import log_and_notify_error
+    from ankidraft.utils.logger import log_and_notify_error
 
     err = RuntimeError("Échec de connexion LLM avec clé sk-123456789012345678901234567890")
     # Ne doit pas planter même sans interface graphique

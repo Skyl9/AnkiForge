@@ -23,13 +23,13 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtGui import QShortcut
 
-from ankiforge.services.cards.import_manager import ConflictItem
-from ankiforge.ui.dialogs.smart_merge_dialog import SmartMergeDialog
-from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager
-from ankiforge.ui.views.ab_tests_view import ABTestsView
-from ankiforge.ui.views.agents_view import AgentsView
-from ankiforge.ui.views.dashboard_view import DashboardView
-from ankiforge.ui.views.pipelines_view import PipelinesView
+from ankidraft.services.cards.import_manager import ConflictItem
+from ankidraft.ui.dialogs.smart_merge_dialog import SmartMergeDialog
+from ankidraft.ui.shortcuts import ShortcutId, ShortcutManager
+from ankidraft.ui.views.ab_tests_view import ABTestsView
+from ankidraft.ui.views.agents_view import AgentsView
+from ankidraft.ui.views.dashboard_view import DashboardView
+from ankidraft.ui.views.pipelines_view import PipelinesView
 
 pytestmark = pytest.mark.ui
 

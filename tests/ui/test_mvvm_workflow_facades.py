@@ -12,8 +12,8 @@ from typing import Any
 import pytest
 from PySide6.QtCore import QObject, Signal
 
-from ankiforge.ui.viewmodels.batch_viewmodel import BatchViewModel
-from ankiforge.ui.views.batch_view import BatchTab
+from ankidraft.ui.viewmodels.batch_viewmodel import BatchViewModel
+from ankidraft.ui.views.batch_view import BatchTab
 
 pytestmark = pytest.mark.ui
 
@@ -117,7 +117,7 @@ def test_batch_view_shutdown_cancels_owned_worker(qtbot: Any) -> None:
 
 
 def test_creation_view_publishes_scope_change_exactly_once(qtbot: Any) -> None:
-    from ankiforge.ui.views.creation_view import CreationView
+    from ankidraft.ui.views.creation_view import CreationView
 
     view = CreationView(ai_manager=None)
     qtbot.addWidget(view)
@@ -133,7 +133,7 @@ def test_creation_view_publishes_scope_change_exactly_once(qtbot: Any) -> None:
 
 
 def test_creation_view_tracks_generation_failure_through_viewmodel(qtbot: Any) -> None:
-    from ankiforge.ui.views.creation_view import CreationView
+    from ankidraft.ui.views.creation_view import CreationView
 
     view = CreationView(ai_manager=None)
     qtbot.addWidget(view)
@@ -149,7 +149,7 @@ def test_creation_view_tracks_generation_failure_through_viewmodel(qtbot: Any) -
 
 
 def test_creation_view_shutdown_releases_workflow(qtbot: Any) -> None:
-    from ankiforge.ui.views.creation_view import CreationView
+    from ankidraft.ui.views.creation_view import CreationView
 
     view = CreationView(ai_manager=None)
     qtbot.addWidget(view)
@@ -162,7 +162,7 @@ def test_creation_view_shutdown_releases_workflow(qtbot: Any) -> None:
 
 
 def test_documents_view_shutdown_releases_operation_state(qtbot: Any) -> None:
-    from ankiforge.ui.views.documents_view import DocumentsView
+    from ankidraft.ui.views.documents_view import DocumentsView
 
     view = DocumentsView(ai_manager=None, profile_name="default")
     qtbot.addWidget(view)
@@ -174,7 +174,7 @@ def test_documents_view_shutdown_releases_operation_state(qtbot: Any) -> None:
 
 
 def test_documents_view_tracks_worker_failure_through_viewmodel(qtbot: Any) -> None:
-    from ankiforge.ui.views.documents_view import DocumentsView
+    from ankidraft.ui.views.documents_view import DocumentsView
 
     view = DocumentsView(ai_manager=None, profile_name="default")
     qtbot.addWidget(view)

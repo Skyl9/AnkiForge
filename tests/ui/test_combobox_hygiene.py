@@ -1,6 +1,6 @@
 """Test d'hygiène statique et anti-régression des ComboBox (ADR 0058).
 
-Vérifie de manière déterministe et statique qu'aucun composant UI sous src/ankiforge/ui/
+Vérifie de manière déterministe et statique qu'aucun composant UI sous src/ankidraft/ui/
 n'instancie directement QComboBox brut ni n'injecte de feuille de style locale
 concurrente ciblant QComboBox ou ses sous-éléments (drop-down, popup).
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 # Racine du dossier UI à auditer
-UI_ROOT = Path(__file__).resolve().parents[2] / "src" / "ankiforge" / "ui"
+UI_ROOT = Path(__file__).resolve().parents[2] / "src" / "ankidraft" / "ui"
 
 # Fichiers exemptés légitimement (socle technique du Design System)
 EXEMPTED_FILES = {
@@ -62,7 +62,7 @@ def test_no_raw_qcombobox_instantiation_in_ui() -> None:
 
     assert not violations, (
         f"Régression ADR 0058 : Des instanciations brutes de QComboBox ont été détectées ({len(violations)}). "
-        f"Utilisez StyledComboBox depuis ankiforge.ui.components.inputs :\n" + "\n".join(f"  - {v}" for v in violations)
+        f"Utilisez StyledComboBox depuis ankidraft.ui.components.inputs :\n" + "\n".join(f"  - {v}" for v in violations)
     )
 
 
@@ -86,7 +86,7 @@ def test_no_raw_qcombobox_import_in_ui() -> None:
 
     assert not violations, (
         f"Régression ADR 0058 : Des imports directs de QComboBox ont été détectés ({len(violations)}). "
-        f"Importez StyledComboBox depuis ankiforge.ui.components.inputs :\n" + "\n".join(f"  - {v}" for v in violations)
+        f"Importez StyledComboBox depuis ankidraft.ui.components.inputs :\n" + "\n".join(f"  - {v}" for v in violations)
     )
 
 

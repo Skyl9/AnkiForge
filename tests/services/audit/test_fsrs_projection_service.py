@@ -6,8 +6,8 @@ import math
 
 import pytest
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel
-from ankiforge.services.audit.fsrs_projection_service import FsrsProjectionService
+from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel
+from ankidraft.services.audit.fsrs_projection_service import FsrsProjectionService
 
 pytestmark = pytest.mark.integration
 

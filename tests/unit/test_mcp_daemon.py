@@ -15,7 +15,7 @@ from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from ankiforge.services.ai.mcp_daemon import (
+from ankidraft.services.ai.mcp_daemon import (
     BearerAuthMiddleware,
     MCPServerDaemon,
     MCPServerSignals,
@@ -194,7 +194,7 @@ def test_drain_pending_tasks_cancels_residual_tasks_without_raising():
 @pytest.mark.unit
 def test_mcp_server_daemon_url_properties(tmp_path):
     """Vérifie que les propriétés url (Streamable HTTP), mcp_url et sse_url sont correctement formées."""
-    from ankiforge.services.ai.mcp_daemon import MCPServerDaemon
+    from ankidraft.services.ai.mcp_daemon import MCPServerDaemon
 
     daemon = MCPServerDaemon(host="127.0.0.1", base_port=8765, data_dir=tmp_path)
     assert daemon.url is None
@@ -332,7 +332,7 @@ def test_sync_mcp_client_config_atomic_and_permissions(tmp_path: Path) -> None:
     client_cfg = tmp_path / "mcp_config.json"
     initial_data = {
         "mcpServers": {
-            "ankiforge": {
+            "ankidraft": {
                 "url": "http://127.0.0.1:8765/mcp",
                 "headers": {"Authorization": "Bearer old-token-12345"},
             },
@@ -349,8 +349,8 @@ def test_sync_mcp_client_config_atomic_and_permissions(tmp_path: Path) -> None:
     assert updated is True
 
     parsed = json.loads(client_cfg.read_text(encoding="utf-8"))
-    assert parsed["mcpServers"]["ankiforge"]["headers"]["Authorization"] == "Bearer new-token-67890"
-    assert parsed["mcpServers"]["ankiforge"]["url"] == "http://127.0.0.1:8765/mcp"
+    assert parsed["mcpServers"]["ankidraft"]["headers"]["Authorization"] == "Bearer new-token-67890"
+    assert parsed["mcpServers"]["ankidraft"]["url"] == "http://127.0.0.1:8765/mcp"
     assert "other_server" in parsed["mcpServers"]
 
     if os.name == "posix":
@@ -365,10 +365,10 @@ def test_sync_mcp_client_config_atomic_and_permissions(tmp_path: Path) -> None:
     assert updated is True
 
     parsed = json.loads(client_cfg.read_text(encoding="utf-8"))
-    assert parsed["mcpServers"]["ankiforge"]["headers"]["Authorization"] == "Bearer another-token-99999"
-    assert parsed["mcpServers"]["ankiforge"]["url"] == "http://127.0.0.1:9999/mcp"
+    assert parsed["mcpServers"]["ankidraft"]["headers"]["Authorization"] == "Bearer another-token-99999"
+    assert parsed["mcpServers"]["ankidraft"]["url"] == "http://127.0.0.1:9999/mcp"
 
-    # 3. Fichier sans entrée ankiforge ou fichier absent
+    # 3. Fichier sans entrée ankidraft ou fichier absent
     empty_cfg = tmp_path / "empty_config.json"
     empty_cfg.write_text(json.dumps({"mcpServers": {}}), encoding="utf-8")
     assert sync_mcp_client_config(token="foo", config_paths=[empty_cfg, tmp_path / "nonexistent.json"]) is False

@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentModel,
     DocumentPageModel,
     FolderModel,
@@ -19,8 +19,8 @@ from ankiforge.database.models import (
     PipelineRunModel,
     PipelineStepModel,
 )
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.mcp_tool_registry import (
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.mcp_tool_registry import (
     DEFAULT_CONSULTANT_TOOLS,
     MCPToolRegistry,
 )

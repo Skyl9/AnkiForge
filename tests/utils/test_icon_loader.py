@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from ankiforge.utils.icon_loader import (
+from ankidraft.utils.icon_loader import (
     clear_icon_cache,
     load_logo_icon,
     load_phosphor_icon,

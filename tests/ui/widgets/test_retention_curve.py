@@ -7,9 +7,9 @@ vide explicite sans lever d'exception au rendu.
 
 import pytest
 
-from ankiforge.ui.style_engine import ThemeProfile
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.widgets.retention_curve import RetentionCurveWidget
+from ankidraft.ui.style_engine import ThemeProfile
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.ui.widgets.retention_curve import RetentionCurveWidget
 
 pytestmark = pytest.mark.ui
 

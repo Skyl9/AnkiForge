@@ -12,7 +12,7 @@ from PySide6.QtCore import QModelIndex, QRect, Qt
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtWidgets import QStyleOptionViewItem, QWidget
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentChunkModel,
@@ -22,9 +22,9 @@ from ankiforge.database.models import (
     NoteVersionModel,
     db,
 )
-from ankiforge.ui.components.lists import VirtualListView
-from ankiforge.ui.components.tables import VirtualTableView
-from ankiforge.ui.models import (
+from ankidraft.ui.components.lists import VirtualListView
+from ankidraft.ui.components.tables import VirtualTableView
+from ankidraft.ui.models import (
     FLAG_ROLE,
     IS_INVALID_CARD_ROLE,
     NOTE_ID_ROLE,
@@ -40,7 +40,7 @@ from ankiforge.ui.models import (
     VirtualChunkListModel,
     strip_html,
 )
-from ankiforge.ui.theme import DesignTokens
+from ankidraft.ui.theme import DesignTokens
 
 pytestmark = pytest.mark.ui
 

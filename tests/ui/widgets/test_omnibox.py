@@ -4,10 +4,10 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QListWidgetItem
 
-from ankiforge.database.models import DocumentModel
+from ankidraft.database.models import DocumentModel
 
 # Ajuste le chemin d'import selon la structure exacte de ton projet
-from ankiforge.ui.widgets.omnibox import Omnibox
+from ankidraft.ui.widgets.omnibox import Omnibox
 
 pytestmark = pytest.mark.ui
 
@@ -95,8 +95,8 @@ def test_omnibox_flag_search(omnibox, qtbot):
     """Vérifie que la recherche flag: dans l'Omnibox affiche les libellés personnalisés et les cartes correspondantes."""
     import json
 
-    from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-    from ankiforge.services.cards.flag_service import FlagService
+    from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+    from ankidraft.services.cards.flag_service import FlagService
 
     FlagService.reset_to_defaults()
     FlagService.set_flag_labels({2: "Urgence Absolue"})

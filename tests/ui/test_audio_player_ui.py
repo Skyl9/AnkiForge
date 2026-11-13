@@ -2,7 +2,7 @@
 
 import pytest
 
-from ankiforge.ui.views.documents_view.widgets.audio_player import (
+from ankidraft.ui.views.documents_view.widgets.audio_player import (
     AudioPlayerWidget,
     format_duration,
 )

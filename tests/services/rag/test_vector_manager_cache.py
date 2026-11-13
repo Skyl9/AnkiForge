@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from ankiforge.database.models import DocumentModel, EmbeddingCacheModel
-from ankiforge.services.rag.vector_manager import VectorManager
+from ankidraft.database.models import DocumentModel, EmbeddingCacheModel
+from ankidraft.services.rag.vector_manager import VectorManager
 
 pytestmark = pytest.mark.integration
 

@@ -11,8 +11,8 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtWidgets import QLabel, QStackedWidget, QVBoxLayout, QWidget
 
-from ankiforge.ui.main_window import MainWindow
-from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope
+from ankidraft.ui.main_window import MainWindow
+from ankidraft.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope
 
 pytestmark = pytest.mark.ui
 
@@ -109,7 +109,7 @@ def test_two_views_routing_and_inactive_hidden_view(qtbot) -> None:
 
 def test_main_window_shortcuts_wiring(qtbot, mock_db) -> None:
     """Vérifie que MainWindow initialise le ShortcutManager avec toutes les liaisons requises."""
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
 
@@ -139,7 +139,7 @@ def test_main_window_shortcuts_wiring(qtbot, mock_db) -> None:
 
 def test_main_window_palette_and_settings_activation(qtbot, mock_db) -> None:
     """Vérifie l'ouverture de la palette de commandes (Ctrl+K) et des paramètres (Ctrl+,)."""
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
 
@@ -158,7 +158,7 @@ def test_main_window_palette_and_settings_activation(qtbot, mock_db) -> None:
 
 def test_main_window_view_navigation_shortcuts(qtbot, mock_db) -> None:
     """Vérifie la navigation par Alt+1..9 et Ctrl+Tab / Ctrl+Shift+Tab."""
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
 
@@ -188,8 +188,8 @@ def test_main_window_view_navigation_shortcuts(qtbot, mock_db) -> None:
 
 def test_palette_and_keyboard_tab_open_shortcuts_doc(qtbot, mock_db) -> None:
     """Vérifie que la palette et l'onglet Clavier renvoient vers la page de référence."""
-    from ankiforge.ui.widgets.command_palette import CommandPalette
-    from ankiforge.ui.widgets.settings_modal.tabs.keyboard_tab import (
+    from ankidraft.ui.widgets.command_palette import CommandPalette
+    from ankidraft.ui.widgets.settings_modal.tabs.keyboard_tab import (
         DOC_SHORTCUTS_URL,
         KeyboardTab,
     )
@@ -201,7 +201,7 @@ def test_palette_and_keyboard_tab_open_shortcuts_doc(qtbot, mock_db) -> None:
     doc_cmds = [cmd for cmd in palette.commands if cmd["id"] == "action.shortcuts_doc"]
     assert len(doc_cmds) == 1, "La commande action.shortcuts_doc doit être enregistrée dans la palette"
 
-    with patch("PySide6.QtGui.QDesktopServices.openUrl") as mock_open_url, patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("PySide6.QtGui.QDesktopServices.openUrl") as mock_open_url, patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
 

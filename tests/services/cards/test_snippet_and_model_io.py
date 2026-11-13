@@ -5,9 +5,9 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import NoteTypeModel
-from ankiforge.services.cards.card_model_io import CardModelIO
-from ankiforge.services.cards.snippet_library import CSSConflictResolver, SnippetLibrary
+from ankidraft.database.models import NoteTypeModel
+from ankidraft.services.cards.card_model_io import CardModelIO
+from ankidraft.services.cards.snippet_library import CSSConflictResolver, SnippetLibrary
 
 pytestmark = pytest.mark.integration
 

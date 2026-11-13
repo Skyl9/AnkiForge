@@ -8,17 +8,17 @@ from PIL import Image
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCloseEvent
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentModel,
     DocumentPageModel,
 )
-from ankiforge.services.cards.album_service import AlbumService
-from ankiforge.ui.views.creation_view.view import CreationView
-from ankiforge.ui.views.documents_view.dialogs.album_import_dialog import (
+from ankidraft.services.cards.album_service import AlbumService
+from ankidraft.ui.views.creation_view.view import CreationView
+from ankidraft.ui.views.documents_view.dialogs.album_import_dialog import (
     AlbumImportDialog,
 )
-from ankiforge.ui.views.documents_view.view import DocumentsView
-from ankiforge.ui.views.documents_view.widgets.album_viewer import (
+from ankidraft.ui.views.documents_view.view import DocumentsView
+from ankidraft.ui.views.documents_view.widgets.album_viewer import (
     AlbumPageCard,
     AlbumViewerWidget,
     PageInspectorWidget,
@@ -292,7 +292,7 @@ def test_ocr_uses_the_selected_model_not_the_first(qtbot, created_album, monkeyp
         def start(self) -> None:
             captured["started"] = True
 
-    monkeypatch.setattr("ankiforge.ui.views.documents_view.widgets.album_viewer.AlbumOCRWorker", SpyWorker)
+    monkeypatch.setattr("ankidraft.ui.views.documents_view.widgets.album_viewer.AlbumOCRWorker", SpyWorker)
     viewer._on_start_ocr_flow()
 
     assert captured["model_id"] in (target, "hardware")
@@ -311,7 +311,7 @@ def test_text_only_model_disables_transcription(qtbot, created_album, monkeypatc
     viewer.load_album(created_album)
 
     # Simuler un modèle sélectionné sans capacité de vision
-    from ankiforge.database.models import LLMConfigModel
+    from ankidraft.database.models import LLMConfigModel
 
     text_model = LLMConfigModel(name="Llama-3-Text", model_id="llama3:latest", provider="ollama", supports_vision=False)
     monkeypatch.setattr(viewer.model_selector, "get_current_model", lambda: text_model)
@@ -334,7 +334,7 @@ def test_compiling_to_pdf_does_not_block_and_reports_cancellation(qtbot, created
     viewer.load_album(created_album)
 
     monkeypatch.setattr(
-        "ankiforge.ui.views.documents_view.widgets.album_viewer.QFileDialog.getSaveFileName",
+        "ankidraft.ui.views.documents_view.widgets.album_viewer.QFileDialog.getSaveFileName",
         staticmethod(lambda *_a, **_k: (str(tmp_path / "album.pdf"), "")),
     )
 
@@ -365,7 +365,7 @@ def test_compiling_to_pdf_does_not_block_and_reports_cancellation(qtbot, created
             self.cancelled = True
             started["cancelled"] = True
 
-    monkeypatch.setattr("ankiforge.ui.views.documents_view.widgets.album_viewer.AlbumPDFWorker", SpyPDFWorker)
+    monkeypatch.setattr("ankidraft.ui.views.documents_view.widgets.album_viewer.AlbumPDFWorker", SpyPDFWorker)
 
     viewer._on_compile_pdf()
 
@@ -524,7 +524,7 @@ def test_occlusion_receives_the_rotated_planche(qtbot, tmp_path, mock_db, monkey
             # les rattacher. Le double doit donc le porter, même s'il n'en crée aucune.
             return []
 
-    monkeypatch.setattr("ankiforge.ui.dialogs.image_occlusion_dialog.ImageOcclusionDialog", SpyOcclusionDialog)
+    monkeypatch.setattr("ankidraft.ui.dialogs.image_occlusion_dialog.ImageOcclusionDialog", SpyOcclusionDialog)
 
     inspector._on_open_image_occlusion()
 
@@ -576,7 +576,7 @@ def test_satellite_surfaces_render_a_rotated_planche(qtbot, tmp_path, mock_db):
     assert page.rotation == 90
 
     # ── Studio de création ───────────────────────────────────────────────
-    from ankiforge.ui.views.creation_view.widgets.document_editor import DocumentEditorWidget
+    from ankidraft.ui.views.creation_view.widgets.document_editor import DocumentEditorWidget
 
     editor = DocumentEditorWidget()
     qtbot.addWidget(editor)
@@ -586,7 +586,7 @@ def test_satellite_surfaces_render_a_rotated_planche(qtbot, tmp_path, mock_db):
     assert studio_image.width() <= DocumentEditorWidget.ALBUM_THUMBNAIL_PX, "la vignette du Studio n'est pas plafonnée"
 
     # ── Délimitation ─────────────────────────────────────────────────────
-    from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentPreviewWidget
+    from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentPreviewWidget
 
     preview = DocumentPreviewWidget(DocumentModel.get_by_id(doc.id))
     qtbot.addWidget(preview)
@@ -739,13 +739,13 @@ def test_album_occlusion_notes_are_attached_to_the_page_chunk(qtbot, created_alb
     """
     import json
 
-    from ankiforge.database.models import (
+    from ankidraft.database.models import (
         DocumentChunkModel,
         NoteChunkLinkModel,
         NoteModel,
         NoteTypeModel,
     )
-    from ankiforge.services.audit.coverage_alignment_service import RESOLUTION_EXACT
+    from ankidraft.services.audit.coverage_alignment_service import RESOLUTION_EXACT
 
     viewer = AlbumViewerWidget()
     qtbot.addWidget(viewer)

@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtWidgets import QMessageBox
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
@@ -19,7 +19,7 @@ from ankiforge.database.models import (
     NoteVersionModel,
     PipelineRunModel,
 )
-from ankiforge.ui.dialogs.dialog_gallery_dialog import (
+from ankidraft.ui.dialogs.dialog_gallery_dialog import (
     DialogGalleryDialog,
     IsolatedBatchSliceComposerDialog,
     IsolatedCrashReportDialog,
@@ -27,9 +27,9 @@ from ankiforge.ui.dialogs.dialog_gallery_dialog import (
     IsolatedTimeMachineDialog,
     build_mock_crash_report,
 )
-from ankiforge.ui.widgets.command_palette import CommandPalette
-from ankiforge.ui.widgets.settings_modal import SettingsModal
-from ankiforge.ui.widgets.settings_modal.tabs.developer_tab import DeveloperTab
+from ankidraft.ui.widgets.command_palette import CommandPalette
+from ankidraft.ui.widgets.settings_modal import SettingsModal
+from ankidraft.ui.widgets.settings_modal.tabs.developer_tab import DeveloperTab
 
 pytestmark = pytest.mark.ui
 
@@ -167,14 +167,14 @@ def test_developer_tab_ui_and_launchers(qtbot):
 def test_settings_modal_dev_tab_conditional(qtbot):
     """Vérifie que DeveloperTab n'est présent que lorsque is_development() est vrai."""
     # 1. En environnement standard (non-dev)
-    with patch("ankiforge.ui.widgets.settings_modal.modal.is_development", return_value=False):
+    with patch("ankidraft.ui.widgets.settings_modal.modal.is_development", return_value=False):
         modal_prod = SettingsModal()
         qtbot.addWidget(modal_prod)
         assert modal_prod.stacked_widget.count() == 9
         assert modal_prod.dev_tab is None
 
     # 2. En environnement de développement (--dev)
-    with patch("ankiforge.ui.widgets.settings_modal.modal.is_development", return_value=True):
+    with patch("ankidraft.ui.widgets.settings_modal.modal.is_development", return_value=True):
         modal_dev = SettingsModal()
         qtbot.addWidget(modal_dev)
         assert modal_dev.stacked_widget.count() == 10
@@ -184,13 +184,13 @@ def test_settings_modal_dev_tab_conditional(qtbot):
 
 def test_command_palette_dev_command_conditional(qtbot):
     """Vérifie que la commande d'ouverture de la galerie n'apparaît qu'en mode dev dans la palette."""
-    with patch("ankiforge.ui.widgets.command_palette.is_development", return_value=False):
+    with patch("ankidraft.ui.widgets.command_palette.is_development", return_value=False):
         palette_prod = CommandPalette()
         qtbot.addWidget(palette_prod)
         cmd_ids_prod = [cmd["id"] for cmd in palette_prod.commands]
         assert "action.dialog_gallery" not in cmd_ids_prod
 
-    with patch("ankiforge.ui.widgets.command_palette.is_development", return_value=True):
+    with patch("ankidraft.ui.widgets.command_palette.is_development", return_value=True):
         palette_dev = CommandPalette()
         qtbot.addWidget(palette_dev)
         cmd_ids_dev = [cmd["id"] for cmd in palette_dev.commands]
@@ -199,17 +199,17 @@ def test_command_palette_dev_command_conditional(qtbot):
 
 def test_main_window_open_dialog_gallery_conditional(qtbot):
     """Vérifie que MainWindow._open_dialog_gallery n'ouvre la galerie qu'en mode dev."""
-    from ankiforge.ui.main_window import MainWindow
+    from ankidraft.ui.main_window import MainWindow
 
     main_win = MainWindow(ai_manager=None, profile_name="test")
     qtbot.addWidget(main_win)
 
     # 1. Non-dev : ne fait rien
-    with patch("ankiforge.ui.main_window.is_development", return_value=False), patch("ankiforge.ui.dialogs.dialog_gallery_dialog.DialogGalleryDialog.exec") as mock_exec:
+    with patch("ankidraft.ui.main_window.is_development", return_value=False), patch("ankidraft.ui.dialogs.dialog_gallery_dialog.DialogGalleryDialog.exec") as mock_exec:
         main_win._open_dialog_gallery()
         mock_exec.assert_not_called()
 
     # 2. Dev : instancie et exécute DialogGalleryDialog
-    with patch("ankiforge.ui.main_window.is_development", return_value=True), patch("ankiforge.ui.dialogs.dialog_gallery_dialog.DialogGalleryDialog.exec", return_value=0) as mock_exec:
+    with patch("ankidraft.ui.main_window.is_development", return_value=True), patch("ankidraft.ui.dialogs.dialog_gallery_dialog.DialogGalleryDialog.exec", return_value=0) as mock_exec:
         main_win._open_dialog_gallery()
         mock_exec.assert_called_once()

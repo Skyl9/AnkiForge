@@ -13,10 +13,10 @@ from typing import Any
 import pytest
 from pytestqt.qtbot import QtBot
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.ui.models.note_table_model import NoteVirtualTableModel
-from ankiforge.ui.models.sorting import SortCriterion, SortDirection, SortOrder
-from ankiforge.ui.views.edition_view import EditionView
+from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.ui.models.note_table_model import NoteVirtualTableModel
+from ankidraft.ui.models.sorting import SortCriterion, SortDirection, SortOrder
+from ankidraft.ui.views.edition_view import EditionView
 
 pytestmark = pytest.mark.ui
 

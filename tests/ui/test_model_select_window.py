@@ -6,8 +6,8 @@ from typing import Any
 import pytest
 from PySide6.QtCore import Qt
 
-from ankiforge.database.models import NoteModel, NoteTypeModel
-from ankiforge.ui.components.model_select_window import ModelSelectWindow
+from ankidraft.database.models import NoteModel, NoteTypeModel
+from ankidraft.ui.components.model_select_window import ModelSelectWindow
 
 pytestmark = pytest.mark.ui
 

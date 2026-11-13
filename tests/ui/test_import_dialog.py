@@ -6,8 +6,8 @@ import pytest
 from PySide6.QtWidgets import QDialog
 from pytestqt.qtbot import QtBot
 
-from ankiforge.services.cards.import_manager import ConflictItem, ImportAnalysisResult
-from ankiforge.ui.dialogs.import_dialog import ImportDialog
+from ankidraft.services.cards.import_manager import ConflictItem, ImportAnalysisResult
+from ankidraft.ui.dialogs.import_dialog import ImportDialog
 
 pytestmark = pytest.mark.ui
 
@@ -89,8 +89,8 @@ def test_import_dialog_colpkg_bypasses_smart_merge(qtbot: QtBot) -> None:
     )
 
     with (
-        patch("ankiforge.ui.dialogs.import_dialog.SmartMergeDialog") as mock_smart_merge,
-        patch("ankiforge.ui.dialogs.import_dialog.ImportCardsWorker") as mock_worker_cls,
+        patch("ankidraft.ui.dialogs.import_dialog.SmartMergeDialog") as mock_smart_merge,
+        patch("ankidraft.ui.dialogs.import_dialog.ImportCardsWorker") as mock_worker_cls,
     ):
         mock_worker_instance = MagicMock()
         mock_worker_cls.return_value = mock_worker_instance
@@ -141,8 +141,8 @@ def test_import_dialog_apkg_opens_smart_merge_on_conflicts(qtbot: QtBot) -> None
     )
 
     with (
-        patch("ankiforge.ui.dialogs.import_dialog.SmartMergeDialog") as mock_smart_merge,
-        patch("ankiforge.ui.dialogs.import_dialog.ImportCardsWorker") as mock_worker_cls,
+        patch("ankidraft.ui.dialogs.import_dialog.SmartMergeDialog") as mock_smart_merge,
+        patch("ankidraft.ui.dialogs.import_dialog.ImportCardsWorker") as mock_worker_cls,
     ):
         mock_merge_inst = MagicMock()
         mock_merge_inst.exec.return_value = QDialog.DialogCode.Accepted

@@ -2,9 +2,9 @@
 
 import pytest
 
-from ankiforge.database.models import DocumentModel, DocumentPageModel, MediaModel
-from ankiforge.services.ai.album_transcription_types import AlbumTranscriptionOptions
-from ankiforge.ui.views.documents_view.widgets.album_viewer import AlbumViewerWidget
+from ankidraft.database.models import DocumentModel, DocumentPageModel, MediaModel
+from ankidraft.services.ai.album_transcription_types import AlbumTranscriptionOptions
+from ankidraft.ui.views.documents_view.widgets.album_viewer import AlbumViewerWidget
 
 pytestmark = pytest.mark.ui
 
@@ -64,7 +64,7 @@ def test_album_viewer_retry_failures_triggers_worker_on_failed_ids(qtbot, mock_d
         def start(self):
             captured_runs.append(self)
 
-    monkeypatch.setattr("ankiforge.ui.views.documents_view.widgets.album_viewer.AlbumOCRWorker", MockWorker)
+    monkeypatch.setattr("ankidraft.ui.views.documents_view.widgets.album_viewer.AlbumOCRWorker", MockWorker)
 
     # Démarrage avec options
     opts = AlbumTranscriptionOptions(

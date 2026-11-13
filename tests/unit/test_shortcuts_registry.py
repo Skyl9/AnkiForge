@@ -2,14 +2,14 @@
 
 import pytest
 
-from ankiforge.ui.shortcuts.catalog import (
+from ankidraft.ui.shortcuts.catalog import (
     SHORTCUT_CATALOG,
     get_shortcut_definition,
     get_shortcut_label,
     get_shortcut_sequence,
     validate_catalog,
 )
-from ankiforge.ui.shortcuts.models import (
+from ankidraft.ui.shortcuts.models import (
     RESERVED_SEQUENCES,
     ShortcutCategory,
     ShortcutDefinition,

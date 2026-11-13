@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.repositories.setting_repository import SettingRepository
+from ankidraft.repositories.setting_repository import SettingRepository
 
 pytestmark = pytest.mark.integration
 

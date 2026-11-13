@@ -17,9 +17,9 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.mcp_tool_registry import DEFAULT_CONSULTANT_TOOLS, MCPToolRegistry
-from ankiforge.utils.paths import get_artifacts_dir
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.mcp_tool_registry import DEFAULT_CONSULTANT_TOOLS, MCPToolRegistry
+from ankidraft.utils.paths import get_artifacts_dir
 
 pytestmark = pytest.mark.integration
 
@@ -32,7 +32,7 @@ def _extract_text(res: object) -> str:
 def artifacts_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Isole le dossier artifacts sur un tmp_path avec un profil dédié."""
     monkeypatch.setenv("ANKIFORGE_DATA_DIR", str(tmp_path))
-    monkeypatch.setattr("ankiforge.utils.paths.get_active_profile", lambda: "profil_artefacts")
+    monkeypatch.setattr("ankidraft.utils.paths.get_active_profile", lambda: "profil_artefacts")
     directory = get_artifacts_dir()
     assert directory == tmp_path / "profiles" / "profil_artefacts" / "artifacts"
     return directory
@@ -47,7 +47,7 @@ def test_get_artifacts_dir_creates_profile_directory(artifacts_dir: Path) -> Non
 def test_get_artifacts_dir_profil_par_defaut(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Sans nom de profil, le profil actif est utilisé."""
     monkeypatch.setenv("ANKIFORGE_DATA_DIR", str(tmp_path))
-    monkeypatch.setattr("ankiforge.utils.paths.get_active_profile", lambda: "autre_profil")
+    monkeypatch.setattr("ankidraft.utils.paths.get_active_profile", lambda: "autre_profil")
     assert get_artifacts_dir() == tmp_path / "profiles" / "autre_profil" / "artifacts"
 
 
@@ -120,7 +120,7 @@ def test_read_mcp_artifact_inexistant_rejete(artifacts_dir: Path) -> None:
 
 def test_ressource_artifact_lecture_via_handler(artifacts_dir: Path) -> None:
     """Le handler de la ressource artifact://{filename} renvoie le contenu."""
-    from ankiforge.services.ai.mcp_server import get_artifact_resource
+    from ankidraft.services.ai.mcp_server import get_artifact_resource
 
     contenu = "Contenu accessible par la ressource MCP."
     MCPToolRegistry.write_mcp_artifact("fichier.txt", contenu)

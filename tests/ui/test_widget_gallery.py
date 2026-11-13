@@ -12,32 +12,32 @@ import pytest
 from PySide6.QtCore import QAbstractItemModel
 from PySide6.QtWidgets import QAbstractItemDelegate, QDialog, QLabel, QMainWindow, QWidget
 
-from ankiforge.dev import is_dev_mode
-from ankiforge.ui.layouts.base_layout import BaseLayout
-from ankiforge.ui.layouts.layout_manager import LayoutManager
-from ankiforge.ui.viewmodels.base import BaseViewModel
-from ankiforge.ui.widget_gallery import (
+from ankidraft.dev import is_dev_mode
+from ankidraft.ui.layouts.base_layout import BaseLayout
+from ankidraft.ui.layouts.layout_manager import LayoutManager
+from ankidraft.ui.viewmodels.base import BaseViewModel
+from ankidraft.ui.widget_gallery import (
     WidgetGalleryRegistry,
     WidgetGalleryWindow,
     gallery_widget,
 )
-from ankiforge.ui.widget_gallery.families import family_names, load_families
-from ankiforge.ui.widget_gallery.families.components import (
+from ankidraft.ui.widget_gallery.families import family_names, load_families
+from ankidraft.ui.widget_gallery.families.components import (
     COMPONENT_CLASS_IDS,
     COMPONENT_FACTORIES,
     component_labels,
 )
-from ankiforge.ui.widget_gallery.families.dialogs import DIALOG_FACTORIES, dialog_labels
-from ankiforge.ui.widget_gallery.families.layouts import LAYOUT_FACTORIES, layout_labels
-from ankiforge.ui.widget_gallery.families.models import (
+from ankidraft.ui.widget_gallery.families.dialogs import DIALOG_FACTORIES, dialog_labels
+from ankidraft.ui.widget_gallery.families.layouts import LAYOUT_FACTORIES, layout_labels
+from ankidraft.ui.widget_gallery.families.models import (
     EXCLUDED_QT_MODEL_CLASSES,
     MODEL_FACTORIES,
     model_labels,
 )
-from ankiforge.ui.widget_gallery.families.shell import SHELL_CLASS_IDS, SHELL_FACTORIES, shell_labels
-from ankiforge.ui.widget_gallery.families.viewmodels import VIEWMODEL_FACTORIES, viewmodel_labels
-from ankiforge.ui.widget_gallery.previews import ObjectPreview, ShellPreviewWindow
-from ankiforge.ui.widget_gallery.registry import GalleryEntry
+from ankidraft.ui.widget_gallery.families.shell import SHELL_CLASS_IDS, SHELL_FACTORIES, shell_labels
+from ankidraft.ui.widget_gallery.families.viewmodels import VIEWMODEL_FACTORIES, viewmodel_labels
+from ankidraft.ui.widget_gallery.previews import ObjectPreview, ShellPreviewWindow
+from ankidraft.ui.widget_gallery.registry import GalleryEntry
 
 pytestmark = pytest.mark.ui
 
@@ -68,7 +68,7 @@ def dev_mode(monkeypatch: pytest.MonkeyPatch):
     # fuiterait vers les tests suivants du même worker xdist et réveillerait le démarrage
     # différé du démon MCP de ``MainWindow`` (timer non annulable).
     monkeypatch.setenv("ANKIFORGE_ENV", "development")
-    import ankiforge.utils.environment as env_mod
+    import ankidraft.utils.environment as env_mod
 
     monkeypatch.setattr(env_mod, "_current_env", None)
     yield
@@ -284,13 +284,13 @@ EXCLUDED_DIALOG_CLASSES = frozenset(
 
 def _dialog_classes_declared_in_package() -> set[str]:
     """Noms des classes QDialog déclarées par les modules de ``ui/dialogs``."""
-    package = importlib.import_module("ankiforge.ui.dialogs")
+    package = importlib.import_module("ankidraft.ui.dialogs")
     package_dir = Path(next(iter(package.__path__)))
     class_names: set[str] = set()
     for module_path in sorted(package_dir.glob("*.py")):
         if module_path.stem.startswith("_"):
             continue
-        module = importlib.import_module(f"ankiforge.ui.dialogs.{module_path.stem}")
+        module = importlib.import_module(f"ankidraft.ui.dialogs.{module_path.stem}")
         for name, obj in inspect.getmembers(module, inspect.isclass):
             if obj.__module__ == module.__name__ and issubclass(obj, QDialog):
                 class_names.add(name)
@@ -357,14 +357,14 @@ def _component_classes_declared_in_package() -> dict[str, type[QWidget]]:
     Les homonymes inter-modules ne sont accessibles que par leur identifiant qualifié,
     afin qu'aucun d'eux ne puisse être couvert par l'autre.
     """
-    package = importlib.import_module("ankiforge.ui.components")
+    package = importlib.import_module("ankidraft.ui.components")
     package_dir = Path(next(iter(package.__path__)))
     declared: list[type[QWidget]] = []
     for module_path in sorted(package_dir.rglob("*.py")):
         if module_path.stem.startswith("_"):
             continue
         relative = module_path.relative_to(package_dir).with_suffix("")
-        module = importlib.import_module("ankiforge.ui.components." + ".".join(relative.parts))
+        module = importlib.import_module("ankidraft.ui.components." + ".".join(relative.parts))
         for name, obj in inspect.getmembers(module, inspect.isclass):
             if obj.__module__ == module.__name__ and issubclass(obj, QWidget) and not name.startswith("_"):
                 declared.append(obj)
@@ -473,7 +473,7 @@ def _classes_declared_in_package(package_name: str, base: type[object], *, inclu
 
 
 def test_layouts_family_covers_every_layout_class():
-    declared = _classes_declared_in_package("ankiforge.ui.layouts", BaseLayout)
+    declared = _classes_declared_in_package("ankidraft.ui.layouts", BaseLayout)
 
     assert set(LAYOUT_FACTORIES) == set(declared)
     assert set(layout_labels()) == set(LAYOUT_FACTORIES)
@@ -489,7 +489,7 @@ def test_layouts_family_is_registered_in_gallery():
 
 
 def test_viewmodels_family_covers_every_viewmodel_class():
-    declared = _classes_declared_in_package("ankiforge.ui.viewmodels", BaseViewModel, include_base=True)
+    declared = _classes_declared_in_package("ankidraft.ui.viewmodels", BaseViewModel, include_base=True)
 
     assert set(VIEWMODEL_FACTORIES) == set(declared)
     assert set(viewmodel_labels()) == set(VIEWMODEL_FACTORIES)
@@ -506,7 +506,7 @@ def test_viewmodels_family_is_registered_in_gallery():
 
 def test_models_family_covers_every_qt_model_and_delegate_class():
     declared: dict[str, type[object]] = {}
-    for package_name in ("ankiforge.ui.models",):
+    for package_name in ("ankidraft.ui.models",):
         for base in (QAbstractItemModel, QAbstractItemDelegate):
             declared.update(_classes_declared_in_package(package_name, base))
 
@@ -526,8 +526,8 @@ def test_models_family_is_registered_in_gallery():
 
 
 def test_shell_family_covers_main_window_and_settings():
-    main_window_module = importlib.import_module("ankiforge.ui.main_window")
-    preferences_module = importlib.import_module("ankiforge.ui.preferences_dialog")
+    main_window_module = importlib.import_module("ankidraft.ui.main_window")
+    preferences_module = importlib.import_module("ankidraft.ui.preferences_dialog")
 
     main_windows = {name for name, obj in inspect.getmembers(main_window_module, inspect.isclass) if obj.__module__ == main_window_module.__name__ and issubclass(obj, QMainWindow)}
 
@@ -538,7 +538,7 @@ def test_shell_family_covers_main_window_and_settings():
 
 
 def test_shell_preview_renders_the_real_main_window_registry(qtbot):
-    from ankiforge.ui.main_window import MainWindow
+    from ankidraft.ui.main_window import MainWindow
 
     load_families()
     entry = next(item for item in WidgetGalleryRegistry.list(family="shell") if item.name == shell_labels()["MainWindow"])
@@ -564,14 +564,14 @@ def test_shell_settings_entry_opens_in_modal(qtbot):
 
 
 def test_settings_modal_exposes_developer_tab_only_in_dev_mode(qtbot):
-    from ankiforge.ui.widgets.settings_modal.modal import SettingsModal
+    from ankidraft.ui.widgets.settings_modal.modal import SettingsModal
 
     modal = SettingsModal()
     qtbot.addWidget(modal)
     assert modal.dev_tab is not None, "Le mode développement doit exposer l'onglet Développeur"
     assert modal.stacked_widget.count() == 10
 
-    with patch("ankiforge.ui.widgets.settings_modal.modal.is_development", return_value=False):
+    with patch("ankidraft.ui.widgets.settings_modal.modal.is_development", return_value=False):
         standard = SettingsModal()
         qtbot.addWidget(standard)
 

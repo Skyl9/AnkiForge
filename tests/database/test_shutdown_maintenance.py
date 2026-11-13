@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.database.maintenance import execute_clean_shutdown, fast_wal_checkpoint_and_optimize
+from ankidraft.database.maintenance import execute_clean_shutdown, fast_wal_checkpoint_and_optimize
 
 pytestmark = pytest.mark.integration
 
@@ -18,7 +18,7 @@ def fake_shutdown_env(tmp_path: Path):
     media_dir = profile_dir / "media"
     media_dir.mkdir()
 
-    active_db = profile_dir / "ankiforge.db"
+    active_db = profile_dir / "ankidraft.db"
     conn = sqlite3.connect(str(active_db))
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("CREATE TABLE items (id int);")
@@ -48,8 +48,8 @@ def test_execute_clean_shutdown_without_media_cleaning(fake_shutdown_env):
     active_db = fake_shutdown_env["active_db"]
 
     with (
-        patch("ankiforge.services.profile_manager.ProfileManager.PROFILES_DIR", profiles_dir),
-        patch("ankiforge.services.profile_manager.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankidraft.services.profile_manager.ProfileManager.PROFILES_DIR", profiles_dir),
+        patch("ankidraft.services.profile_manager.ProfileManager.get_db_path", return_value=active_db),
     ):
         report = execute_clean_shutdown(profile_name=profile_name, clean_orphan_media=False)
         assert report["profile"] == profile_name
@@ -68,10 +68,10 @@ def test_execute_clean_shutdown_with_media_cleaning(fake_shutdown_env):
     orphan_file.write_bytes(b"image data")
 
     with (
-        patch("ankiforge.services.profile_manager.ProfileManager.PROFILES_DIR", profiles_dir),
-        patch("ankiforge.services.profile_manager.ProfileManager.get_db_path", return_value=active_db),
-        patch("ankiforge.services.profile_manager.ProfileManager.get_media_dir", return_value=media_dir),
-        patch("ankiforge.services.cards.media_manager.MediaManager.clean_orphan_media", return_value=1),
+        patch("ankidraft.services.profile_manager.ProfileManager.PROFILES_DIR", profiles_dir),
+        patch("ankidraft.services.profile_manager.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankidraft.services.profile_manager.ProfileManager.get_media_dir", return_value=media_dir),
+        patch("ankidraft.services.cards.media_manager.MediaManager.clean_orphan_media", return_value=1),
     ):
         report = execute_clean_shutdown(profile_name=profile_name, clean_orphan_media=True)
         assert report["wal_checkpoint"] is True
@@ -80,7 +80,7 @@ def test_execute_clean_shutdown_with_media_cleaning(fake_shutdown_env):
 
 def test_optimize_database_ferme_connexion(tmp_path: Path, monkeypatch):
     """optimize_database utilise contextlib.closing : aucune connexion SQLite ne reste ouverte (régression Windows)."""
-    from ankiforge.database.maintenance import optimize_database
+    from ankidraft.database.maintenance import optimize_database
 
     db_path = tmp_path / "maint.db"
     seed = sqlite3.connect(str(db_path))
@@ -96,7 +96,7 @@ def test_optimize_database_ferme_connexion(tmp_path: Path, monkeypatch):
         opened.append(connection)
         return connection
 
-    monkeypatch.setattr("ankiforge.database.maintenance.sqlite3.connect", tracking_connect)
+    monkeypatch.setattr("ankidraft.database.maintenance.sqlite3.connect", tracking_connect)
 
     optimize_database(db_path)
 
@@ -108,20 +108,20 @@ def test_optimize_database_ferme_connexion(tmp_path: Path, monkeypatch):
 
 def test_execute_clean_shutdown_wal_checkpoint_seulement_si_succes(fake_shutdown_env, monkeypatch):
     """report["wal_checkpoint"] ne passe à True que si le checkpoint WAL réussit réellement."""
-    from ankiforge.database.maintenance import execute_clean_shutdown
+    from ankidraft.database.maintenance import execute_clean_shutdown
 
     profile_name = fake_shutdown_env["profile_name"]
     profiles_dir = fake_shutdown_env["profiles_dir"]
     active_db = fake_shutdown_env["active_db"]
 
     monkeypatch.setattr(
-        "ankiforge.database.maintenance.fast_wal_checkpoint_and_optimize",
+        "ankidraft.database.maintenance.fast_wal_checkpoint_and_optimize",
         lambda _: False,
     )
 
     with (
-        patch("ankiforge.services.profile_manager.ProfileManager.PROFILES_DIR", profiles_dir),
-        patch("ankiforge.services.profile_manager.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankidraft.services.profile_manager.ProfileManager.PROFILES_DIR", profiles_dir),
+        patch("ankidraft.services.profile_manager.ProfileManager.get_db_path", return_value=active_db),
     ):
         report = execute_clean_shutdown(profile_name=profile_name, clean_orphan_media=False)
         assert report["profile"] == profile_name
@@ -131,20 +131,20 @@ def test_execute_clean_shutdown_wal_checkpoint_seulement_si_succes(fake_shutdown
 
 def test_execute_clean_shutdown_wal_checkpoint_vrai_quando_checkpoint_reussi(fake_shutdown_env, monkeypatch):
     """report["wal_checkpoint"] vaut True quand le checkpoint WAL rapporte succès."""
-    from ankiforge.database.maintenance import execute_clean_shutdown
+    from ankidraft.database.maintenance import execute_clean_shutdown
 
     profile_name = fake_shutdown_env["profile_name"]
     profiles_dir = fake_shutdown_env["profiles_dir"]
     active_db = fake_shutdown_env["active_db"]
 
     monkeypatch.setattr(
-        "ankiforge.database.maintenance.fast_wal_checkpoint_and_optimize",
+        "ankidraft.database.maintenance.fast_wal_checkpoint_and_optimize",
         lambda _: True,
     )
 
     with (
-        patch("ankiforge.services.profile_manager.ProfileManager.PROFILES_DIR", profiles_dir),
-        patch("ankiforge.services.profile_manager.ProfileManager.get_db_path", return_value=active_db),
+        patch("ankidraft.services.profile_manager.ProfileManager.PROFILES_DIR", profiles_dir),
+        patch("ankidraft.services.profile_manager.ProfileManager.get_db_path", return_value=active_db),
     ):
         report = execute_clean_shutdown(profile_name=profile_name, clean_orphan_media=False)
         assert report["wal_checkpoint"] is True

@@ -13,17 +13,17 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.services.ai.workspace_sync_service import (
+from ankidraft.services.ai.workspace_sync_service import (
     _TEMPLATE_TARGETS,
     WorkspaceSyncService,
 )
-from ankiforge.ui.views.consultant_view.widgets.mcp_workspace_guide_widget import (
+from ankidraft.ui.views.consultant_view.widgets.mcp_workspace_guide_widget import (
     MCPWorkspaceGuideWidget,
 )
 
 pytestmark = pytest.mark.ui
 
-_HOME_TEST_ROOT = Path.home() / ".ankiforge-test-workspaces-ui"
+_HOME_TEST_ROOT = Path.home() / ".ankidraft-test-workspaces-ui"
 
 
 @pytest.fixture
@@ -146,5 +146,5 @@ def test_cleanup_qt_widgets(qtbot, service: WorkspaceSyncService) -> None:
     """Le widget se nettoie sans verrou résiduel (mock_db / cleanup_qt_widgets)."""
     widget = MCPWorkspaceGuideWidget(service=service)
     qtbot.addWidget(widget)
-    widget.edit_workspace_path.setText(str(Path.home() / ".ankiforge-test-workspaces-ui"))
+    widget.edit_workspace_path.setText(str(Path.home() / ".ankidraft-test-workspaces-ui"))
     widget.btn_verify_drift.click()

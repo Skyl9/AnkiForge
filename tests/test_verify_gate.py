@@ -123,7 +123,7 @@ def test_verify_script_step_definitions() -> None:
         ("shortcuts-drift", ["python", "script/check_shortcuts_drift.py", "--check"]),
         ("ruff-check", ["ruff", "check", "."]),
         ("ruff-format", ["ruff", "format", "--check", "."]),
-        ("mypy", ["mypy", "src/ankiforge"]),
+        ("mypy", ["mypy", "src/ankidraft"]),
         ("bandit", ["bandit", "-c", "pyproject.toml", "-r", "src/"]),
         (
             "pytest-fast",
@@ -132,7 +132,7 @@ def test_verify_script_step_definitions() -> None:
                 "-m",
                 "not slow",
                 "--max-worker-restart=0",
-                "--cov=ankiforge",
+                "--cov=ankidraft",
                 "--cov-report=lcov:coverage/lcov.info",
                 "--cov-fail-under=0",
             ],

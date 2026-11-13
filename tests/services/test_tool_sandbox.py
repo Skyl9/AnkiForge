@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from ankiforge.services.tools.tool_sandbox import run_python_tool
+from ankidraft.services.tools.tool_sandbox import run_python_tool
 
 pytestmark = pytest.mark.unit
 

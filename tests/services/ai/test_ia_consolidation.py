@@ -4,9 +4,9 @@ import asyncio
 
 import pytest
 
-from ankiforge.database.models import LLMConfigModel
-from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry, _wrap_tool_observation
-from ankiforge.services.ai.retry import with_retry, with_retry_async
+from ankidraft.database.models import LLMConfigModel
+from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry, _wrap_tool_observation
+from ankidraft.services.ai.retry import with_retry, with_retry_async
 
 pytestmark = pytest.mark.integration
 
@@ -46,7 +46,7 @@ def test_query_peewee_denies_secret_tables_and_schema():
 
 def test_query_peewee_allows_public_select():
     """R2 : une requête SELECT publique reste autorisée et lisible."""
-    from ankiforge.database.models import DeckModel
+    from ankidraft.database.models import DeckModel
 
     DeckModel.create(name="PublicDeck")
     res = MCPToolRegistry.query_peewee("SELECT name FROM deckmodel;")

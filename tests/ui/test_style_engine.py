@@ -6,8 +6,8 @@ import re
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.ui.components.buttons import DangerButton, PrimaryButton, SecondaryButton
-from ankiforge.ui.style_engine import (
+from ankidraft.ui.components.buttons import DangerButton, PrimaryButton, SecondaryButton
+from ankidraft.ui.style_engine import (
     BUILTIN_THEMES,
     CYBER_GLASS,
     EMERALD_DASHBOARD,
@@ -17,7 +17,7 @@ from ankiforge.ui.style_engine import (
     ThemeProfile,
     get_style_engine,
 )
-from ankiforge.ui.theme import DesignTokens
+from ankidraft.ui.theme import DesignTokens
 
 pytestmark = pytest.mark.ui
 
@@ -244,7 +244,7 @@ def test_semantic_buttons_properties(qtbot):
     from PySide6.QtCore import QEvent, QPointF, Qt
     from PySide6.QtGui import QEnterEvent
 
-    from ankiforge.ui.components.buttons import IconButton
+    from ankidraft.ui.components.buttons import IconButton
 
     btn_p = PrimaryButton("Valider")
     btn_s = SecondaryButton("Annuler")
@@ -390,7 +390,7 @@ def test_force_global_repolish_and_live_signal(qtbot):
     """Vérifie que force_global_repolish et theme_changed s'exécutent sans erreur sur des widgets actifs."""
     from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
-    from ankiforge.ui.components.buttons import IconButton, PrimaryButton
+    from ankidraft.ui.components.buttons import IconButton, PrimaryButton
 
     engine = get_style_engine()
     app = QApplication.instance()
@@ -423,9 +423,9 @@ def test_button_shadow_and_blur_animation_without_target_issue(qtbot):
     from PySide6.QtGui import QEnterEvent
     from PySide6.QtWidgets import QGraphicsDropShadowEffect
 
-    from ankiforge.ui.components.buttons import DangerButton, IconButton, PrimaryButton, SecondaryButton
-    from ankiforge.ui.components.inputs import GlowLineEdit
-    from ankiforge.ui.theme import apply_shadow
+    from ankidraft.ui.components.buttons import DangerButton, IconButton, PrimaryButton, SecondaryButton
+    from ankidraft.ui.components.inputs import GlowLineEdit
+    from ankidraft.ui.theme import apply_shadow
 
     btn = PrimaryButton("Lancer Batch")
     qtbot.addWidget(btn)
@@ -463,7 +463,7 @@ def test_button_shadow_and_blur_animation_without_target_issue(qtbot):
 @pytest.mark.slow
 def test_all_builtin_themes_compilation_and_application(qtbot):
     """Vérifie que la compilation QSS et l'application s'exécutent avec succès sur TOUS les thèmes intégrés."""
-    from ankiforge.ui.style_engine import BUILTIN_THEMES
+    from ankidraft.ui.style_engine import BUILTIN_THEMES
 
     engine = get_style_engine()
     app = QApplication.instance()

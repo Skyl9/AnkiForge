@@ -8,10 +8,10 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
-from ankiforge.database.models import DeckModel
-from ankiforge.ui.components import deck_select_window as dsw
-from ankiforge.ui.components.deck_select_window import DeckSelectWindow
-from ankiforge.ui.dialogs.create_deck_dialog import CreateDeckDialog
+from ankidraft.database.models import DeckModel
+from ankidraft.ui.components import deck_select_window as dsw
+from ankidraft.ui.components.deck_select_window import DeckSelectWindow
+from ankidraft.ui.dialogs.create_deck_dialog import CreateDeckDialog
 
 pytestmark = pytest.mark.ui
 

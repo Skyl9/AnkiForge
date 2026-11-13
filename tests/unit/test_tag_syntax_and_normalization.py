@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.utils.tags import (
+from ankidraft.utils.tags import (
     detect_tag_anomalies,
     normalize_tag_input,
     split_tag_tokens,
@@ -106,7 +106,7 @@ def test_split_tag_tokens_polymorphic_inputs() -> None:
 
 def test_extract_tag_metadata_resilience_to_untokenized_strings() -> None:
     """Vérifie que extract_tag_metadata récupère les métadonnées même si les tags sont scellés dans une chaîne avec espaces."""
-    from ankiforge.utils.tags import extract_tag_metadata
+    from ankidraft.utils.tags import extract_tag_metadata
 
     # Chaîne brute avec espaces (format Anki classique)
     meta1 = extract_tag_metadata("ankiforge_generated doc:11 source:livre_de_japonais page:1 section:page_1")

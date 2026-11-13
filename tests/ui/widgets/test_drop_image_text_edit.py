@@ -5,7 +5,7 @@ from PySide6.QtCore import QMimeData, QUrl
 from PySide6.QtGui import QImage
 
 # Ajuste l'import selon ton architecture
-from ankiforge.ui.widgets.drop_image_text_edit import DropImageTextEdit
+from ankidraft.ui.widgets.drop_image_text_edit import DropImageTextEdit
 
 pytestmark = pytest.mark.ui
 
@@ -16,7 +16,7 @@ def mock_media_dir(tmp_path):
 
     Cela évite de créer de fausses images dans les vrais dossiers de l'utilisateur !
     """
-    with patch("ankiforge.ui.widgets.drop_image_text_edit.get_media_dir", return_value=tmp_path):
+    with patch("ankidraft.ui.widgets.drop_image_text_edit.get_media_dir", return_value=tmp_path):
         yield tmp_path
 
 

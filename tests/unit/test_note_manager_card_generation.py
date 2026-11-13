@@ -9,8 +9,8 @@ import json
 
 import pytest
 
-from ankiforge.database.models import CardModel, DeckModel, NoteTypeModel
-from ankiforge.services.cards.note_manager import NoteManager
+from ankidraft.database.models import CardModel, DeckModel, NoteTypeModel
+from ankidraft.services.cards.note_manager import NoteManager
 
 pytestmark = pytest.mark.unit
 

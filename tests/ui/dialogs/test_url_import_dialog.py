@@ -8,8 +8,8 @@ web_js_renderer.render_page_to_html mocké.
 import pytest
 import requests
 
-from ankiforge.database.models import DocumentModel
-from ankiforge.ui.dialogs.url_import_dialog import UrlImportDialog
+from ankidraft.database.models import DocumentModel
+from ankidraft.ui.dialogs.url_import_dialog import UrlImportDialog
 
 pytestmark = pytest.mark.ui
 
@@ -52,9 +52,9 @@ def _patch_transport(monkeypatch, html_by_url: dict[str, str] | None = None) -> 
             return "# Rendu JS\n\nContenu dynamique extrait."
         return ""
 
-    monkeypatch.setattr("ankiforge.services.parsing.web_importer.requests.get", fake_get)
+    monkeypatch.setattr("ankidraft.services.parsing.web_importer.requests.get", fake_get)
     monkeypatch.setattr(requests.Session, "get", fake_get)
-    monkeypatch.setattr("ankiforge.services.parsing.web_importer.trafilatura.extract", fake_extract)
+    monkeypatch.setattr("ankidraft.services.parsing.web_importer.trafilatura.extract", fake_extract)
 
 
 def _run_analysis(qtbot, dialog: UrlImportDialog) -> None:
@@ -115,7 +115,7 @@ def test_dialog_dedup_detects_existing_and_updates(qtbot, monkeypatch) -> None:
     first_id = dialog._rows[0]["saved_doc_id"]
 
     monkeypatch.setattr(
-        "ankiforge.ui.dialogs.url_import_dialog.QMessageBox.question",
+        "ankidraft.ui.dialogs.url_import_dialog.QMessageBox.question",
         lambda *a, **k: 0x00004000,  # Yes
     )
 
@@ -136,7 +136,7 @@ def test_dialog_js_retry_for_spa(qtbot, monkeypatch) -> None:
     def fake_render(url, timeout_ms=20000):
         return RENDERED_HTML, "https://blog.example.com/article-1"
 
-    monkeypatch.setattr("ankiforge.services.parsing.web_js_renderer.render_page_to_html", fake_render)
+    monkeypatch.setattr("ankidraft.services.parsing.web_js_renderer.render_page_to_html", fake_render)
 
     dialog = UrlImportDialog()
     qtbot.addWidget(dialog)

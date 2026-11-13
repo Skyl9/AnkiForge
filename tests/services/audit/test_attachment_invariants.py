@@ -15,20 +15,20 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentChunkModel,
     DocumentModel,
     NoteChunkLinkModel,
     NoteModel,
     NoteTypeModel,
 )
-from ankiforge.services.audit.coverage_alignment_service import (
+from ankidraft.services.audit.coverage_alignment_service import (
     RESOLUTION_LEXICAL,
     RESOLUTION_PAGE,
     RESOLUTION_SECTION,
     CoverageAlignmentService,
 )
-from ankiforge.utils.tags import (
+from ankidraft.utils.tags import (
     build_document_tags,
     clean_source_slug,
     extract_tag_metadata,

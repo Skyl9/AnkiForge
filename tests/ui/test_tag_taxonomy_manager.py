@@ -7,9 +7,9 @@ import json
 import pytest
 from pytestqt.qtbot import QtBot
 
-from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel
-from ankiforge.ui.components.tag_select_window import TagSelectWindow
-from ankiforge.utils.tags import parse_note_tags
+from ankidraft.database.models import DeckModel, NoteModel, NoteTypeModel
+from ankidraft.ui.components.tag_select_window import TagSelectWindow
+from ankidraft.utils.tags import parse_note_tags
 
 pytestmark = pytest.mark.ui
 

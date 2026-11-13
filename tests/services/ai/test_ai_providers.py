@@ -2,9 +2,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.services.ai.base import MockProvider
-from ankiforge.services.ai.flexible_service import OllamaProvider, OpenAICompatibleProvider
-from ankiforge.services.ai.gemini_service import GeminiService
+from ankidraft.services.ai.base import MockProvider
+from ankidraft.services.ai.flexible_service import OllamaProvider, OpenAICompatibleProvider
+from ankidraft.services.ai.gemini_service import GeminiService
 
 pytestmark = pytest.mark.unit
 
@@ -16,7 +16,7 @@ def test_mock_provider():
     assert '"notes":' in res
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_empty_system_gets_fallback(mock_openai_class):
     """Un prompt système vide ne doit jamais devenir une partie de texte nulle (erreur NIM HTTP 400)."""
     mock_client = MagicMock()
@@ -35,7 +35,7 @@ def test_openai_compatible_provider_empty_system_gets_fallback(mock_openai_class
     assert messages[1]["content"] == "User"
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_sanitizes_null_text_parts(mock_openai_class):
     """Les parties de texte null sont retirées : aucune partie {'text': None} ne part sur le réseau."""
     mock_client = MagicMock()
@@ -60,7 +60,7 @@ def test_openai_compatible_provider_sanitizes_null_text_parts(mock_openai_class)
     assert not any(part.get("text") is None for part in user_content)
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_all_invalid_parts_falls_back_to_text(mock_openai_class):
     """Si toutes les parties sont invalides, on envoie un texte vide (jamais une liste vide)."""
     mock_client = MagicMock()
@@ -76,7 +76,7 @@ def test_openai_compatible_provider_all_invalid_parts_falls_back_to_text(mock_op
     assert kwargs["messages"][1]["content"] == ""
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_success(mock_openai_class):
     """Vérifie la construction de la requête pour les API type OpenAI."""
     mock_client = MagicMock()
@@ -96,7 +96,7 @@ def test_openai_compatible_provider_success(mock_openai_class):
     assert kwargs["max_tokens"] == 16384
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_o1_max_completion_tokens(mock_openai_class):
     """Vérifie que les modèles type o1/o3 utilisent max_completion_tokens."""
     mock_client = MagicMock()
@@ -113,7 +113,7 @@ def test_openai_compatible_provider_o1_max_completion_tokens(mock_openai_class):
     assert "max_tokens" not in kwargs
 
 
-@patch("ankiforge.services.ai.flexible_service.requests.get")
+@patch("ankidraft.services.ai.flexible_service.requests.get")
 def test_ollama_get_available_models(mock_get):
     """Teste la récupération des modèles Ollama locaux."""
     mock_response = MagicMock()
@@ -125,7 +125,7 @@ def test_ollama_get_available_models(mock_get):
     assert "llama3" in models
 
 
-@patch("ankiforge.services.ai.gemini_service.genai.Client")
+@patch("ankidraft.services.ai.gemini_service.genai.Client")
 def test_gemini_service_success(mock_genai_client):
     """Vérifie l'intégration du SDK Google Gemini et la présence de max_output_tokens."""
     mock_client_instance = MagicMock()
@@ -144,10 +144,10 @@ def test_gemini_service_success(mock_genai_client):
     assert call_kwargs["config"].max_output_tokens == 65536
 
 
-@patch("ankiforge.services.ai.flexible_service.requests.post")
+@patch("ankidraft.services.ai.flexible_service.requests.post")
 def test_anthropic_provider_custom_max_tokens(mock_post):
     """Vérifie qu'Anthropic utilise le max_tokens configuré et non plus 4096 en dur."""
-    from ankiforge.services.ai.flexible_service import AnthropicProvider
+    from ankidraft.services.ai.flexible_service import AnthropicProvider
 
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -166,10 +166,10 @@ def test_anthropic_provider_custom_max_tokens(mock_post):
     assert kwargs["json"]["max_tokens"] == 64000
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_opencode_provider_success(mock_openai_class):
     """Vérifie l'instanciation et la génération avec OpenCodeProvider."""
-    from ankiforge.services.ai.flexible_service import OpenCodeProvider
+    from ankidraft.services.ai.flexible_service import OpenCodeProvider
 
     mock_client = MagicMock()
     mock_openai_class.return_value = mock_client
@@ -190,17 +190,17 @@ def test_opencode_provider_success(mock_openai_class):
 
 def test_opencode_provider_missing_key(monkeypatch):
     """Vérifie que OpenCodeProvider lève une ValueError si la clé API est absente."""
-    from ankiforge.services.ai.flexible_service import OpenCodeProvider
+    from ankidraft.services.ai.flexible_service import OpenCodeProvider
 
     monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
     with pytest.raises(ValueError, match="OPENCODE_API_KEY manquante"):
         OpenCodeProvider(api_key=None)
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openrouter_provider_success(mock_openai_class):
     """Vérifie l'instanciation et l'URL de base pour OpenRouterProvider."""
-    from ankiforge.services.ai.flexible_service import OpenRouterProvider
+    from ankidraft.services.ai.flexible_service import OpenRouterProvider
 
     mock_client = MagicMock()
     mock_openai_class.return_value = mock_client
@@ -212,11 +212,11 @@ def test_openrouter_provider_success(mock_openai_class):
     assert init_kwargs["api_key"] == "sk-or-v1-test"
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_opencode_provider_custom_base_url(mock_openai_class):
     """Vérifie que OpenCodeProvider respecte un base_url custom passé en argument et via SettingsService."""
-    from ankiforge.services.ai.flexible_service import OpenCodeProvider
-    from ankiforge.services.settings_service import SettingsService
+    from ankidraft.services.ai.flexible_service import OpenCodeProvider
+    from ankidraft.services.settings_service import SettingsService
 
     # 1. base_url explicite
     OpenCodeProvider(api_key="sk-test", base_url="http://custom-opencode:8080/v1")
@@ -230,11 +230,11 @@ def test_opencode_provider_custom_base_url(mock_openai_class):
         assert init_kwargs["base_url"] == "https://my-zen-proxy.internal/v1"
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openrouter_provider_custom_base_url(mock_openai_class):
     """Vérifie que OpenRouterProvider respecte un base_url custom passé en argument et via SettingsService."""
-    from ankiforge.services.ai.flexible_service import OpenRouterProvider
-    from ankiforge.services.settings_service import SettingsService
+    from ankidraft.services.ai.flexible_service import OpenRouterProvider
+    from ankidraft.services.settings_service import SettingsService
 
     # 1. base_url explicite
     OpenRouterProvider(api_key="sk-or-test", base_url="http://custom-openrouter:9090/v1")
@@ -248,7 +248,7 @@ def test_openrouter_provider_custom_base_url(mock_openai_class):
         assert init_kwargs["base_url"] == "https://my-openrouter-proxy.internal/v1"
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_openrouter_gateway_error(mock_openai_class):
     """Vérifie l'extraction du message d'erreur d'une passerelle (ex. OpenRouter 200 OK avec choices=None)."""
     mock_client = MagicMock()
@@ -272,7 +272,7 @@ def test_openai_compatible_provider_openrouter_gateway_error(mock_openai_class):
     assert "Timeout / Erreur 504" in err_msg
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_empty_choices(mock_openai_class):
     """Vérifie la détection d'une réponse vide sans choices."""
     mock_client = MagicMock()
@@ -291,7 +291,7 @@ def test_openai_compatible_provider_empty_choices(mock_openai_class):
     assert "sans choix généré" in str(exc_info.value)
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_model_refusal(mock_openai_class):
     """Vérifie la remontée explicite en cas de refus du modèle (refusal)."""
     mock_client = MagicMock()
@@ -310,7 +310,7 @@ def test_openai_compatible_provider_model_refusal(mock_openai_class):
     assert "Demande incompatible" in str(exc_info.value)
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_finish_reason_length(mock_openai_class):
     """Vérifie l'alerte explicite si le modèle s'est arrêté par manque de tokens sans contenu."""
     mock_client = MagicMock()
@@ -329,7 +329,7 @@ def test_openai_compatible_provider_finish_reason_length(mock_openai_class):
     assert "dépassement du quota de tokens" in str(exc_info.value)
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_truncation_nonempty_retries_with_more_tokens(mock_openai_class):
     """Une réponse non vide tronquée (finish_reason='length') déclenche UN retry avec un budget élargi.
 
@@ -361,10 +361,10 @@ def test_openai_compatible_provider_truncation_nonempty_retries_with_more_tokens
     assert max_tokens_used == [16384, 32768]
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_truncation_retries_once_then_raises(mock_openai_class):
     """Si le retry avec budget élargi est lui aussi tronqué, on ne boucle pas : TruncatedOutputError."""
-    from ankiforge.services.ai.flexible_service import TruncatedOutputError
+    from ankidraft.services.ai.flexible_service import TruncatedOutputError
 
     mock_client = MagicMock()
     mock_openai_class.return_value = mock_client
@@ -383,11 +383,11 @@ def test_openai_compatible_provider_truncation_retries_once_then_raises(mock_ope
     assert mock_client.chat.completions.create.call_count == 2
 
 
-@patch("ankiforge.services.ai.flexible_service._openrouter_max_output_tokens", return_value=8192)
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service._openrouter_max_output_tokens", return_value=8192)
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_truncation_at_cap_raises_no_retry(mock_openai_class, mock_cap):
     """Route OpenRouter ``:free`` déjà au plafond réel : pas de retry, erreur immédiate (évite un 2e appel ~4 min)."""
-    from ankiforge.services.ai.flexible_service import TruncatedOutputError
+    from ankidraft.services.ai.flexible_service import TruncatedOutputError
 
     mock_client = MagicMock()
     mock_openai_class.return_value = mock_client
@@ -406,10 +406,10 @@ def test_openai_compatible_provider_truncation_at_cap_raises_no_retry(mock_opena
     assert mock_client.chat.completions.create.call_count == 1
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_content_filter_nonempty_raises(mock_openai_class):
     """Un finish_reason='content_filter' avec contenu non vide est remonté explicitement."""
-    from ankiforge.services.ai.flexible_service import ContentFilteredError
+    from ankidraft.services.ai.flexible_service import ContentFilteredError
 
     mock_client = MagicMock()
     mock_openai_class.return_value = mock_client
@@ -428,7 +428,7 @@ def test_openai_compatible_provider_content_filter_nonempty_raises(mock_openai_c
     assert mock_client.chat.completions.create.call_count == 1
 
 
-@patch("ankiforge.services.settings_service.SettingsService.get")
+@patch("ankidraft.services.settings_service.SettingsService.get")
 def test_resolve_generation_timeout_bounded_default(mock_settings_get):
     """Le timeout de génération par défaut doit être borné (pas un gel de ~16 h quand l'IA stagne).
 
@@ -436,7 +436,7 @@ def test_resolve_generation_timeout_bounded_default(mock_settings_get):
     (qwen:free, Gemini afflué, NVIDIA 503) figeait la génération quasi indéfiniment, obligeant à
     quitter l'application (symptôme « UI bloquée, j'ai quitté »).
     """
-    from ankiforge.services.ai.flexible_service import (
+    from ankidraft.services.ai.flexible_service import (
         _DEFAULT_TIMEOUT_SECONDS,
         _MAX_GENERATION_TIMEOUT_SECONDS,
         _MIN_GENERATION_TIMEOUT_SECONDS,
@@ -451,10 +451,10 @@ def test_resolve_generation_timeout_bounded_default(mock_settings_get):
     assert resolved < 60 * 20  # plafonné bien en dessous d'une veille de 20 min
 
 
-@patch("ankiforge.services.settings_service.SettingsService.get")
+@patch("ankidraft.services.settings_service.SettingsService.get")
 def test_resolve_generation_timeout_clamps_absurd_values(mock_settings_get):
     """Des valeurs aberrantes du réglage (0, négatif, des millions) sont bornées, jamais désactivables."""
-    from ankiforge.services.ai.flexible_service import (
+    from ankidraft.services.ai.flexible_service import (
         _DEFAULT_TIMEOUT_SECONDS,
         _MAX_GENERATION_TIMEOUT_SECONDS,
         _MIN_GENERATION_TIMEOUT_SECONDS,
@@ -474,7 +474,7 @@ def test_resolve_generation_timeout_clamps_absurd_values(mock_settings_get):
     assert _resolve_generation_timeout_seconds() == _DEFAULT_TIMEOUT_SECONDS
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_wraps_internal_typeerror(mock_openai_class):
     """Vérifie qu'un TypeError inattendu interne ne fuit JAMAIS sous forme de TypeError brut."""
     mock_client = MagicMock()
@@ -489,7 +489,7 @@ def test_openai_compatible_provider_wraps_internal_typeerror(mock_openai_class):
     assert not isinstance(exc_info.value, TypeError)
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_empty_content_stop_raises(mock_openai_class):
     """Une réponse vide avec finish_reason='stop' ne doit plus être renvoyée silencieusement."""
     mock_client = MagicMock()
@@ -508,7 +508,7 @@ def test_openai_compatible_provider_empty_content_stop_raises(mock_openai_class)
     assert "stop" in str(exc_info.value)
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_empty_content_null(mock_openai_class):
     """Une réponse avec message.content = None ne doit pas être renvoyée comme chaîne vide."""
     mock_client = MagicMock()
@@ -526,8 +526,8 @@ def test_openai_compatible_provider_empty_content_null(mock_openai_class):
     assert "réponse vide" in str(exc_info.value)
 
 
-@patch("ankiforge.services.ai.flexible_service._extract_reasoning_tokens", return_value=(512, 512))
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service._extract_reasoning_tokens", return_value=(512, 512))
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_reasoning_budget_consumed(mock_openai_class, mock_reasoning):
     """Cas OpenRouter documenté : le modèle reasoning a consommé tout le budget en raisonnement."""
     mock_client = MagicMock()
@@ -546,7 +546,7 @@ def test_openai_compatible_provider_reasoning_budget_consumed(mock_openai_class,
     assert "max_tokens" in str(exc_info.value)
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_reasoning_budget_untouched_keeps_finish_reason_error(mock_openai_class):
     """Sans tokens de raisonnement, un finish_reason 'length' conserve son message dédié."""
     mock_client = MagicMock()
@@ -564,8 +564,8 @@ def test_openai_compatible_provider_reasoning_budget_untouched_keeps_finish_reas
     assert "dépassement du quota de tokens" in str(exc_info.value)
 
 
-@patch("ankiforge.services.ai.flexible_service._openrouter_max_output_tokens", return_value=4096)
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service._openrouter_max_output_tokens", return_value=4096)
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_openrouter_clamps_max_tokens(mock_openai_class, mock_cap):
     """Le max_tokens demandé est borné au plafond réel de sortie du modèle OpenRouter."""
     mock_client = MagicMock()
@@ -584,8 +584,8 @@ def test_openai_compatible_provider_openrouter_clamps_max_tokens(mock_openai_cla
     assert kwargs["max_tokens"] == 4096
 
 
-@patch("ankiforge.services.ai.flexible_service._supports_response_format", return_value=False)
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service._supports_response_format", return_value=False)
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_json_mode_skipped_when_unsupported(mock_openai_class, mock_support):
     """Le mode json_object n'est pas expédié quand la passerelle ne le garantit pas."""
     mock_client = MagicMock()
@@ -603,7 +603,7 @@ def test_openai_compatible_provider_json_mode_skipped_when_unsupported(mock_open
     assert "response_format" not in kwargs
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_o1_via_openrouter_uses_max_completion_tokens(mock_openai_class):
     """Une famille o1 via OpenRouter doit utiliser max_completion_tokens, même avec un slug complet."""
     mock_client = MagicMock()
@@ -624,7 +624,7 @@ def test_openai_compatible_provider_o1_via_openrouter_uses_max_completion_tokens
 
 def test_mock_provider_generate_response():
     """MockProvider.generate_response doit retourner un LLMResult structuré."""
-    from ankiforge.services.ai.base import LLMResult, MockProvider
+    from ankidraft.services.ai.base import LLMResult, MockProvider
 
     provider = MockProvider()
     result = provider.generate_response("system", "user")
@@ -637,7 +637,7 @@ def test_mock_provider_generate_response():
 
 def test_extract_thought_tags_cleans_content_and_extracts_reasoning():
     """extract_thought_tags retire les balises <think> et isole le texte de réflexion."""
-    from ankiforge.services.ai.flexible_service import extract_thought_tags
+    from ankidraft.services.ai.flexible_service import extract_thought_tags
 
     raw = '<think>\nAnalyser les faits du document\nFormuler une carte cloze\n</think>\n{"notes": [{"front": "Q", "back": "A"}]}'
     clean, thought = extract_thought_tags(raw)
@@ -655,11 +655,11 @@ def test_extract_thought_tags_cleans_content_and_extracts_reasoning():
     assert thought3 == "Pensees API"
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_extracts_reasoning_content(mock_openai_class):
     """OpenAICompatibleProvider extrait le raisonnement natif (reasoning/reasoning_content)."""
-    from ankiforge.services.ai.base import LLMResult
-    from ankiforge.services.ai.flexible_service import OpenAICompatibleProvider
+    from ankidraft.services.ai.base import LLMResult
+    from ankidraft.services.ai.flexible_service import OpenAICompatibleProvider
 
     mock_client = MagicMock()
     mock_openai_class.return_value = mock_client
@@ -678,11 +678,11 @@ def test_openai_compatible_provider_extracts_reasoning_content(mock_openai_class
     assert result.thought == "Réflexion DeepSeek détaillée"
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_extracts_and_strips_think_tags(mock_openai_class):
     """OpenAICompatibleProvider extrait et nettoie <think>...</think> du flux de contenu."""
-    from ankiforge.services.ai.base import LLMResult
-    from ankiforge.services.ai.flexible_service import OpenAICompatibleProvider
+    from ankidraft.services.ai.base import LLMResult
+    from ankidraft.services.ai.flexible_service import OpenAICompatibleProvider
 
     mock_client = MagicMock()
     mock_openai_class.return_value = mock_client
@@ -705,11 +705,11 @@ def test_openai_compatible_provider_extracts_and_strips_think_tags(mock_openai_c
     assert provider.generate("System", "User") == '{"notes": [{"f": 1}]}'
 
 
-@patch("ankiforge.services.ai.flexible_service.requests.post")
+@patch("ankidraft.services.ai.flexible_service.requests.post")
 def test_anthropic_provider_extracts_thinking_blocks(mock_post):
     """AnthropicProvider extrait les blocs 'thinking' et conserve le texte pur."""
-    from ankiforge.services.ai.base import LLMResult
-    from ankiforge.services.ai.flexible_service import AnthropicProvider
+    from ankidraft.services.ai.base import LLMResult
+    from ankidraft.services.ai.flexible_service import AnthropicProvider
 
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -731,10 +731,10 @@ def test_anthropic_provider_extracts_thinking_blocks(mock_post):
     assert provider.generate("System", "User") == '{"result": "ok"}'
 
 
-@patch("ankiforge.services.ai.flexible_service.requests.post")
+@patch("ankidraft.services.ai.flexible_service.requests.post")
 def test_anthropic_provider_stream_ignores_malformed_sse_chunks(mock_post):
     """Vérifie que le flux Anthropic ignore gracieusement les lignes SSE non-JSON sans planter."""
-    from ankiforge.services.ai.flexible_service import AnthropicProvider
+    from ankidraft.services.ai.flexible_service import AnthropicProvider
 
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -757,8 +757,8 @@ def test_anthropic_provider_stream_ignores_malformed_sse_chunks(mock_post):
 
 def test_gemini_service_extracts_thought_parts():
     """GeminiService extrait les parts de pensée (thought=True) et le contenu final."""
-    from ankiforge.services.ai.base import LLMResult
-    from ankiforge.services.ai.gemini_service import GeminiService
+    from ankidraft.services.ai.base import LLMResult
+    from ankidraft.services.ai.gemini_service import GeminiService
 
     provider = GeminiService(api_key="fake_gemini_key", model_name="gemini-2.0-flash-thinking-exp")
     mock_candidate = MagicMock()
@@ -783,7 +783,7 @@ def test_gemini_service_extracts_thought_parts():
         assert provider.generate("System", "User") == '{"cards": []}'
 
 
-@patch("ankiforge.services.ai.flexible_service.OpenAI")
+@patch("ankidraft.services.ai.flexible_service.OpenAI")
 def test_openai_compatible_provider_default_temperature_and_supports_json(mock_openai_class):
     """Vérifie le respect de default_temperature et supports_json dans OpenAICompatibleProvider."""
     mock_client = MagicMock()

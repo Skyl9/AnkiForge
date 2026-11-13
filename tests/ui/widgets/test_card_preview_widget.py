@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.database.models import NoteTypeModel
-from ankiforge.ui.widgets.card_preview_widget import CardPreviewWidget
+from ankidraft.database.models import NoteTypeModel
+from ankidraft.ui.widgets.card_preview_widget import CardPreviewWidget
 
 pytestmark = pytest.mark.ui
 

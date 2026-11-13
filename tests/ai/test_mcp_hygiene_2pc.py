@@ -12,15 +12,15 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
 
 pytestmark = pytest.mark.integration
 

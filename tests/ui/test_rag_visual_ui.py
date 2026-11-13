@@ -4,16 +4,16 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentChunkModel,
     DocumentModel,
     DocumentPageModel,
     db,
 )
-from ankiforge.services.cards.media_manager import MediaManager
-from ankiforge.services.workers.coverage_worker import CoverageWorker
-from ankiforge.ui.views.documents_view.dialogs.rag_test_dialog import RAGTestDialog
-from ankiforge.ui.views.documents_view.widgets.album_viewer import AlbumViewerWidget
+from ankidraft.services.cards.media_manager import MediaManager
+from ankidraft.services.workers.coverage_worker import CoverageWorker
+from ankidraft.ui.views.documents_view.dialogs.rag_test_dialog import RAGTestDialog
+from ankidraft.ui.views.documents_view.widgets.album_viewer import AlbumViewerWidget
 
 pytestmark = pytest.mark.ui
 
@@ -91,7 +91,7 @@ def test_rag_test_dialog_visual_badge_and_search(qtbot, sample_visual_doc):
         }
     ]
 
-    with patch("ankiforge.ui.views.documents_view.dialogs.rag_test_dialog.RAGService.search", return_value=fake_results):
+    with patch("ankidraft.ui.views.documents_view.dialogs.rag_test_dialog.RAGService.search", return_value=fake_results):
         dlg.search_input.setText("carotide")
         dlg._on_search()
 
@@ -106,7 +106,7 @@ def test_coverage_worker_visual_album(qtbot, sample_visual_doc):
     """Vérifie que CoverageWorker exécute le flux Visual RAG pour un document de type album."""
     doc = sample_visual_doc["doc"]
 
-    with patch("ankiforge.services.rag.visual_rag_service.VisualRAGService.index_visual_document", return_value=True) as mock_index:
+    with patch("ankidraft.services.rag.visual_rag_service.VisualRAGService.index_visual_document", return_value=True) as mock_index:
         worker = CoverageWorker(document_id=doc.id)
         with qtbot.waitSignal(worker.finished_processing, timeout=3000):
             worker.start()

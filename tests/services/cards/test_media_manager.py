@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.services.cards.media_manager import MediaManager
+from ankidraft.services.cards.media_manager import MediaManager
 
 pytestmark = pytest.mark.integration
 
@@ -15,8 +15,8 @@ def media_manager(tmp_path):
     media_dir = tmp_path / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
     with (
-        patch("ankiforge.services.cards.media_manager.get_app_data_dir", return_value=tmp_path),
-        patch("ankiforge.services.cards.media_manager.get_media_dir", return_value=media_dir),
+        patch("ankidraft.services.cards.media_manager.get_app_data_dir", return_value=tmp_path),
+        patch("ankidraft.services.cards.media_manager.get_media_dir", return_value=media_dir),
     ):
         yield MediaManager(media_dir=media_dir)
 
@@ -67,7 +67,7 @@ def test_process_extracted_folder_missing_dir(media_manager):
 def test_clean_orphaned_media(media_manager, tmp_path):
     import json
 
-    from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
+    from ankidraft.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 
     # 1. Création de fausses images sur le disque
     media_dir = tmp_path / "media"
@@ -101,7 +101,7 @@ def test_clean_orphaned_media_preserves_sound_and_audio_tags(media_manager, tmp_
     """Vérifie que [sound:xxx], <audio src="xxx"> et <source src="xxx"> sont préservés."""
     import json
 
-    from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
+    from ankidraft.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 
     media_dir = tmp_path / "media"
     media_dir.mkdir(exist_ok=True)
@@ -141,7 +141,7 @@ def test_purge_tts_audio_cache_all_and_orphans(media_manager, tmp_path):
     """Vérifie purge_tts_audio_cache selon only_orphans=True et only_orphans=False."""
     import json
 
-    from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
+    from ankidraft.database.models import NoteModel, NoteTypeModel, NoteVersionModel
 
     media_dir = tmp_path / "media"
     media_dir.mkdir(exist_ok=True)
@@ -205,7 +205,7 @@ def test_clean_orphaned_media_supprime_enregistrement_db_orphelin(media_manager,
     """clean_orphaned_media supprime le fichier orphelin ET son enregistrement MediaModel associé."""
     import json
 
-    from ankiforge.database.models import MediaModel, NoteModel, NoteTypeModel, NoteVersionModel
+    from ankidraft.database.models import MediaModel, NoteModel, NoteTypeModel, NoteVersionModel
 
     media_dir = tmp_path / "media"
     media_dir.mkdir(exist_ok=True)

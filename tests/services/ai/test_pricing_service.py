@@ -1,7 +1,7 @@
 import pytest
 
-from ankiforge.database.models import LLMConfigModel
-from ankiforge.services.ai.pricing_service import estimate_run_cost
+from ankidraft.database.models import LLMConfigModel
+from ankidraft.services.ai.pricing_service import estimate_run_cost
 
 pytestmark = pytest.mark.integration
 

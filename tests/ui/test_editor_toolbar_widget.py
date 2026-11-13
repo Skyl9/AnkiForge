@@ -4,9 +4,9 @@ from typing import Any
 
 import pytest
 
-from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.dialogs.toolbar_customize_dialog import ToolbarCustomizeDialog
-from ankiforge.ui.widgets.editor_toolbar_widget import EditorToolbarWidget
+from ankidraft.services.settings_service import SettingsService
+from ankidraft.ui.dialogs.toolbar_customize_dialog import ToolbarCustomizeDialog
+from ankidraft.ui.widgets.editor_toolbar_widget import EditorToolbarWidget
 
 pytestmark = pytest.mark.ui
 

@@ -9,8 +9,8 @@ import pytest
 from PIL import Image
 from PySide6.QtCore import QThreadPool
 
-from ankiforge.services.cards.album_service import AlbumService
-from ankiforge.ui.views.documents_view.widgets.album_thumbnails import (
+from ankidraft.services.cards.album_service import AlbumService
+from ankidraft.ui.views.documents_view.widgets.album_thumbnails import (
     GLOBAL_THUMBNAIL_CACHE,
     ThumbnailCache,
     request_media_thumbnail,

@@ -28,7 +28,7 @@ from scan_used_icons import (  # noqa: E402
     scan_icons_in_codebase,
 )
 
-from ankiforge.utils.icon_loader import clear_icon_cache, load_phosphor_icon  # noqa: E402
+from ankidraft.utils.icon_loader import clear_icon_cache, load_phosphor_icon  # noqa: E402
 
 pytestmark = pytest.mark.unit
 

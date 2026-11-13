@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 from peewee_migrate import Router
 
-from ankiforge.database.migration import run_migrations
-from ankiforge.database.models import StagedBundleModel, StagedPatchModel, db
+from ankidraft.database.migration import run_migrations
+from ankidraft.database.models import StagedBundleModel, StagedPatchModel, db
 
 pytestmark = pytest.mark.integration
 
-MIGRATIONS_DIR = Path(__file__).resolve().parent.parent.parent / "src" / "ankiforge" / "database" / "migrations"
+MIGRATIONS_DIR = Path(__file__).resolve().parent.parent.parent / "src" / "ankidraft" / "database" / "migrations"
 
 
 def _rewind_before_migration_047() -> None:

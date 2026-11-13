@@ -12,8 +12,8 @@ from typing import Any
 
 import pytest
 
-from ankiforge.ui.components.buttons import FilterChipButton
-from ankiforge.ui.views.analysis_view.tabs.sources_tab import AISourcesDiagnosticTab
+from ankidraft.ui.components.buttons import FilterChipButton
+from ankidraft.ui.views.analysis_view.tabs.sources_tab import AISourcesDiagnosticTab
 
 pytestmark = pytest.mark.ui
 

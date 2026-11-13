@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentModel,
@@ -18,16 +18,16 @@ from ankiforge.database.models import (
     PipelineModel,
     SettingModel,
 )
-from ankiforge.services.ai.flexible_service import AIManager
-from ankiforge.services.ai.rag_service import RAGService
-from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.views.ab_tests_view.view import ABTestsView
-from ankiforge.ui.views.analysis_view.tabs.wozniak_tab import AIWozniakLinterTab
-from ankiforge.ui.views.batch_view.view import BatchView
-from ankiforge.ui.views.creation_view.view import CreationView
-from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
-from ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
-from ankiforge.utils.environment import get_app_qsettings
+from ankidraft.services.ai.flexible_service import AIManager
+from ankidraft.services.ai.rag_service import RAGService
+from ankidraft.services.settings_service import SettingsService
+from ankidraft.ui.views.ab_tests_view.view import ABTestsView
+from ankidraft.ui.views.analysis_view.tabs.wozniak_tab import AIWozniakLinterTab
+from ankidraft.ui.views.batch_view.view import BatchView
+from ankidraft.ui.views.creation_view.view import CreationView
+from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import DocumentDelimitationDialog
+from ankidraft.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
+from ankidraft.utils.environment import get_app_qsettings
 
 pytestmark = pytest.mark.ui
 
@@ -268,7 +268,7 @@ def test_ai_engines_tab_gateway_urls_and_keys_persistence(qtbot, monkeypatch):
     # Clé OpenCode
     tab1.key_edits["opencode"].setText("sk-ONR9yD6SzaNBqJFkOlSlCOgr3t5ECdu42dJtrDyYS5vSKIx6Mi")
 
-    with patch("ankiforge.utils.secret_store.store_llm_key", return_value=True):
+    with patch("ankidraft.utils.secret_store.store_llm_key", return_value=True):
         tab1.save_tab()
 
     assert SettingsService.get("opencode/base_url") == "https://custom.opencode.internal/v1"

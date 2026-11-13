@@ -24,7 +24,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QLabel
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentChunkModel,
@@ -33,8 +33,8 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
 )
-from ankiforge.ui.style_engine import JETBRAINS_DARK, get_style_engine
-from ankiforge.ui.views.analysis_view import (
+from ankidraft.ui.style_engine import JETBRAINS_DARK, get_style_engine
+from ankidraft.ui.views.analysis_view import (
     AISourcesDiagnosticTab,
     AnalysisView,
     DocumentInspectorPanel,
@@ -238,13 +238,13 @@ def test_documents_tab_relays_the_click_on_a_linked_note(qtbot: Any, mock_db: An
 @pytest.mark.slow
 def test_clicking_a_linked_note_opens_it_in_the_edition_view(qtbot: Any, mock_db: Any) -> None:
     """Parcours utilisateur complet : Analyse ➔ clic sur la carte ➔ note ouverte dans l'éditeur."""
-    from ankiforge.ui.main_window import MainWindow
-    from ankiforge.ui.views.edition_view import EditionView
+    from ankidraft.ui.main_window import MainWindow
+    from ankidraft.ui.views.edition_view import EditionView
 
     doc, chunk, note = _document_with_linked_note()
     with (
-        patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"),
-        patch("ankiforge.utils.environment.is_testing", return_value=True),
+        patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"),
+        patch("ankidraft.utils.environment.is_testing", return_value=True),
     ):
         window = MainWindow(ai_manager=None)
     qtbot.addWidget(window)

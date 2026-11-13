@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QCoreApplication, QTranslator
 
-from ankiforge.utils import i18n
+from ankidraft.utils import i18n
 
 pytestmark = pytest.mark.unit
 
@@ -52,7 +52,7 @@ def _lrelease(tool: Path, ts_file: Path) -> Path:
 def compiled_catalog(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Produit un vrai .qm (anglais) dans un dossier temporaire, via pyside6-lrelease."""
     catalog_dir = tmp_path_factory.mktemp("translations")
-    ts_file = catalog_dir / "ankiforge_en.ts"
+    ts_file = catalog_dir / "ankidraft_en.ts"
     tool = Path(sys.executable).parent / ("pyside6-lrelease.exe" if os.name == "nt" else "pyside6-lrelease")
     if not tool.exists():
         pytest.skip("pyside6-lrelease introuvable dans l'environnement courant")
@@ -140,18 +140,18 @@ def test_translations_dir_uses_paths_resolution(monkeypatch: pytest.MonkeyPatch)
 def test_translations_dir_lives_inside_the_package() -> None:
     """Le dossier canonique est sous le paquet : une seule racine de ressources, pas deux.
 
-    Régression directe du bug de nommage `src/ressources` vs `src/ankiforge/ressources`
+    Régression directe du bug de nommage `src/ressources` vs `src/ankidraft/ressources`
     qui a cassé `database/seeds/initial_seed.py`.
     """
-    assert i18n.TRANSLATIONS_RELPATH[:3] == ("src", "ankiforge", "resources")
+    assert i18n.TRANSLATIONS_RELPATH[:3] == ("src", "ankidraft", "resources")
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
     ("suffix", "expected"),
     [
-        (".qm", "ankiforge_en.qm"),
-        (".ts", "ankiforge_en.ts"),
+        (".qm", "ankidraft_en.qm"),
+        (".ts", "ankidraft_en.ts"),
     ],
 )
 def test_catalog_path_shape(tmp_path: Path, suffix: str, expected: str) -> None:
@@ -162,8 +162,8 @@ def test_catalog_path_shape(tmp_path: Path, suffix: str, expected: str) -> None:
 
 def test_catalog_path_default_directory_is_the_resolved_one(monkeypatch: pytest.MonkeyPatch) -> None:
     """Sans directory explicite, le chemin passe par translations_dir()."""
-    monkeypatch.setattr(i18n, "translations_dir", lambda: Path("/bundle/Contents/Resources/ankiforge/resources/translations"))
-    assert i18n.catalog_path("en") == Path("/bundle/Contents/Resources/ankiforge/resources/translations/ankiforge_en.qm")
+    monkeypatch.setattr(i18n, "translations_dir", lambda: Path("/bundle/Contents/Resources/ankidraft/resources/translations"))
+    assert i18n.catalog_path("en") == Path("/bundle/Contents/Resources/ankidraft/resources/translations/ankidraft_en.qm")
 
 
 # ── available_languages ──────────────────────────────────────────────────────
@@ -176,7 +176,7 @@ def test_available_languages_empty_when_directory_missing(tmp_path: Path) -> Non
 
 def test_available_languages_orders_and_filters(tmp_path: Path) -> None:
     """Seuls les .qm comptent, les .ts sont ignorés, et l'ordre d'affichage est stable."""
-    for name in ("ankiforge_en.qm", "ankiforge_fr.qm", "ankiforge_de.qm", "ankiforge_en.ts", "notes.txt"):
+    for name in ("ankidraft_en.qm", "ankidraft_fr.qm", "ankidraft_de.qm", "ankidraft_en.ts", "notes.txt"):
         (tmp_path / name).write_text("", encoding="utf-8")
     assert i18n.available_languages(tmp_path) == ("fr", "en", "de")
 
@@ -236,7 +236,7 @@ def test_untranslated_message_falls_back_to_source_text(qapp: object, compiled_c
 @pytest.mark.ui
 def test_install_translator_rejects_corrupted_catalog(qapp: object, tmp_path: Path) -> None:
     """Un .qm corrompu est refusé par Qt : on retombe sur le français au lieu de planter."""
-    (tmp_path / "ankiforge_en.qm").write_bytes(b"ce n'est pas un catalogue Qt")
+    (tmp_path / "ankidraft_en.qm").write_bytes(b"ce n'est pas un catalogue Qt")
     assert i18n.install_translator(qapp, "en", directory=tmp_path) is None
     assert QCoreApplication.translate("", "Enregistrer le document") == "Enregistrer le document"
 

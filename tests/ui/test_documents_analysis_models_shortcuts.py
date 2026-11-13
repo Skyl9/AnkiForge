@@ -21,10 +21,10 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtGui import QShortcut
 
-from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager
-from ankiforge.ui.views.analysis_view import AnalysisView
-from ankiforge.ui.views.card_models_view import CardModelsView
-from ankiforge.ui.views.documents_view import DocumentsView
+from ankidraft.ui.shortcuts import ShortcutId, ShortcutManager
+from ankidraft.ui.views.analysis_view import AnalysisView
+from ankidraft.ui.views.card_models_view import CardModelsView
+from ankidraft.ui.views.documents_view import DocumentsView
 
 pytestmark = pytest.mark.ui
 

@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from playhouse.test_utils import count_queries
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentChunkModel,
@@ -25,9 +25,9 @@ from ankiforge.database.models import (
     StagedPatchModel,
     db,
 )
-from ankiforge.services.ai.staged_patch_registry import StagedOverlay, StagedPatchRegistry
-from ankiforge.services.profile_manager import ProfileManager
-from ankiforge.services.rag.domain_gap_detector import (
+from ankidraft.services.ai.staged_patch_registry import StagedOverlay, StagedPatchRegistry
+from ankidraft.services.profile_manager import ProfileManager
+from ankidraft.services.rag.domain_gap_detector import (
     DomainBlueprint,
     DomainConcept,
     DomainGapDetector,
@@ -905,7 +905,7 @@ def test_fastmcp_call_tool_diagnose_domain_knowledge_gaps(base_setup):
     """Vérifie l'invocation de bout en bout de l'outil via FastMCP mcp.call_tool()."""
     import asyncio
 
-    from ankiforge.services.ai.mcp_server import mcp
+    from ankidraft.services.ai.mcp_server import mcp
 
     deck = base_setup["deck_main"]
     nt = base_setup["note_type_basic"]

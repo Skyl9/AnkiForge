@@ -4,7 +4,7 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSizePolicy, QTreeWidgetItem
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     DocumentChunkModel,
     DocumentModel,
@@ -13,16 +13,16 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
 )
-from ankiforge.repositories.document_repository import DocumentRepository
-from ankiforge.ui.views.documents_view import (
+from ankidraft.repositories.document_repository import DocumentRepository
+from ankidraft.ui.views.documents_view import (
     DocumentDelimitationDialog,
     DocumentsView,
     RAGTestDialog,
 )
-from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import (
+from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import (
     DocumentPreviewWidget,
 )
-from ankiforge.utils.region_address import RegionAddress, RegionScope, parse_region_addresses
+from ankidraft.utils.region_address import RegionAddress, RegionScope, parse_region_addresses
 
 pytestmark = pytest.mark.ui
 
@@ -63,7 +63,7 @@ def test_documents_view_selection_and_coverage(qtbot):
     )
     note1 = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
     note1.add_version({"Front": "Rôle du cœur ?", "Back": "Pompe sanguine"}, source="manual")
-    from ankiforge.database.models import CardModel
+    from ankidraft.database.models import CardModel
 
     CardModel.create(note=note1, deck=deck, template_index=0)
     NoteChunkLinkModel.create(note=note1, chunk=chunk1)
@@ -147,7 +147,7 @@ def test_documents_view_shows_marker_ocr_only_for_pdf(qtbot):
 
 def test_documents_view_progressive_disclosure_panel(qtbot):
     """Le panneau droit (Sommaire/RAG/Plan) n'apparaît que lorsqu'un document est sélectionné."""
-    from ankiforge.database.models import FolderModel
+    from ankidraft.database.models import FolderModel
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -291,7 +291,7 @@ def test_rag_test_dialog(qtbot):
         content_hash=f"hash_{uid}",
     )
 
-    from ankiforge.services.ai.rag_service import RAGService
+    from ankidraft.services.ai.rag_service import RAGService
 
     rag = RAGService()
     rag.create_index(doc.id)
@@ -309,9 +309,9 @@ def test_rag_test_dialog(qtbot):
 
 def test_rag_test_dialog_modes(qtbot, tmp_path, monkeypatch):
     """Vérifie le dialogue de recherche interactive avec bascule des modes RAG Hybride, Dense et Sparse."""
-    from ankiforge.services.ai.rag_service import RAGService
+    from ankidraft.services.ai.rag_service import RAGService
 
-    monkeypatch.setattr("ankiforge.services.rag.vector_manager.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankidraft.services.rag.vector_manager.get_app_data_dir", lambda: tmp_path)
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
         title=f"Doc RAG Multimodal {uid}",
@@ -365,7 +365,7 @@ def test_documents_view_smart_align_button(qtbot):
     """Vérifie le déclenchement de la synchronisation par tags depuis le bouton de DocumentsView."""
     import json
 
-    from ankiforge.utils.tags import build_document_tags
+    from ankidraft.utils.tags import build_document_tags
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -387,7 +387,7 @@ def test_documents_view_smart_align_button(qtbot):
     note.add_version({"Front": "Rôle du protocole TCP ?", "Back": "Fiabilité des paquets réseau."}, source="manual")
     note.tags = json.dumps(build_document_tags(doc_id=doc.id, section_name=chunk1.heading_path))
     note.save()
-    from ankiforge.database.models import CardModel
+    from ankidraft.database.models import CardModel
 
     CardModel.create(note=note, deck=deck, template_index=0)
 
@@ -429,7 +429,7 @@ def test_documents_view_marker_installation_switches_to_console(qtbot, monkeypat
         def start(self) -> None:
             pass
 
-    monkeypatch.setattr("ankiforge.ui.views.documents_view.view.MarkerInstallerWorker", DummyWorker)
+    monkeypatch.setattr("ankidraft.ui.views.documents_view.view.MarkerInstallerWorker", DummyWorker)
 
     view = DocumentsView(ai_manager=None)
     qtbot.addWidget(view)
@@ -453,7 +453,7 @@ def test_documents_view_marker_installation_switches_to_console(qtbot, monkeypat
 
 def test_documents_view_marker_analysis_consent_install(qtbot, monkeypatch, tmp_path):
     """Vérifie que l'acceptation du dialogue d'installation lance _install_marker_and_start."""
-    from ankiforge.ui.dialogs.marker_install_dialog import MarkerInstallAction
+    from ankidraft.ui.dialogs.marker_install_dialog import MarkerInstallAction
 
     installed_called = []
     view = DocumentsView(ai_manager=None)
@@ -466,8 +466,8 @@ def test_documents_view_marker_analysis_consent_install(qtbot, monkeypatch, tmp_
     doc = DocumentModel.create(title="Sample PDF", file_type="pdf", content="", original_media=media)
     view._current_doc_id = doc.id
 
-    monkeypatch.setattr("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", lambda: None)
-    monkeypatch.setattr("ankiforge.utils.paths.resolve_media_path", lambda _: dummy_pdf)
+    monkeypatch.setattr("ankidraft.services.parsing.document_parser.DocumentParser.get_marker_executable", lambda: None)
+    monkeypatch.setattr("ankidraft.utils.paths.resolve_media_path", lambda _: dummy_pdf)
 
     class DummyDialog:
         selected_action = MarkerInstallAction.INSTALL
@@ -478,7 +478,7 @@ def test_documents_view_marker_analysis_consent_install(qtbot, monkeypatch, tmp_
         def exec(self):
             return 1
 
-    monkeypatch.setattr("ankiforge.ui.dialogs.marker_install_dialog.MarkerInstallDialog", DummyDialog)
+    monkeypatch.setattr("ankidraft.ui.dialogs.marker_install_dialog.MarkerInstallDialog", DummyDialog)
     monkeypatch.setattr(view, "_install_marker_and_start", lambda path: installed_called.append(path))
 
     view._on_run_marker_analysis()
@@ -488,7 +488,7 @@ def test_documents_view_marker_analysis_consent_install(qtbot, monkeypatch, tmp_
 
 def test_documents_view_marker_analysis_consent_standard_fallback(qtbot, monkeypatch, tmp_path):
     """Vérifie que le choix de repli standard lance le worker sans installer Marker."""
-    from ankiforge.ui.dialogs.marker_install_dialog import MarkerInstallAction
+    from ankidraft.ui.dialogs.marker_install_dialog import MarkerInstallAction
 
     worker_started = []
     view = DocumentsView(ai_manager=None)
@@ -501,8 +501,8 @@ def test_documents_view_marker_analysis_consent_standard_fallback(qtbot, monkeyp
     doc = DocumentModel.create(title="Sample PDF", file_type="pdf", content="", original_media=media)
     view._current_doc_id = doc.id
 
-    monkeypatch.setattr("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", lambda: None)
-    monkeypatch.setattr("ankiforge.utils.paths.resolve_media_path", lambda _: dummy_pdf)
+    monkeypatch.setattr("ankidraft.services.parsing.document_parser.DocumentParser.get_marker_executable", lambda: None)
+    monkeypatch.setattr("ankidraft.utils.paths.resolve_media_path", lambda _: dummy_pdf)
 
     class DummyDialog:
         selected_action = MarkerInstallAction.STANDARD_FALLBACK
@@ -513,7 +513,7 @@ def test_documents_view_marker_analysis_consent_standard_fallback(qtbot, monkeyp
         def exec(self):
             return 1
 
-    monkeypatch.setattr("ankiforge.ui.dialogs.marker_install_dialog.MarkerInstallDialog", DummyDialog)
+    monkeypatch.setattr("ankidraft.ui.dialogs.marker_install_dialog.MarkerInstallDialog", DummyDialog)
     monkeypatch.setattr(view, "_start_document_worker", lambda path, doc_id=None: worker_started.append((path, doc_id)))
 
     view._on_run_marker_analysis()
@@ -523,7 +523,7 @@ def test_documents_view_marker_analysis_consent_standard_fallback(qtbot, monkeyp
 
 def test_documents_view_marker_analysis_consent_cancel(qtbot, monkeypatch, tmp_path):
     """Vérifie que l'annulation ne lance aucun worker ni installation et laisse le bouton Marker actif."""
-    from ankiforge.ui.dialogs.marker_install_dialog import MarkerInstallAction
+    from ankidraft.ui.dialogs.marker_install_dialog import MarkerInstallAction
 
     installed_called = []
     worker_started = []
@@ -537,8 +537,8 @@ def test_documents_view_marker_analysis_consent_cancel(qtbot, monkeypatch, tmp_p
     doc = DocumentModel.create(title="Sample PDF", file_type="pdf", content="", original_media=media)
     view._current_doc_id = doc.id
 
-    monkeypatch.setattr("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", lambda: None)
-    monkeypatch.setattr("ankiforge.utils.paths.resolve_media_path", lambda _: dummy_pdf)
+    monkeypatch.setattr("ankidraft.services.parsing.document_parser.DocumentParser.get_marker_executable", lambda: None)
+    monkeypatch.setattr("ankidraft.utils.paths.resolve_media_path", lambda _: dummy_pdf)
 
     class DummyDialog:
         selected_action = MarkerInstallAction.CANCEL
@@ -549,7 +549,7 @@ def test_documents_view_marker_analysis_consent_cancel(qtbot, monkeypatch, tmp_p
         def exec(self):
             return 0
 
-    monkeypatch.setattr("ankiforge.ui.dialogs.marker_install_dialog.MarkerInstallDialog", DummyDialog)
+    monkeypatch.setattr("ankidraft.ui.dialogs.marker_install_dialog.MarkerInstallDialog", DummyDialog)
     monkeypatch.setattr(view, "_install_marker_and_start", lambda path: installed_called.append(path))
     monkeypatch.setattr(view, "_start_document_worker", lambda path, doc_id=None: worker_started.append((path, doc_id)))
 
@@ -586,7 +586,7 @@ def test_documents_view_coverage_aggregates_duplicate_headings(qtbot):
     nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Dup {uid}")
     note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
     note.add_version({"Front": "Rôle du cœur ?", "Back": "Pompe sanguine"}, source="manual")
-    from ankiforge.database.models import CardModel
+    from ankidraft.database.models import CardModel
 
     CardModel.create(note=note, deck=deck, template_index=0)
     NoteChunkLinkModel.create(note=note, chunk=chunk1)
@@ -632,7 +632,7 @@ def test_documents_view_coverage_filter(qtbot):
     nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Filtre {uid}")
     note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
     note.add_version({"Front": "A ?", "Back": "AA"}, source="manual")
-    from ankiforge.database.models import CardModel
+    from ankidraft.database.models import CardModel
 
     CardModel.create(note=note, deck=deck, template_index=0)
     NoteChunkLinkModel.create(note=note, chunk=chunk_a)
@@ -713,7 +713,7 @@ def test_documents_view_coverage_paginated_groups_by_page(qtbot):
     nt = NoteTypeModel.select().first() or NoteTypeModel.create(name=f"Model Pages {uid}")
     note = NoteModel.create(guid=uuid.uuid4().hex, note_type=nt)
     note.add_version({"Front": "P1 ?", "Back": "P1"}, source="manual")
-    from ankiforge.database.models import CardModel
+    from ankidraft.database.models import CardModel
 
     CardModel.create(note=note, deck=deck, template_index=0)
     NoteChunkLinkModel.create(note=note, chunk=chunk_p1)
@@ -808,7 +808,7 @@ def test_documents_view_pdf_marker_coverage_uses_sections(qtbot):
 
 def test_documents_view_worker_finished_updates_existing_pdf_doc(qtbot):
     """Vérifie que la fin de l'extraction met à jour le document existant sans lever d'AttributeError sur self.doc_repo."""
-    from ankiforge.services.workers.document_worker import DocumentWorker
+    from ankidraft.services.workers.document_worker import DocumentWorker
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(
@@ -839,7 +839,7 @@ def test_documents_view_worker_finished_updates_existing_pdf_doc(qtbot):
 
 def test_documents_view_worker_finished_new_doc_without_prior_id(qtbot):
     """Vérifie que la fin d'un worker pour un nouveau fichier (sans doc_id préalable) crée le document."""
-    from ankiforge.services.workers.document_worker import DocumentWorker
+    from ankidraft.services.workers.document_worker import DocumentWorker
 
     uid = uuid.uuid4().hex[:6]
     doc_title = f"Nouveau Document {uid}"
@@ -859,7 +859,7 @@ def test_documents_view_worker_finished_new_doc_without_prior_id(qtbot):
 
 def test_documents_view_worker_finished_handles_missing_doc_id_gracefully(qtbot):
     """Vérifie la robustesse si doc_id_to_update cible un identifiant inexistant."""
-    from ankiforge.services.workers.document_worker import DocumentWorker
+    from ankidraft.services.workers.document_worker import DocumentWorker
 
     uid = uuid.uuid4().hex[:6]
     doc_title = f"Fichier Orphelin {uid}"
@@ -879,7 +879,7 @@ def test_documents_view_worker_finished_handles_missing_doc_id_gracefully(qtbot)
 
 def test_documents_view_heal_hierarchies_ensures_all_user_roles(qtbot):
     """Vérifie que refresh_data auto-guérit les parents virtuels et assigne UserRole à chaque nœud."""
-    from ankiforge.database.models import FolderModel
+    from ankidraft.database.models import FolderModel
 
     uid = uuid.uuid4().hex[:6]
     FolderModel.create(name=f"Racine_{uid}::SousNiveau::Feuille")
@@ -907,8 +907,8 @@ def test_documents_view_context_menu_actions(qtbot, monkeypatch):
     from PySide6.QtCore import QPoint
     from PySide6.QtWidgets import QMenu
 
-    from ankiforge.database.models import FolderModel
-    from ankiforge.ui.theme import StyledMenu
+    from ankidraft.database.models import FolderModel
+    from ankidraft.ui.theme import StyledMenu
 
     uid = uuid.uuid4().hex[:6]
     folder = FolderModel.create(name=f"Dossier_{uid}")
@@ -957,7 +957,7 @@ def test_documents_view_rename_folder_cascades(qtbot, monkeypatch):
     """Vérifie le renommage de dossier via _on_rename_folder avec cascade sur les sous-dossiers."""
     from PySide6.QtWidgets import QInputDialog
 
-    from ankiforge.database.models import FolderModel
+    from ankidraft.database.models import FolderModel
 
     uid = uuid.uuid4().hex[:6]
     parent_folder = FolderModel.create(name=f"Parent_{uid}")
@@ -1062,7 +1062,7 @@ def test_preview_does_not_highlight_toc_when_rendering_diverges(qtbot):
 
 def test_documents_view_coverage_panel_tabs_closable_and_reopenable(qtbot, mock_db):
     """Les onglets de l'inspecteur latéral de DocumentsView sont masquables individuellement et réouvrables."""
-    from ankiforge.ui.views.documents_view.view import DocumentsView
+    from ankidraft.ui.views.documents_view.view import DocumentsView
 
     view = DocumentsView()
     qtbot.addWidget(view)
@@ -1102,7 +1102,7 @@ def test_documents_view_coverage_panel_tabs_closable_and_reopenable(qtbot, mock_
 
 def test_documents_view_outline_tab_conditional_visibility(qtbot, mock_db):
     """L'onglet Plan s'affiche conditionnellement selon la cohérence et la présence de titres."""
-    from ankiforge.ui.views.documents_view.view import DocumentsView
+    from ankidraft.ui.views.documents_view.view import DocumentsView
 
     uid = uuid.uuid4().hex[:6]
     doc_no_headings = DocumentModel.create(
@@ -1159,7 +1159,7 @@ def test_documents_view_outline_tab_conditional_visibility(qtbot, mock_db):
 
 def test_documents_view_coverage_panel_toggle_button(qtbot, mock_db):
     """Le bouton toggle dans le header de l'éditeur permet de replier/déplier l'inspecteur latéral."""
-    from ankiforge.ui.views.documents_view.view import DocumentsView
+    from ankidraft.ui.views.documents_view.view import DocumentsView
 
     view = DocumentsView()
     qtbot.addWidget(view)
@@ -1186,7 +1186,7 @@ def test_documents_view_coverage_panel_toggle_button(qtbot, mock_db):
 
 def test_documents_view_toolbar_responsive_wrapping(qtbot, mock_db):
     """La barre d'outils de DocumentsView s'adapte en hauteur et agence ses boutons sans troncature."""
-    from ankiforge.ui.views.documents_view.view import DocumentsView
+    from ankidraft.ui.views.documents_view.view import DocumentsView
 
     view = DocumentsView()
     qtbot.addWidget(view)
@@ -1221,7 +1221,7 @@ def test_documents_view_toolbar_responsive_wrapping(qtbot, mock_db):
 
 def test_documents_view_toolbar_marker_ocr_toggle(qtbot, mock_db):
     """L'affichage conditionnel du bouton Marker OCR pour les PDF s'intègre harmonieusement dans le FlowLayout."""
-    from ankiforge.ui.views.documents_view.view import DocumentsView
+    from ankidraft.ui.views.documents_view.view import DocumentsView
 
     view = DocumentsView()
     qtbot.addWidget(view)
@@ -1248,7 +1248,7 @@ def test_documents_view_long_title_allows_narrow_resize(qtbot, mock_db):
     """Un document au titre très long ne bloque pas le redimensionnement responsive de l'éditeur jusqu'à 380px."""
     from PySide6.QtWidgets import QApplication
 
-    from ankiforge.ui.views.documents_view.view import DocumentsView
+    from ankidraft.ui.views.documents_view.view import DocumentsView
 
     view = DocumentsView()
     qtbot.addWidget(view)
@@ -1313,8 +1313,8 @@ def test_documents_view_coverage_tab_and_analysis_navigation(qtbot, mock_db):
 
 def test_documents_view_forge_buttons_icons_and_no_emojis(qtbot, mock_db, monkeypatch):
     """Les actions 'Forger la section' et 'Forger des cartes' ont des icônes Phosphor et aucun émoji."""
-    from ankiforge.ui.theme import StyledMenu
-    from ankiforge.ui.views.documents_view.view import DocumentsView
+    from ankidraft.ui.theme import StyledMenu
+    from ankidraft.ui.views.documents_view.view import DocumentsView
 
     view = DocumentsView()
     qtbot.addWidget(view)
@@ -1365,7 +1365,7 @@ def test_apply_pill_style_restored(qtbot):
     """La fonction apply_pill_style applique un style de capsule complet et arrondi."""
     from PySide6.QtWidgets import QLabel
 
-    from ankiforge.ui.views.documents_view.utils import apply_pill_style
+    from ankidraft.ui.views.documents_view.utils import apply_pill_style
 
     label = QLabel("Test Pill")
     qtbot.addWidget(label)
@@ -1380,8 +1380,8 @@ def test_apply_pill_style_restored(qtbot):
 
 def test_documents_view_doc_type_badge_and_kebab_menu(qtbot, mock_db, monkeypatch):
     """L'en-tête affiche un badge neutre rond du type de document et un bouton kebab opérationnel."""
-    from ankiforge.ui.theme import StyledMenu
-    from ankiforge.ui.views.documents_view.view import DocumentsView
+    from ankidraft.ui.theme import StyledMenu
+    from ankidraft.ui.views.documents_view.view import DocumentsView
 
     uid = uuid.uuid4().hex[:6]
     doc_md = DocumentModel.create(

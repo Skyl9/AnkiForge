@@ -1,7 +1,7 @@
 import jinja2
 import pytest
 
-from ankiforge.services.ai.persona_templates import (
+from ankidraft.services.ai.persona_templates import (
     JINJA2_VARIABLE_DOCS,
     PERSONA_TEMPLATES,
     PROMPT_STARTER_FRAMEWORKS,

@@ -2,7 +2,7 @@
 
 import pytest
 
-from ankiforge.services.markdown.table_of_contents import TableOfContentsDetector
+from ankidraft.services.markdown.table_of_contents import TableOfContentsDetector
 
 pytestmark = pytest.mark.unit
 
@@ -55,7 +55,7 @@ class TestDetection:
                 "<!-- toc -->",
                 "## Table des Matières",
                 "",
-                "- [Manuel AnkiForge](#manuel-ankiforge)",
+                "- [Manuel AnkiForge](#manuel-ankidraft)",
                 "  - [Installation](#installation)",
                 "  - [Utilisation](#utilisation)",
                 "<!-- /toc -->",
@@ -256,14 +256,14 @@ class TestRealChapterIsNotAToc:
         assert TableOfContentsDetector.detect(self.REALTIME_SOMMAIRE) is None
 
     def test_outline_keeps_every_module(self, marker_toc_paginated: str) -> None:
-        from ankiforge.services.markdown.structurer import MarkdownStructurer
+        from ankidraft.services.markdown.structurer import MarkdownStructurer
 
         titles = [item.title for item in MarkdownStructurer.get_outline(self.REALTIME_SOMMAIRE)]
 
         assert titles == ["Sommaire", "Module A", "Module B", "Module C", "Cours"]
 
     def test_sections_keeps_every_module(self, marker_toc_paginated: str) -> None:
-        from ankiforge.services.markdown.structurer import MarkdownStructurer
+        from ankidraft.services.markdown.structurer import MarkdownStructurer
 
         sections = MarkdownStructurer.extract_sections(self.REALTIME_SOMMAIRE)
 

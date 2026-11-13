@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ankiforge.database.models import DocumentModel, DocumentPageModel, MediaModel
-from ankiforge.services.ai.album_transcription_types import AlbumTranscriptionOptions
-from ankiforge.services.workers.album_worker import AlbumOCRWorker
+from ankidraft.database.models import DocumentModel, DocumentPageModel, MediaModel
+from ankidraft.services.ai.album_transcription_types import AlbumTranscriptionOptions
+from ankidraft.services.workers.album_worker import AlbumOCRWorker
 
 pytestmark = pytest.mark.unit
 

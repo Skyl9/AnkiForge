@@ -2,8 +2,8 @@
 
 import pytest
 
-from ankiforge.services.markdown.formatter import MarkdownFormatter
-from ankiforge.services.markdown.models import FormatOptions
+from ankidraft.services.markdown.formatter import MarkdownFormatter
+from ankidraft.services.markdown.models import FormatOptions
 
 pytestmark = pytest.mark.unit
 

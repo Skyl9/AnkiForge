@@ -3,9 +3,9 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import PersonaFolderModel, PersonaModel
-from ankiforge.services.ai.persona_templates import PERSONA_TEMPLATES
-from ankiforge.ui.views.agents_view.dialogs.persona_wizard_dialog import (
+from ankidraft.database.models import PersonaFolderModel, PersonaModel
+from ankidraft.services.ai.persona_templates import PERSONA_TEMPLATES
+from ankidraft.ui.views.agents_view.dialogs.persona_wizard_dialog import (
     PersonaCreationWizardDialog,
 )
 
@@ -111,7 +111,7 @@ def test_persona_wizard_create_custom_persona(qtbot):
 
 def test_persona_wizard_template_card_and_filter_chips(qtbot):
     """Vérifie la hauteur minimale dynamique des TemplateCard, l'absence de hauteur fixe sur les badges, les FilterChipButton et le splitter."""
-    from ankiforge.ui.components import Badge, FilterChipButton
+    from ankidraft.ui.components import Badge, FilterChipButton
 
     dlg = PersonaCreationWizardDialog()
     qtbot.addWidget(dlg)

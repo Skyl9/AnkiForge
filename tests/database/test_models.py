@@ -5,7 +5,7 @@ from typing import Any, cast
 import pytest
 from peewee import IntegrityError
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DEFAULT_LATEX_POST,
     DEFAULT_LATEX_PRE,
     DocumentChunkModel,
@@ -72,7 +72,7 @@ def test_notetype_latex_fields_defaults_and_custom():
 
 def test_deck_hierarchy_and_card_cascade():
     """Vérifie la hiérarchie des paquets et la suppression en cascade des cartes."""
-    from ankiforge.database.models import CardModel, DeckModel
+    from ankidraft.database.models import CardModel, DeckModel
 
     parent_deck = DeckModel.create(name="Parent")
     child_deck = DeckModel.create(name="Parent::Child", parent_deck=parent_deck)
@@ -90,7 +90,7 @@ def test_deck_hierarchy_and_card_cascade():
 
 def test_deck_cascade_deletion():
     """Vérifie que la suppression d'un deck supprime les cartes associées."""
-    from ankiforge.database.models import CardModel, DeckModel
+    from ankidraft.database.models import CardModel, DeckModel
 
     deck = DeckModel.create(name="DeckToKill")
     note_type = NoteTypeModel.create(name="Basic Deck Cascade", fields_schema="[]", templates="[]", css_style="")
@@ -105,7 +105,7 @@ def test_deck_cascade_deletion():
 
 def test_seed_initial_data_is_idempotent():
     """Vérifie que l'appel multiple à seed_initial_data ne duplique pas les données."""
-    from ankiforge.database.models import LLMConfigModel, PipelineStepModel, seed_initial_data
+    from ankidraft.database.models import LLMConfigModel, PipelineStepModel, seed_initial_data
 
     # Vidons les tables pour le test
     PersonaModel.delete().execute()
@@ -133,7 +133,7 @@ def test_seed_initial_data_creates_single_basic_note_type():
     Les modèles Cloze et Image Occlusion Enhanced ne sont plus injectés d'office :
     ils restent activables à la demande (Starter Pack / dialogue d'occlusion).
     """
-    from ankiforge.database.seeds.initial_seed import seed_initial_data
+    from ankidraft.database.seeds.initial_seed import seed_initial_data
 
     NoteTypeModel.delete().execute()
     seed_initial_data()
@@ -153,7 +153,7 @@ def test_seed_initial_data_does_not_recreate_basic_after_adoption():
     Une fois le seed adopté (nom « Basic », anki_id renseigné), l'idempotence doit
     couvrir les deux alias afin d'éviter un doublon au démarrage suivant.
     """
-    from ankiforge.database.seeds.initial_seed import seed_initial_data
+    from ankidraft.database.seeds.initial_seed import seed_initial_data
 
     NoteTypeModel.delete().execute()
     seed_initial_data()
@@ -285,7 +285,7 @@ def test_ignored_duplicate_unique_constraint():
     note_a = NoteModel.create(guid="A", note_type=note_type)
     note_b = NoteModel.create(guid="B", note_type=note_type)
 
-    from ankiforge.database.models import IgnoredDuplicateModel
+    from ankidraft.database.models import IgnoredDuplicateModel
 
     IgnoredDuplicateModel.create(note_a=note_a, note_b=note_b)
 
@@ -295,7 +295,7 @@ def test_ignored_duplicate_unique_constraint():
 
 def test_llmconfig_unique_name_and_defaults():
     """Vérifie l'unicité du nom d'affichage et les valeurs par défaut."""
-    from ankiforge.database.models import LLMConfigModel
+    from ankidraft.database.models import LLMConfigModel
 
     config1 = LLMConfigModel.create(display_name="GPT-4", provider="openai", model_id="gpt-4")
 
@@ -314,7 +314,7 @@ def test_cascade_deletion_ignored_duplicate():
     note_a = NoteModel.create(guid="CascadeA", note_type=note_type)
     note_b = NoteModel.create(guid="CascadeB", note_type=note_type)
 
-    from ankiforge.database.models import IgnoredDuplicateModel
+    from ankidraft.database.models import IgnoredDuplicateModel
 
     IgnoredDuplicateModel.create(note_a=note_a, note_b=note_b)
     assert IgnoredDuplicateModel.select().count() == 1
@@ -458,8 +458,8 @@ def test_document_page_model_and_multimodal_chunk():
 
 def test_seed_initial_data_creates_all_personas_with_prompts():
     """Vérifie que seed_initial_data crée les 6 personas attendus avec leurs prompts."""
-    from ankiforge.database.models import LLMConfigModel, PipelineStepModel
-    from ankiforge.database.seeds.initial_seed import seed_initial_data
+    from ankidraft.database.models import LLMConfigModel, PipelineStepModel
+    from ankidraft.database.seeds.initial_seed import seed_initial_data
 
     # Nettoyer les tables
     PersonaModel.delete().execute()

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.repositories.deck_repository import DeckRepository
-from ankiforge.repositories.note_repository import NoteRepository
-from ankiforge.ui.viewmodels.edition_viewmodel import EditionViewModel
-from ankiforge.utils.event_bus import AppEventBus, NoteDeletedEvent, NoteUpdatedEvent
+from ankidraft.repositories.deck_repository import DeckRepository
+from ankidraft.repositories.note_repository import NoteRepository
+from ankidraft.ui.viewmodels.edition_viewmodel import EditionViewModel
+from ankidraft.utils.event_bus import AppEventBus, NoteDeletedEvent, NoteUpdatedEvent
 
 pytestmark = pytest.mark.integration
 

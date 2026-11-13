@@ -21,27 +21,27 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.cards.export_manager import ExportManager
-from ankiforge.services.cards.import_manager import ImportManager
+from ankidraft.services.cards.export_manager import ExportManager
+from ankidraft.services.cards.import_manager import ImportManager
 
 pytestmark = [pytest.mark.integration, pytest.mark.slow]
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "anki_oracle"
 WITNESS_APKG = FIXTURES_DIR / "witness.apkg"
 WITNESS_MEDIA_NAME = "witness.png"
-WITNESS_MEDIA_BYTES = b"\x89PNG\r\n\x1a\n" + b"ankiforge-oracle-witness\n"
+WITNESS_MEDIA_BYTES = b"\x89PNG\r\n\x1a\n" + b"ankidraft-oracle-witness\n"
 WITNESS_MEDIA_MD5 = hashlib.md5(WITNESS_MEDIA_BYTES).hexdigest()
 
 # Fabrique d'une collection Forge exportable.
 MEDIA_NAME = "oracle_img.png"
-MEDIA_BYTES = b"\x89PNG\r\n\x1a\n" + b"ankiforge-forge-media\n"
+MEDIA_BYTES = b"\x89PNG\r\n\x1a\n" + b"ankidraft-forge-media\n"
 
 BASIC_FIELDS = ["Recto", "Verso"]
 BASIC_TEMPLATES = [{"name": "Carte 1", "qfmt": "{{Recto}}", "afmt": "{{FrontSide}}<hr id=answer>{{Verso}}"}]
@@ -124,8 +124,8 @@ def _prepare_media_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     media_dir = tmp_path / "forge_media"
     media_dir.mkdir(parents=True, exist_ok=True)
     (media_dir / MEDIA_NAME).write_bytes(MEDIA_BYTES)
-    monkeypatch.setattr("ankiforge.services.cards.export_manager.get_media_dir", lambda: media_dir)
-    monkeypatch.setattr("ankiforge.services.cards.import_manager.get_media_dir", lambda: media_dir)
+    monkeypatch.setattr("ankidraft.services.cards.export_manager.get_media_dir", lambda: media_dir)
+    monkeypatch.setattr("ankidraft.services.cards.import_manager.get_media_dir", lambda: media_dir)
     return media_dir
 
 

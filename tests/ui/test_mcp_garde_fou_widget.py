@@ -14,7 +14,7 @@ from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QLabel
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     NoteModel,
     NoteTypeModel,
@@ -22,16 +22,16 @@ from ankiforge.database.models import (
     StagedBundleModel,
     StagedPatchModel,
 )
-from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
-from ankiforge.ui.components import Badge
-from ankiforge.ui.views.consultant_view.widgets import mcp_garde_fou_widget
-from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import (
+from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankidraft.ui.components import Badge
+from ankidraft.ui.views.consultant_view.widgets import mcp_garde_fou_widget
+from ankidraft.ui.views.consultant_view.widgets.mcp_garde_fou_widget import (
     BundleHeaderItemWidget,
     MCPGardeFouWidget,
     PatchListItemWidget,
 )
-from ankiforge.utils.environment import get_app_qsettings
-from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
+from ankidraft.utils.environment import get_app_qsettings
+from ankidraft.utils.event_bus import MCPPatchStagedEvent, event_bus
 
 pytestmark = [pytest.mark.ui]
 
@@ -742,8 +742,8 @@ def test_mcp_garde_fou_deletion_impact_and_apply(qtbot, sample_note) -> None:
 
 def test_mcp_garde_fou_incremental_patch_standalone(qtbot, sample_note) -> None:
     """Vérifie l'insertion incrémentale d'un patch standalone via event bus sans clear()."""
-    from ankiforge.database.models import StagedPatchModel
-    from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
+    from ankidraft.database.models import StagedPatchModel
+    from ankidraft.utils.event_bus import MCPPatchStagedEvent, event_bus
 
     widget = MCPGardeFouWidget()
     qtbot.addWidget(widget)
@@ -807,7 +807,7 @@ def test_mcp_garde_fou_incremental_patch_standalone(qtbot, sample_note) -> None:
 
 def test_mcp_garde_fou_incremental_bundle_staged(qtbot) -> None:
     """Vérifie la création du nœud parent bundle via MCPBundleStagedEvent."""
-    from ankiforge.database.models import StagedPatchModel
+    from ankidraft.database.models import StagedPatchModel
 
     # Nettoyer la BDD avant le test
     StagedPatchModel.delete().execute()
@@ -847,7 +847,7 @@ def test_mcp_garde_fou_incremental_bundle_staged(qtbot) -> None:
 
 def test_mcp_garde_fou_incremental_patch_in_bundle(qtbot) -> None:
     """Vérifie l'ajout incrémental d'étapes sous un bundle parent existant."""
-    from ankiforge.database.models import StagedPatchModel
+    from ankidraft.database.models import StagedPatchModel
 
     # Nettoyer la BDD avant le test
     StagedPatchModel.delete().execute()
@@ -890,7 +890,7 @@ def test_mcp_garde_fou_incremental_patch_in_bundle(qtbot) -> None:
 
 def test_mcp_garde_fou_bundle_events_out_of_order(qtbot) -> None:
     """Vérifie la gestion gracieuse des événements hors ordre (patch standalone avant bundle)."""
-    from ankiforge.database.models import StagedPatchModel
+    from ankidraft.database.models import StagedPatchModel
 
     # Nettoyer la BDD avant le test
     StagedPatchModel.delete().execute()
@@ -939,7 +939,7 @@ def test_mcp_garde_fou_bundle_events_out_of_order(qtbot) -> None:
 
 def test_mcp_garde_fou_manual_reload_preserves_state(qtbot, sample_note) -> None:
     """Vérifie que reload_pending_patches() préserve l'état (expansion, sélection, scroll)."""
-    from ankiforge.database.models import StagedPatchModel
+    from ankidraft.database.models import StagedPatchModel
 
     # Nettoyer la BDD avant le test
     StagedPatchModel.delete().execute()
@@ -1024,7 +1024,7 @@ def test_mcp_garde_fou_widget_affiche_patch_pipeline_delegue(qtbot) -> None:
 
 def test_mcp_garde_fou_filter_text(qtbot, sample_note) -> None:
     """Vérifie que le filtre texte fonctionne avec l'arborescence incrémentale."""
-    from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
+    from ankidraft.utils.event_bus import MCPPatchStagedEvent, event_bus
 
     widget = MCPGardeFouWidget()
     qtbot.addWidget(widget)
@@ -1585,7 +1585,7 @@ def test_mcp_garde_fou_tree_and_item_word_wrap(qtbot, sample_note):
 
 def test_mcp_garde_fou_impeccable_craft_improvements(qtbot, sample_note) -> None:
     """Vérifie les améliorations Impeccable (EmptyStateWidget, tooltips, hauteurs, curseurs)."""
-    from ankiforge.ui.components.panels import EmptyStateWidget
+    from ankidraft.ui.components.panels import EmptyStateWidget
 
     widget = MCPGardeFouWidget()
     qtbot.addWidget(widget)

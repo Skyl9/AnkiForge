@@ -3,8 +3,8 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import LLMConfigModel, PersonaFolderModel, PersonaModel
-from ankiforge.ui.views.agents_view import (
+from ankidraft.database.models import LLMConfigModel, PersonaFolderModel, PersonaModel
+from ankidraft.ui.views.agents_view import (
     AgentPromptPreviewDialog,
     AgentsView,
     AgentTestDialog,

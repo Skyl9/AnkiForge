@@ -1,7 +1,7 @@
 import pytest
 
-from ankiforge.database.models import LLMConfigModel
-from ankiforge.services.ai.flexible_service import AIManager, MockProvider, OllamaProvider, OpenAICompatibleProvider
+from ankidraft.database.models import LLMConfigModel
+from ankidraft.services.ai.flexible_service import AIManager, MockProvider, OllamaProvider, OpenAICompatibleProvider
 
 pytestmark = pytest.mark.integration
 
@@ -49,8 +49,8 @@ def test_ai_manager_passes_max_tokens_from_config(mock_db):
 
 def test_ai_manager_applies_generation_timeout_from_settings(mock_db):
     """Le délai de génération configurable est appliqué aux clients réseau des providers."""
-    from ankiforge.services.ai.flexible_service import _DEFAULT_TIMEOUT_SECONDS, _resolve_generation_timeout_seconds
-    from ankiforge.services.settings_service import SettingsService
+    from ankidraft.services.ai.flexible_service import _DEFAULT_TIMEOUT_SECONDS, _resolve_generation_timeout_seconds
+    from ankidraft.services.settings_service import SettingsService
 
     assert _resolve_generation_timeout_seconds() == _DEFAULT_TIMEOUT_SECONDS
 
@@ -68,8 +68,8 @@ def test_ai_manager_applies_generation_timeout_from_settings(mock_db):
 
 def test_ai_manager_replaces_invalid_generation_timeout_with_default(mock_db):
     """Un réglage invalide ou non positif retombe sur le délai par défaut."""
-    from ankiforge.services.ai.flexible_service import _DEFAULT_TIMEOUT_SECONDS, _resolve_generation_timeout_seconds
-    from ankiforge.services.settings_service import SettingsService
+    from ankidraft.services.ai.flexible_service import _DEFAULT_TIMEOUT_SECONDS, _resolve_generation_timeout_seconds
+    from ankidraft.services.settings_service import SettingsService
 
     SettingsService.set("ai/generation_timeout_seconds", -5, category="ai")
     assert _resolve_generation_timeout_seconds() == _DEFAULT_TIMEOUT_SECONDS
@@ -80,7 +80,7 @@ def test_ai_manager_replaces_invalid_generation_timeout_with_default(mock_db):
 
 def test_ai_manager_reload_provider_selects_top_model_by_sort_order(mock_db):
     """Vérifie que l'AIManager sélectionne le modèle ayant le plus petit sort_order (en tête de liste)."""
-    from ankiforge.services.settings_service import SettingsService
+    from ankidraft.services.settings_service import SettingsService
 
     SettingsService.set("ai/default_model_id", "", category="ai")
     LLMConfigModel.create(
@@ -105,7 +105,7 @@ def test_ai_manager_reload_provider_selects_top_model_by_sort_order(mock_db):
 
 def test_ai_manager_create_opencode_with_key(mock_db):
     """Vérifie que l'AIManager instancie OpenCodeProvider avec la clé fournie."""
-    from ankiforge.services.ai.flexible_service import OpenCodeProvider
+    from ankidraft.services.ai.flexible_service import OpenCodeProvider
 
     config = LLMConfigModel.create(
         display_name="OpenCode Test",
@@ -122,7 +122,7 @@ def test_ai_manager_create_opencode_with_key(mock_db):
 
 def test_ai_manager_create_openrouter_with_key(mock_db):
     """Vérifie que l'AIManager instancie OpenRouterProvider avec la clé fournie."""
-    from ankiforge.services.ai.flexible_service import OpenRouterProvider
+    from ankidraft.services.ai.flexible_service import OpenRouterProvider
 
     config = LLMConfigModel.create(
         display_name="OpenRouter Test",
@@ -155,7 +155,7 @@ def test_ai_manager_init_is_lazy_and_does_not_call_keyring(mock_db):
     """Vérifie que l'instanciation de l'AIManager ne sollicite aucunement le trousseau OS."""
     from unittest.mock import patch
 
-    import ankiforge.utils.secret_store as ss
+    import ankidraft.utils.secret_store as ss
 
     LLMConfigModel.create(
         display_name="Gemini Default",
@@ -241,9 +241,9 @@ def test_ai_manager_passes_temperature_and_supports_json_from_config(mock_db):
 
 def test_create_provider_sans_cle_leve_en_production(mock_db, monkeypatch):
     """Hors environnement de test, create_provider sans clé valide lève une exception explicite (jamais de MockProvider silencieux)."""
-    import ankiforge.services.settings_service as ss
-    import ankiforge.utils.environment as env
-    from ankiforge.services.ai.flexible_service import AIManager
+    import ankidraft.services.settings_service as ss
+    import ankidraft.utils.environment as env
+    from ankidraft.services.ai.flexible_service import AIManager
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setattr(env, "get_current_environment", lambda: env.AppEnvironment.PRODUCTION)
@@ -255,9 +255,9 @@ def test_create_provider_sans_cle_leve_en_production(mock_db, monkeypatch):
 
 def test_create_provider_fournisseur_inconnu_leve_en_production(mock_db, monkeypatch):
     """Un fournisseur inconnu lève en production plutôt que de retourner MockProvider silencieusement."""
-    import ankiforge.services.settings_service as ss
-    import ankiforge.utils.environment as env
-    from ankiforge.services.ai.flexible_service import AIManager
+    import ankidraft.services.settings_service as ss
+    import ankidraft.utils.environment as env
+    from ankidraft.services.ai.flexible_service import AIManager
 
     monkeypatch.setattr(env, "get_current_environment", lambda: env.AppEnvironment.PRODUCTION)
     monkeypatch.setattr(ss.SettingsService, "get", lambda key, default=None, category=None: "")
@@ -268,10 +268,10 @@ def test_create_provider_fournisseur_inconnu_leve_en_production(mock_db, monkeyp
 
 def test_create_provider_retombe_mock_uniquement_en_testing(mock_db, monkeypatch):
     """create_provider sans clé retourne MockProvider uniquement en environnement de test."""
-    import ankiforge.services.settings_service as ss
-    import ankiforge.utils.environment as env
-    from ankiforge.services.ai.base import MockProvider
-    from ankiforge.services.ai.flexible_service import AIManager
+    import ankidraft.services.settings_service as ss
+    import ankidraft.utils.environment as env
+    from ankidraft.services.ai.base import MockProvider
+    from ankidraft.services.ai.flexible_service import AIManager
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setattr(env, "get_current_environment", lambda: env.AppEnvironment.TESTING)
@@ -283,10 +283,10 @@ def test_create_provider_retombe_mock_uniquement_en_testing(mock_db, monkeypatch
 
 def test_create_provider_mock_explicite_toujours_autorise(mock_db, monkeypatch):
     """Le fournisseur explicite 'mock' retourne MockProvider même en dehors de l'environnement de test."""
-    import ankiforge.services.settings_service as ss
-    import ankiforge.utils.environment as env
-    from ankiforge.services.ai.base import MockProvider
-    from ankiforge.services.ai.flexible_service import AIManager
+    import ankidraft.services.settings_service as ss
+    import ankidraft.utils.environment as env
+    from ankidraft.services.ai.base import MockProvider
+    from ankidraft.services.ai.flexible_service import AIManager
 
     monkeypatch.setattr(env, "get_current_environment", lambda: env.AppEnvironment.PRODUCTION)
     monkeypatch.setattr(ss.SettingsService, "get", lambda key, default=None, category=None: "")

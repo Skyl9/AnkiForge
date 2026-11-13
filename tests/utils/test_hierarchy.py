@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.utils.hierarchy import (
+from ankidraft.utils.hierarchy import (
     ANKI_UNIT_SEPARATOR,
     SEPARATOR,
     descendants_prefix,

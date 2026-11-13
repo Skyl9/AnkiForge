@@ -15,11 +15,11 @@ from PySide6.QtCore import qInstallMessageHandler
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QGraphicsDropShadowEffect
 
-from ankiforge.ui.components import ActionButton, DangerButton, IconButton, PrimaryButton, SecondaryButton
-from ankiforge.ui.components.inputs import GlowLineEdit
-from ankiforge.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT, get_style_engine
-from ankiforge.ui.theme import DesignTokens, apply_shadow
-from ankiforge.ui.views.batch_view.view import BatchView
+from ankidraft.ui.components import ActionButton, DangerButton, IconButton, PrimaryButton, SecondaryButton
+from ankidraft.ui.components.inputs import GlowLineEdit
+from ankidraft.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT, get_style_engine
+from ankidraft.ui.theme import DesignTokens, apply_shadow
+from ankidraft.ui.views.batch_view.view import BatchView
 
 pytestmark = pytest.mark.ui
 

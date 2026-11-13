@@ -8,8 +8,8 @@ import pytest
 from PySide6.QtCore import QSize
 from PySide6.QtGui import QColor, QImage
 
-from ankiforge.database.models import DocumentModel
-from ankiforge.ui.views.documents_view.dialogs.rag_test_dialog import (
+from ankidraft.database.models import DocumentModel
+from ankidraft.ui.views.documents_view.dialogs.rag_test_dialog import (
     RAGTestDialog,
     _RAGResultWidget,
 )
@@ -64,7 +64,7 @@ def test_rag_result_widget_size_hint_with_media(qtbot: Any, tmp_path: Path) -> N
         "media_filename": "cortex_schema.png",
     }
     with patch(
-        "ankiforge.ui.views.documents_view.dialogs.rag_test_dialog.resolve_media_path",
+        "ankidraft.ui.views.documents_view.dialogs.rag_test_dialog.resolve_media_path",
         return_value=img_file,
     ):
         widget = _RAGResultWidget(res, "aires")
@@ -113,7 +113,7 @@ def test_rag_test_dialog_sets_size_hint_on_items(qtbot: Any, fake_doc: DocumentM
     ]
 
     with patch(
-        "ankiforge.ui.views.documents_view.dialogs.rag_test_dialog.RAGService.search",
+        "ankidraft.ui.views.documents_view.dialogs.rag_test_dialog.RAGService.search",
         return_value=fake_results,
     ):
         dlg.search_input.setText("hippocampe amygdale")

@@ -4,9 +4,9 @@ from typing import Any
 
 import pytest
 
-from ankiforge.services.markdown.structurer import MarkdownStructurer
-from ankiforge.services.markdown.table_of_contents import TableOfContentsDetector
-from ankiforge.services.parsing.chunking_service import ChunkingService
+from ankidraft.services.markdown.structurer import MarkdownStructurer
+from ankidraft.services.markdown.table_of_contents import TableOfContentsDetector
+from ankidraft.services.parsing.chunking_service import ChunkingService
 
 pytestmark = pytest.mark.unit
 
@@ -70,10 +70,10 @@ def test_repair_heading_hierarchy() -> None:
 
 
 def test_generate_toc_unordered() -> None:
-    md = "# Manuel AnkiForge\n\n## Installation\n\n### uv sync\n\n## Utilisation"
+    md = "# Manuel AnkiDraft\n\n## Installation\n\n### uv sync\n\n## Utilisation"
     toc = MarkdownStructurer.generate_toc(md, max_depth=3, ordered=False)
     assert "## Table des Matières" in toc
-    assert "- [Manuel AnkiForge](#manuel-ankiforge)" in toc
+    assert "- [Manuel AnkiDraft](#manuel-ankidraft)" in toc
     assert "  - [Installation](#installation)" in toc
     assert "    - [uv sync](#uv-sync)" in toc
     assert "  - [Utilisation](#utilisation)" in toc

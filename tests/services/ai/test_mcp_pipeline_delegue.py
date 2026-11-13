@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 from PySide6.QtCore import QThreadPool
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     NoteModel,
     NoteTypeModel,
@@ -29,9 +29,9 @@ from ankiforge.database.models import (
     PipelineStepModel,
     StagedPatchModel,
 )
-from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
-from ankiforge.services.ai.orchestrator import PipelineOrchestrator
-from ankiforge.services.ai.persona_override import _digest, resolve_system_prompt
+from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
+from ankidraft.services.ai.orchestrator import PipelineOrchestrator
+from ankidraft.services.ai.persona_override import _digest, resolve_system_prompt
 
 
 def _build_delegated_pipeline(uid: str) -> dict[str, Any]:
@@ -291,7 +291,7 @@ def test_staged_patch_pipeline_delegue_visible_dans_garde_fou() -> None:
     env = _build_delegated_pipeline("garde_fou")
     pipeline = env["pipeline"]
 
-    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+    from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
 
     bundle_id = StagedPatchRegistry_begin_bundle_for_test(pipeline)
     StagedPatchRegistry_create_patch_for_test(bundle_id, pipeline)
@@ -309,7 +309,7 @@ def test_staged_patch_pipeline_delegue_visible_dans_garde_fou() -> None:
 
 
 def StagedPatchRegistry_begin_bundle_for_test(pipeline: PipelineModel) -> str:
-    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+    from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
 
     return StagedPatchRegistry.begin_bundle(
         title=f"Pipeline délégué #{pipeline.id}",
@@ -318,7 +318,7 @@ def StagedPatchRegistry_begin_bundle_for_test(pipeline: PipelineModel) -> str:
 
 
 def StagedPatchRegistry_create_patch_for_test(bundle_id: str, pipeline: PipelineModel) -> None:
-    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+    from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
 
     StagedPatchRegistry.create_patch(
         patch_type="pipeline_step_delegated",

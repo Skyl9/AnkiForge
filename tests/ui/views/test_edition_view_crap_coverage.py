@@ -10,16 +10,16 @@ from unittest.mock import MagicMock
 import pytest
 from PySide6.QtWidgets import QDialog
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.ui.models.sorting import SortCriterion, SortOrder
-from ankiforge.ui.style_engine import JETBRAINS_DARK
-from ankiforge.ui.views.edition_view import EditionView
+from ankidraft.ui.models.sorting import SortCriterion, SortOrder
+from ankidraft.ui.style_engine import JETBRAINS_DARK
+from ankidraft.ui.views.edition_view import EditionView
 
 pytestmark = pytest.mark.ui
 

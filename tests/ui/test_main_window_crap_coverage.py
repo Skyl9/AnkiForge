@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.ui.layouts.ide_layout import IdeLayout
-from ankiforge.ui.main_window import MainWindow
-from ankiforge.ui.style_engine import JETBRAINS_DARK
+from ankidraft.ui.layouts.ide_layout import IdeLayout
+from ankidraft.ui.main_window import MainWindow
+from ankidraft.ui.style_engine import JETBRAINS_DARK
 
 pytestmark = pytest.mark.ui
 
@@ -23,7 +23,7 @@ def clean_main_window(qtbot: Any, mock_db: Any, monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(MainWindow, "_check_uncompleted_pipeline_runs", lambda self: None)
     monkeypatch.setattr(MainWindow, "_init_mcp_daemon", lambda self: None)
 
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None)
         qtbot.addWidget(window)
         return window

@@ -18,15 +18,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
-from ankiforge.services.profile_manager import ProfileManager
-from ankiforge.services.reindex_service import REINDEX_ERROR
+from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
+from ankidraft.services.profile_manager import ProfileManager
+from ankidraft.services.reindex_service import REINDEX_ERROR
 
 pytestmark = pytest.mark.integration
 
@@ -43,7 +43,7 @@ def _setup_staging_dir():
     """Configure le dossier de staging pour le profil de test."""
     pm = ProfileManager()
     # Forcer le profil actif pour le test
-    from ankiforge.utils.paths import set_active_profile
+    from ankidraft.utils.paths import set_active_profile
 
     set_active_profile("test")
     # Créer un gestionnaire de profil avec le bon dossier
@@ -227,7 +227,7 @@ class TestIngestAuthoritySourceFileStaging:
         pdf_file.write_bytes(b"%PDF-1.4 dummy content")
 
         # Mocker DocumentParser pour éviter les problèmes de parsing PDF
-        with patch("ankiforge.services.parsing.document_parser.DocumentParser") as mock_parser_class:
+        with patch("ankidraft.services.parsing.document_parser.DocumentParser") as mock_parser_class:
             mock_parser = MagicMock()
             mock_parser_class.return_value = mock_parser
             mock_parser.parse_document.return_value = "# Test PDF\n\nContenu extrait du PDF."
@@ -331,7 +331,7 @@ class TestIngestAuthoritySourceFileStaging:
 class TestIngestAuthoritySourceUrl:
     """Tests pour le mode URL (avec mocks WebImporter)."""
 
-    @patch("ankiforge.services.parsing.web_importer.WebImporter")
+    @patch("ankidraft.services.parsing.web_importer.WebImporter")
     def test_url_mode_success(self, mock_importer_class, mock_db):
         """Importation URL réussie avec WebImporter mocké."""
         _create_test_note(mock_db)
@@ -361,14 +361,14 @@ class TestIngestAuthoritySourceUrl:
         # Vérifier que WebImporter a été appelé
         mock_importer.analyze_url.assert_called_once()
 
-    @patch("ankiforge.services.parsing.web_importer.WebImporter")
+    @patch("ankidraft.services.parsing.web_importer.WebImporter")
     def test_url_mode_ssrf_blocked_localhost(self, mock_importer_class, mock_db):
         """Blocage SSRF pour 127.0.0.1."""
         _create_test_note(mock_db)
 
         mock_importer = MagicMock()
         mock_importer_class.return_value = mock_importer
-        from ankiforge.services.parsing.web_importer import WebImportError
+        from ankidraft.services.parsing.web_importer import WebImportError
 
         mock_importer.analyze_url.side_effect = WebImportError("Adresse réseau privé (environnement interne) refusée pour l'import web.", category="network")
 
@@ -383,14 +383,14 @@ class TestIngestAuthoritySourceUrl:
         assert result["status"] == "error"
         assert result["category"] == "network"
 
-    @patch("ankiforge.services.parsing.web_importer.WebImporter")
+    @patch("ankidraft.services.parsing.web_importer.WebImporter")
     def test_url_mode_ssrf_blocked_unspecified(self, mock_importer_class, mock_db):
         """Blocage SSRF pour 0.0.0.0 (is_unspecified)."""
         _create_test_note(mock_db)
 
         mock_importer = MagicMock()
         mock_importer_class.return_value = mock_importer
-        from ankiforge.services.parsing.web_importer import WebImportError
+        from ankidraft.services.parsing.web_importer import WebImportError
 
         mock_importer.analyze_url.side_effect = WebImportError("Adresse réseau privé (environnement interne) refusée pour l'import web.", category="network")
 
@@ -405,14 +405,14 @@ class TestIngestAuthoritySourceUrl:
         assert result["status"] == "error"
         assert result["category"] == "network"
 
-    @patch("ankiforge.services.parsing.web_importer.WebImporter")
+    @patch("ankidraft.services.parsing.web_importer.WebImporter")
     def test_url_mode_ssrf_blocked_private_ip(self, mock_importer_class, mock_db):
         """Blocage SSRF pour IP privée 192.168.1.1."""
         _create_test_note(mock_db)
 
         mock_importer = MagicMock()
         mock_importer_class.return_value = mock_importer
-        from ankiforge.services.parsing.web_importer import WebImportError
+        from ankidraft.services.parsing.web_importer import WebImportError
 
         mock_importer.analyze_url.side_effect = WebImportError("Adresse réseau privé (environnement interne) refusée pour l'import web.", category="network")
 
@@ -427,14 +427,14 @@ class TestIngestAuthoritySourceUrl:
         assert result["status"] == "error"
         assert result["category"] == "network"
 
-    @patch("ankiforge.services.parsing.web_importer.WebImporter")
+    @patch("ankidraft.services.parsing.web_importer.WebImporter")
     def test_url_mode_file_scheme_rejected(self, mock_importer_class, mock_db):
         """Blocage schéma file://."""
         _create_test_note(mock_db)
 
         mock_importer = MagicMock()
         mock_importer_class.return_value = mock_importer
-        from ankiforge.services.parsing.web_importer import WebImportError
+        from ankidraft.services.parsing.web_importer import WebImportError
 
         mock_importer.analyze_url.side_effect = WebImportError("Protocole 'file' non supporté : utilisez http:// ou https://.", category="invalid_url")
 
@@ -690,7 +690,7 @@ class TestIngestAuthoritySourceSHA256:
 class TestIngestAuthoritySourceIntegration:
     """Tests d'intégration plus complets."""
 
-    @patch("ankiforge.services.reindex_service.reindex_document")
+    @patch("ankidraft.services.reindex_service.reindex_document")
     def test_graceful_degradation_when_indexing_fails(self, mock_reindex, mock_db):
         """Dégradation gracieuse si indexation RAG échoue."""
         _create_test_note(mock_db)
@@ -708,7 +708,7 @@ class TestIngestAuthoritySourceIntegration:
         assert result["status"] == "created"
         assert result["index_status"] == "imported_unindexed"
 
-    @patch("ankiforge.services.reindex_service.reindex_document")
+    @patch("ankidraft.services.reindex_service.reindex_document")
     def test_graceful_degradation_when_indexing_exception(self, mock_reindex, mock_db):
         """Dégradation gracieuse si exception lors de l'indexation."""
         _create_test_note(mock_db)
@@ -730,7 +730,7 @@ class TestIngestAuthoritySourceIntegration:
         """Vérifier que la notification MCP est émise."""
         _create_test_note(mock_db)
 
-        from ankiforge.utils.event_bus import MCPDataMutatedEvent, event_bus
+        from ankidraft.utils.event_bus import MCPDataMutatedEvent, event_bus
 
         received_events = []
 

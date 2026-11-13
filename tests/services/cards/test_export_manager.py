@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.services.cards.export_manager import ExportManager
+from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.services.cards.export_manager import ExportManager
 
 pytestmark = pytest.mark.integration
 
@@ -22,7 +22,7 @@ def test_generate_stable_id():
 
 @pytest.mark.integration
 @patch("genanki.Package.write_to_file")
-@patch("ankiforge.services.cards.export_manager.get_media_dir")
+@patch("ankidraft.services.cards.export_manager.get_media_dir")
 def test_export_deck(mock_get_dir, mock_write, tmp_path):
     """Vérifie l'export global en créant de vraies fausses données dans la DB RAM."""
     mock_get_dir.return_value = tmp_path
@@ -140,7 +140,7 @@ def test_export_audio_files_resolution_and_cache(tmp_path, monkeypatch):
 
     media_dir = tmp_path / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr("ankiforge.services.cards.export_manager.get_media_dir", lambda: media_dir)
+    monkeypatch.setattr("ankidraft.services.cards.export_manager.get_media_dir", lambda: media_dir)
 
     # Création d'un vrai fichier audio dans media/
     snd_file = media_dir / "tts_hello.mp3"

@@ -3,9 +3,9 @@ from pathlib import Path
 import pytest
 from pytestqt.qtbot import QtBot
 
-from ankiforge.services.update_checker import UpdateInfo
-from ankiforge.ui.components.topbar import TopBar
-from ankiforge.ui.dialogs.update_dialog import UpdateDialog
+from ankidraft.services.update_checker import UpdateInfo
+from ankidraft.ui.components.topbar import TopBar
+from ankidraft.ui.dialogs.update_dialog import UpdateDialog
 
 pytestmark = pytest.mark.ui
 

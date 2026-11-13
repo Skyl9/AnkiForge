@@ -1,7 +1,7 @@
 """Tests de non-régression pour les dialogues et l'absence totale d'annonces orphelines (T6).
 
 Conforme à l'ADR 0032 et au ticket T6 :
-- Zéro QShortcut hors du module src/ankiforge/ui/shortcuts/
+- Zéro QShortcut hors du module src/ankidraft/ui/shortcuts/
 - Enregistrement au catalogue du jeu minimal des dialogues (Échap, Entrée, Ctrl+N, Ctrl+Entrée, ↑/↓)
 - Câblage de l'éditeur de code (Ctrl+Alt+L) et libération de Ctrl+Shift+I
 - Tests headless : navigation, validation, fermeture et création de paquet au clavier
@@ -15,23 +15,23 @@ import pytest
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtWidgets import QDialog
 
-from ankiforge.database.models import DeckModel
-from ankiforge.ui.components.deck_select_window import DeckSelectWindow
-from ankiforge.ui.dialogs.selection_dialog import MultiSelectionDialog, SelectionDialog
-from ankiforge.ui.shortcuts import (
+from ankidraft.database.models import DeckModel
+from ankidraft.ui.components.deck_select_window import DeckSelectWindow
+from ankidraft.ui.dialogs.selection_dialog import MultiSelectionDialog, SelectionDialog
+from ankidraft.ui.shortcuts import (
     ShortcutId,
     ShortcutScope,
     get_shortcut_catalog,
 )
-from ankiforge.ui.views.creation_view.dialogs.card_edit_dialog import CardEditDialog
-from ankiforge.ui.widgets.settings_modal.modal import SettingsModal
+from ankidraft.ui.views.creation_view.dialogs.card_edit_dialog import CardEditDialog
+from ankidraft.ui.widgets.settings_modal.modal import SettingsModal
 
 pytestmark = [pytest.mark.ui]
 
 
 def test_zero_orphan_qshortcuts_in_src() -> None:
-    """Garde-fou statique : aucun QShortcut ne doit être importé ou instancié hors de src/ankiforge/ui/shortcuts/."""
-    src_dir = Path("src/ankiforge")
+    """Garde-fou statique : aucun QShortcut ne doit être importé ou instancié hors de src/ankidraft/ui/shortcuts/."""
+    src_dir = Path("src/ankidraft")
     shortcuts_dir = src_dir / "ui" / "shortcuts"
 
     violating_files: list[str] = []
@@ -249,8 +249,8 @@ def test_settings_modal_shortcuts_via_manager(qtbot) -> None:
 
 def test_model_select_window_keyboard_navigation(qtbot, mock_db) -> None:
     """Vérifie la navigation et fermeture au clavier dans ModelSelectWindow."""
-    from ankiforge.database.models import NoteTypeModel
-    from ankiforge.ui.components.model_select_window import ModelSelectWindow
+    from ankidraft.database.models import NoteTypeModel
+    from ankidraft.ui.components.model_select_window import ModelSelectWindow
 
     NoteTypeModel.create(name="Modèle Test", fields_schema='["Front", "Back"]')
 

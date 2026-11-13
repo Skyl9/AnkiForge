@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.services.parsing.youtube_parser import YouTubeParser, format_timestamp
+from ankidraft.services.parsing.youtube_parser import YouTubeParser, format_timestamp
 
 pytestmark = pytest.mark.unit
 
@@ -31,7 +31,7 @@ def test_group_transcript_segments() -> None:
     assert "Bonjour à tous," in res
 
 
-@patch("ankiforge.services.parsing.youtube_parser.YouTubeTranscriptApi")
+@patch("ankidraft.services.parsing.youtube_parser.YouTubeTranscriptApi")
 @patch.object(YouTubeParser, "fetch_video_metadata")
 def test_extract_subtitles_with_timestamps(mock_meta: MagicMock, mock_api: MagicMock) -> None:
     mock_meta.return_value = {"title": "Physique Quantique 101", "author_name": "Dr. Smith"}
@@ -51,7 +51,7 @@ def test_extract_subtitles_with_timestamps(mock_meta: MagicMock, mock_api: Magic
     assert "particules se comportent" in res
 
 
-@patch("ankiforge.services.parsing.youtube_parser.YouTubeTranscriptApi")
+@patch("ankidraft.services.parsing.youtube_parser.YouTubeTranscriptApi")
 @patch.object(YouTubeParser, "fetch_video_metadata")
 def test_extract_subtitles_without_timestamps(mock_meta: MagicMock, mock_api: MagicMock) -> None:
     mock_meta.return_value = {}

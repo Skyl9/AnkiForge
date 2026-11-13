@@ -11,11 +11,11 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import LLMConfigModel
-from ankiforge.repositories.persona_repository import PersonaRepository
-from ankiforge.services.ai.model_catalog import ModelCatalog
-from ankiforge.ui.components.inputs import OptionToggleRow
-from ankiforge.ui.components.vision_capability import (
+from ankidraft.database.models import LLMConfigModel
+from ankidraft.repositories.persona_repository import PersonaRepository
+from ankidraft.services.ai.model_catalog import ModelCatalog
+from ankidraft.ui.components.inputs import OptionToggleRow
+from ankidraft.ui.components.vision_capability import (
     VISION_SUPPORTED_LABEL,
     VISION_TOOLTIP,
     VISION_UNSUPPORTED_BADGE_LABEL,
@@ -27,9 +27,9 @@ from ankiforge.ui.components.vision_capability import (
     sync_vision_capability,
     vision_tooltip,
 )
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.views.batch_view import BatchView
-from ankiforge.ui.views.creation_view import CreationView
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.ui.views.batch_view import BatchView
+from ankidraft.ui.views.creation_view import CreationView
 
 pytestmark = pytest.mark.ui
 
@@ -231,7 +231,7 @@ def test_creation_view_construction_preserves_the_stored_vision_preference(qtbot
     La caseVision est masquée : elle n'est animée que par l'utilisateur. Un rendu appelé pendant la
     construction et qui persisterait son état par défaut effacerait un « Vision » choisi pour de bon.
     """
-    from ankiforge.services.settings_service import SettingsService
+    from ankidraft.services.settings_service import SettingsService
 
     SettingsService.set("creation/use_vision", True, category="creation")
 
@@ -251,7 +251,7 @@ def test_creation_view_never_sends_a_multimodal_payload_to_a_text_only_engine(qt
     """Le pipeline ne doit jamais recevoir use_vision=True avec un moteur incapable de lire les images."""
     import json
 
-    from ankiforge.services.ai.base import LLMProvider
+    from ankidraft.services.ai.base import LLMProvider
 
     uid = uuid.uuid4().hex[:6]
     text_engine = _make_engine(f"Texte {uid}", "deepseek-r1:8b", "groq", supports_vision=False)

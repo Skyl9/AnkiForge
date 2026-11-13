@@ -3,9 +3,9 @@
 import pytest
 from pytestqt.qtbot import QtBot
 
-from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel
-from ankiforge.ui.components.duplicate_widgets import DuplicateMergeInspector
-from ankiforge.ui.widgets.safe_web_preview import SafeWebEngineView
+from ankidraft.database.models import DeckModel, NoteModel, NoteTypeModel
+from ankidraft.ui.components.duplicate_widgets import DuplicateMergeInspector
+from ankidraft.ui.widgets.safe_web_preview import SafeWebEngineView
 
 pytestmark = pytest.mark.ui
 
@@ -71,7 +71,7 @@ def test_duplicate_merge_inspector_lazy_loading_and_recycling(qtbot: QtBot) -> N
     assert inspector.web_a is web_a_instance  # Recyclage garanti, 0 réallocation !
     assert inspector.stack_a.currentIndex() == 1
 
-    # 5. Test d'injection de champ depuis le protocole applicatif ankiforge://inject/A/Back
+    # 5. Test d'injection de champ depuis le protocole applicatif ankidraft://inject/A/Back
     inspector._on_web_action("inject", {"source": "A", "field_name": "Back"})
     assert inspector.current_conflict["merged_content"]["Back"] == "Énergie"
 

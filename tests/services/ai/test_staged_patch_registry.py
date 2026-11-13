@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
@@ -13,9 +13,9 @@ from ankiforge.database.models import (
     StagedBundleModel,
     db,
 )
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
-from ankiforge.utils.event_bus import MCPBundleStagedEvent, event_bus
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankidraft.utils.event_bus import MCPBundleStagedEvent, event_bus
 
 pytestmark = pytest.mark.integration
 
@@ -301,7 +301,7 @@ def test_apply_staged_patch_model(sample_data):
 
 def test_propose_note_type_refactor_returns_real_patch_id(sample_data):
     """Vérifie que propose_note_type_refactor renvoie un vrai patch_id enregistrant un patch pending."""
-    from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
+    from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
 
     nt = sample_data["note_type"]
     res_str = MCPToolRegistry.propose_note_type_refactor(
@@ -442,8 +442,8 @@ def test_sync_direct_edit_fails_on_nonexistent_or_closed_patch(sample_data):
 
 def test_create_patch_emits_event_bus_and_mcp_listener(sample_data):
     """Vérifie que create_patch notifie à la fois event_bus et les écouteurs MCP enregistrés."""
-    from ankiforge.services.ai.mcp_server import register_staged_patch_listener, unregister_staged_patch_listener
-    from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
+    from ankidraft.services.ai.mcp_server import register_staged_patch_listener, unregister_staged_patch_listener
+    from ankidraft.utils.event_bus import MCPPatchStagedEvent, event_bus
 
     bus_events: list[MCPPatchStagedEvent] = []
     mcp_events: list[dict] = []
@@ -479,7 +479,7 @@ def test_create_patch_emits_event_bus_and_mcp_listener(sample_data):
 
 def test_propose_card_refactor_and_apply_preserves_unmentioned_fields(sample_data):
     """Vérifie que propose_card_refactor et apply_staged_patch fusionnent les champs partiels sans écraser les existants."""
-    from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
+    from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
 
     with db.atomic():
         nt_japanese = NoteTypeModel.create(

@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.services.feedback_service import (
+from ankidraft.services.feedback_service import (
     BugReportData,
     FeatureIdeaData,
     FeedbackService,

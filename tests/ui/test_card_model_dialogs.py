@@ -10,13 +10,13 @@ import pytest
 from PySide6.QtWidgets import QFrame, QLabel, QScrollArea, QSplitter
 from pytestqt.qtbot import QtBot
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     NoteTypeModel,
 )
-from ankiforge.ui.dialogs.model_export_dialog import ModelExportDialog
-from ankiforge.ui.dialogs.model_import_dialog import ModelImportDialog
-from ankiforge.ui.dialogs.starter_pack_dialog import StarterPackDialog
-from ankiforge.ui.theme import DesignTokens
+from ankidraft.ui.dialogs.model_export_dialog import ModelExportDialog
+from ankidraft.ui.dialogs.model_import_dialog import ModelImportDialog
+from ankidraft.ui.dialogs.starter_pack_dialog import StarterPackDialog
+from ankidraft.ui.theme import DesignTokens
 
 pytestmark = pytest.mark.ui
 
@@ -147,7 +147,7 @@ def test_starter_pack_dialog_installed_badge(qtbot: QtBot):
     dlg = StarterPackDialog()
     qtbot.addWidget(dlg)
 
-    from ankiforge.ui.dialogs.starter_pack_dialog import StarterModelCardWidget
+    from ankidraft.ui.dialogs.starter_pack_dialog import StarterModelCardWidget
 
     cards = dlg.findChildren(StarterModelCardWidget)
     medical_card = next((c for c in cards if c.pack.get("name") == "Médical & QCM Interactif"), None)
@@ -160,8 +160,8 @@ def test_starter_pack_dialog_installed_badge(qtbot: QtBot):
 
 def test_starter_pack_dialog_category_filter(qtbot: QtBot):
     """Le filtre par catégorie masque les cartes hors catégorie sélectionnée."""
-    from ankiforge.ui.components.buttons import FilterChipButton
-    from ankiforge.ui.dialogs.starter_pack_dialog import StarterModelCardWidget
+    from ankidraft.ui.components.buttons import FilterChipButton
+    from ankidraft.ui.dialogs.starter_pack_dialog import StarterModelCardWidget
 
     dlg = StarterPackDialog()
     qtbot.addWidget(dlg)

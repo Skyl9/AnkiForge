@@ -4,9 +4,9 @@ import asyncio
 
 import pytest
 
-from ankiforge.database.models import DocumentModel
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.mcp_tool_registry import (
+from ankidraft.database.models import DocumentModel
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.mcp_tool_registry import (
     DEFAULT_CONSULTANT_TOOLS,
     MCPToolRegistry,
 )

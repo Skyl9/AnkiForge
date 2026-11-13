@@ -6,9 +6,9 @@ import pytest
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QWheelEvent
 
-from ankiforge.ui.components.inputs import AutoExpandingTextEdit
-from ankiforge.ui.style_engine.theme_profile import ThemeProfile
-from ankiforge.ui.theme import DesignTokens
+from ankidraft.ui.components.inputs import AutoExpandingTextEdit
+from ankidraft.ui.style_engine.theme_profile import ThemeProfile
+from ankidraft.ui.theme import DesignTokens
 
 pytestmark = pytest.mark.ui
 

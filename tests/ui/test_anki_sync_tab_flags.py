@@ -10,9 +10,9 @@ from __future__ import annotations
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.services.cards.flag_service import FlagService
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.widgets.settings_modal.tabs.anki_sync_tab import AnkiSyncTab
+from ankidraft.services.cards.flag_service import FlagService
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.ui.widgets.settings_modal.tabs.anki_sync_tab import AnkiSyncTab
 
 pytestmark = pytest.mark.ui
 

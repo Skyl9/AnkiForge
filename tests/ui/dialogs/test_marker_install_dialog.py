@@ -9,14 +9,14 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog
 
-from ankiforge.ui.dialogs.marker_install_dialog import MarkerInstallAction, MarkerInstallDialog
+from ankidraft.ui.dialogs.marker_install_dialog import MarkerInstallAction, MarkerInstallDialog
 
 pytestmark = pytest.mark.ui
 
 
 def test_marker_install_dialog_sufficient_space(qtbot, tmp_path: Path) -> None:
     """Vérifie l'affichage initial lorsque l'espace disque est largement suffisant (> 5 Go)."""
-    with patch("ankiforge.services.parsing.marker_service.MarkerService.get_available_disk_space", return_value=25 * 1024**3):
+    with patch("ankidraft.services.parsing.marker_service.MarkerService.get_available_disk_space", return_value=25 * 1024**3):
         dialog = MarkerInstallDialog(target_dir=tmp_path)
         qtbot.addWidget(dialog)
 
@@ -38,7 +38,7 @@ def test_marker_install_dialog_sufficient_space(qtbot, tmp_path: Path) -> None:
 
 def test_marker_install_dialog_low_space_warning(qtbot, tmp_path: Path) -> None:
     """Vérifie l'affichage de la bannière d'avertissement si l'espace libre est inférieur au seuil (< 5 Go)."""
-    with patch("ankiforge.services.parsing.marker_service.MarkerService.get_available_disk_space", return_value=2 * 1024**3):
+    with patch("ankidraft.services.parsing.marker_service.MarkerService.get_available_disk_space", return_value=2 * 1024**3):
         dialog = MarkerInstallDialog(target_dir=tmp_path)
         qtbot.addWidget(dialog)
 
@@ -50,7 +50,7 @@ def test_marker_install_dialog_low_space_warning(qtbot, tmp_path: Path) -> None:
 
 def test_marker_install_dialog_critically_low_space_disables_install(qtbot, tmp_path: Path) -> None:
     """Vérifie que le bouton d'installation est désactivé si l'espace libre est critique (< 1 Go)."""
-    with patch("ankiforge.services.parsing.marker_service.MarkerService.get_available_disk_space", return_value=400 * 1024**2):
+    with patch("ankidraft.services.parsing.marker_service.MarkerService.get_available_disk_space", return_value=400 * 1024**2):
         dialog = MarkerInstallDialog(target_dir=tmp_path)
         qtbot.addWidget(dialog)
 
@@ -61,7 +61,7 @@ def test_marker_install_dialog_critically_low_space_disables_install(qtbot, tmp_
 
 def test_marker_install_dialog_action_install(qtbot, tmp_path: Path) -> None:
     """Vérifie que le clic sur 'Confirmer et installer' sélectionne INSTALL et valide le dialogue."""
-    with patch("ankiforge.services.parsing.marker_service.MarkerService.get_available_disk_space", return_value=15 * 1024**3):
+    with patch("ankidraft.services.parsing.marker_service.MarkerService.get_available_disk_space", return_value=15 * 1024**3):
         dialog = MarkerInstallDialog(target_dir=tmp_path)
         qtbot.addWidget(dialog)
 
@@ -74,7 +74,7 @@ def test_marker_install_dialog_action_install(qtbot, tmp_path: Path) -> None:
 
 def test_marker_install_dialog_action_standard_fallback(qtbot, tmp_path: Path) -> None:
     """Vérifie que le clic sur 'Extraction standard' sélectionne STANDARD_FALLBACK et valide le dialogue."""
-    with patch("ankiforge.services.parsing.marker_service.MarkerService.get_available_disk_space", return_value=15 * 1024**3):
+    with patch("ankidraft.services.parsing.marker_service.MarkerService.get_available_disk_space", return_value=15 * 1024**3):
         dialog = MarkerInstallDialog(target_dir=tmp_path)
         qtbot.addWidget(dialog)
 
@@ -86,7 +86,7 @@ def test_marker_install_dialog_action_standard_fallback(qtbot, tmp_path: Path) -
 
 def test_marker_install_dialog_action_cancel(qtbot, tmp_path: Path) -> None:
     """Vérifie que le clic sur 'Annuler' sélectionne CANCEL et rejette le dialogue."""
-    with patch("ankiforge.services.parsing.marker_service.MarkerService.get_available_disk_space", return_value=15 * 1024**3):
+    with patch("ankidraft.services.parsing.marker_service.MarkerService.get_available_disk_space", return_value=15 * 1024**3):
         dialog = MarkerInstallDialog(target_dir=tmp_path)
         qtbot.addWidget(dialog)
 
@@ -98,7 +98,7 @@ def test_marker_install_dialog_action_cancel(qtbot, tmp_path: Path) -> None:
 
 def test_marker_install_dialog_reject_resets_to_cancel(qtbot, tmp_path: Path) -> None:
     """Vérifie que la fermeture via reject() (ex: touche Échap) garantit l'action CANCEL."""
-    with patch("ankiforge.services.parsing.marker_service.MarkerService.get_available_disk_space", return_value=15 * 1024**3):
+    with patch("ankidraft.services.parsing.marker_service.MarkerService.get_available_disk_space", return_value=15 * 1024**3):
         dialog = MarkerInstallDialog(target_dir=tmp_path)
         qtbot.addWidget(dialog)
 

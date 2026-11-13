@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from ankiforge.database.models import LLMConfigModel, PersonaModel, PersonaVersionModel
-from ankiforge.services.ai.persona_version_service import PersonaVersionService
+from ankidraft.database.models import LLMConfigModel, PersonaModel, PersonaVersionModel
+from ankidraft.services.ai.persona_version_service import PersonaVersionService
 
 pytestmark = pytest.mark.integration
 

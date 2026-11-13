@@ -2,8 +2,8 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import FolderModel
-from ankiforge.ui.views.documents_view.dialogs.folder_dialog import FolderCreateDialog
+from ankidraft.database.models import FolderModel
+from ankidraft.ui.views.documents_view.dialogs.folder_dialog import FolderCreateDialog
 
 pytestmark = pytest.mark.ui
 

@@ -5,8 +5,8 @@ Valide le calcul mathématique RRF, les pondérations configurables et la fusion
 
 import pytest
 
-from ankiforge.database.models import DocumentChunkModel, DocumentModel, db
-from ankiforge.services.rag.hybrid_retriever import (
+from ankidraft.database.models import DocumentChunkModel, DocumentModel, db
+from ankidraft.services.rag.hybrid_retriever import (
     HybridRAGRetriever,
 )
 

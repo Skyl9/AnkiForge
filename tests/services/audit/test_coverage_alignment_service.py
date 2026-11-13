@@ -5,7 +5,7 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentChunkModel,
@@ -15,15 +15,15 @@ from ankiforge.database.models import (
     NoteModel,
     NoteTypeModel,
 )
-from ankiforge.services.audit.coverage_alignment_service import (
+from ankidraft.services.audit.coverage_alignment_service import (
     RESOLUTION_LEXICAL,
     RESOLUTION_PAGE,
     RESOLUTION_SECTION,
     CoverageAlignmentService,
 )
-from ankiforge.services.parsing.chunking_service import ChunkingService
-from ankiforge.utils.paths import get_media_dir, resolve_media_path
-from ankiforge.utils.tags import build_document_tags, clean_source_slug, parse_note_tags, section_key
+from ankidraft.services.parsing.chunking_service import ChunkingService
+from ankidraft.utils.paths import get_media_dir, resolve_media_path
+from ankidraft.utils.tags import build_document_tags, clean_source_slug, parse_note_tags, section_key
 
 pytestmark = pytest.mark.integration
 
@@ -353,7 +353,7 @@ def test_resolve_finest_chunk_deepest_on_tie():
 
 def test_align_document_publishes_coverage_synced_event():
     """Une modification de couverture émet un CoverageSyncedEvent pour notifier l'UI."""
-    from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
+    from ankidraft.utils.event_bus import CoverageSyncedEvent, event_bus
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"Cours Event {uid}", file_type="md")
@@ -383,7 +383,7 @@ def test_align_document_publishes_coverage_synced_event():
 
 def test_sync_coverage_from_tags_global_publishes_all_event():
     """Un alignement global émet un CoverageSyncedEvent sans doc ciblé."""
-    from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
+    from ankidraft.utils.event_bus import CoverageSyncedEvent, event_bus
 
     uid = uuid.uuid4().hex[:6]
     doc = DocumentModel.create(title=f"Cours Global Event {uid}", file_type="md")
@@ -656,7 +656,7 @@ def test_refine_links_moves_a_chapter_card_to_its_sub_section():
     assert not [t for t in tags if t.startswith("chunk:")]
     assert not [t for t in tags if t.startswith("doc:")]
     assert f"source:{clean_source_slug(doc.title)}" in tags
-    assert "ankiforge_generated" in tags
+    assert "ankidraft_generated" in tags
     assert NoteChunkLinkModel.get(NoteChunkLinkModel.note == membrane).resolution == "section"
 
     assert report["details"] == [
@@ -871,7 +871,7 @@ def test_refine_links_reports_an_empty_document_without_raising():
 
 def test_refine_links_publishes_coverage_synced_event():
     """L'affinement notifie l'UI pour rafraîchir couverture et sommaire."""
-    from ankiforge.utils.event_bus import CoverageSyncedEvent, event_bus
+    from ankidraft.utils.event_bus import CoverageSyncedEvent, event_bus
 
     uid = uuid.uuid4().hex[:6]
     doc, chunks = _make_refinable_document(uid, chapter_body=_CONTAINER_BODY)

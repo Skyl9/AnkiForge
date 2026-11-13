@@ -5,11 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.database.models import DocumentChunkModel, DocumentModel
-from ankiforge.services.ai.rag_service import RAGService
-from ankiforge.services.parsing.chunking_service import ChunkingService
-from ankiforge.services.rag.vector_manager import VectorManager
-from ankiforge.utils.region_address import RegionAddress, RegionScope, render_region_addresses
+from ankidraft.database.models import DocumentChunkModel, DocumentModel
+from ankidraft.services.ai.rag_service import RAGService
+from ankidraft.services.parsing.chunking_service import ChunkingService
+from ankidraft.services.rag.vector_manager import VectorManager
+from ankidraft.utils.region_address import RegionAddress, RegionScope, render_region_addresses
 
 pytestmark = pytest.mark.integration
 
@@ -187,9 +187,9 @@ def test_reindexing_a_fully_excluded_document_retires_the_previous_index(mock_db
     effacer ce qu'il disait, sinon la règle d'exclusion ne s'applique qu'aux documents qu'on
     réindexe *après* l'avoir posée — l'inverse exact de ce qu'on attend d'elle.
     """
-    from ankiforge.database.models import DocumentChunkModel, DocumentModel
-    from ankiforge.repositories.document_repository import DocumentRepository
-    from ankiforge.utils.region_address import RegionAddress, RegionScope
+    from ankidraft.database.models import DocumentChunkModel, DocumentModel
+    from ankidraft.repositories.document_repository import DocumentRepository
+    from ankidraft.utils.region_address import RegionAddress, RegionScope
 
     manager = VectorManager()
     manager.faiss_dir = tmp_path / "faiss"
@@ -220,9 +220,9 @@ def test_search_honours_an_exclusion_set_after_the_index_was_built(mock_db, tmp_
     n'a pas demandée, et qui est optionnelle dans la délimitation. La règle doit être évaluée au
     moment où l'on répond, pas seulement au moment où l'on indexe.
     """
-    from ankiforge.database.models import DocumentChunkModel, DocumentModel
-    from ankiforge.repositories.document_repository import DocumentRepository
-    from ankiforge.utils.region_address import RegionAddress, RegionScope
+    from ankidraft.database.models import DocumentChunkModel, DocumentModel
+    from ankidraft.repositories.document_repository import DocumentRepository
+    from ankidraft.utils.region_address import RegionAddress, RegionScope
 
     manager = VectorManager()
     manager.faiss_dir = tmp_path / "faiss"

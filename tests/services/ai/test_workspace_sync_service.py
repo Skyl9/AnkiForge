@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.services.ai.workspace_sync_service import (
+from ankidraft.services.ai.workspace_sync_service import (
     _TEMPLATE_TARGETS,
     DriftCategory,
     DriftItem,
@@ -27,7 +27,7 @@ from ankiforge.services.ai.workspace_sync_service import (
 
 pytestmark = pytest.mark.unit
 
-_HOME_TEST_ROOT = Path.home() / ".ankiforge-test-workspaces"
+_HOME_TEST_ROOT = Path.home() / ".ankidraft-test-workspaces"
 
 
 @pytest.fixture
@@ -129,7 +129,7 @@ def test_service_default_profile_override():
 
 
 def test_service_fallback_to_get_active_profile(monkeypatch):
-    import ankiforge.services.ai.workspace_sync_service as wss_module
+    import ankidraft.services.ai.workspace_sync_service as wss_module
 
     monkeypatch.setattr(wss_module, "get_active_profile", lambda: "profil_fallback")
     service = WorkspaceSyncService(mcp_tools=[])
@@ -145,7 +145,7 @@ def test_service_uses_overrides():
 
 def test_mcp_tools_sorted_case_insensitive(monkeypatch):
     """L'introspection trie les outils MCP lexicographiquement, insensible à la casse."""
-    import ankiforge.services.ai.mcp_server as mcp_server
+    import ankidraft.services.ai.mcp_server as mcp_server
 
     class _FakeTool:
         def __init__(self, name: str) -> None:
@@ -235,7 +235,7 @@ def test_audit_protected_dirs_sanctuarized(workspace):
     """Dossiers profiles/ et _shared_models/ → PROTECTED, non comptés comme dérive."""
     service = WorkspaceSyncService(mcp_tools=["alpha"], active_profile="mon_profil")
     _write_conformant_workspace(workspace, service)
-    (workspace / "profiles" / "mon_profil" / "ankiforge.db").parent.mkdir(parents=True, exist_ok=True)
+    (workspace / "profiles" / "mon_profil" / "ankidraft.db").parent.mkdir(parents=True, exist_ok=True)
     (workspace / "_shared_models" / "card.html").parent.mkdir(parents=True, exist_ok=True)
     report = service.audit_workspace(workspace)
     protected = [i for i in report.items if i.is_user_protected]

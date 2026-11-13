@@ -1,6 +1,6 @@
 import pytest
 
-from ankiforge.services.cards.note_type_roles import (
+from ankidraft.services.cards.note_type_roles import (
     NoteTypeRoleArchetype,
     find_role_archetype_by_id,
     get_standard_role_archetypes,
@@ -47,7 +47,7 @@ def test_find_role_archetype_by_id() -> None:
 
 @pytest.mark.unit
 def test_markdown_table_generation_and_detection() -> None:
-    from ankiforge.services.cards.note_type_roles import (
+    from ankidraft.services.cards.note_type_roles import (
         generate_markdown_table,
         is_markdown_table,
         parse_markdown_table,
@@ -81,7 +81,7 @@ def test_markdown_table_generation_and_detection() -> None:
 
 @pytest.mark.unit
 def test_is_markdown_table_negative() -> None:
-    from ankiforge.services.cards.note_type_roles import is_markdown_table
+    from ankidraft.services.cards.note_type_roles import is_markdown_table
 
     assert is_markdown_table("") is False
     assert is_markdown_table("Simple directive textuelle sans tableau") is False
@@ -90,7 +90,7 @@ def test_is_markdown_table_negative() -> None:
 
 @pytest.mark.unit
 def test_get_table_creation_templates() -> None:
-    from ankiforge.services.cards.note_type_roles import get_table_creation_templates
+    from ankidraft.services.cards.note_type_roles import get_table_creation_templates
 
     templates = get_table_creation_templates()
     assert len(templates) >= 5
@@ -103,7 +103,7 @@ def test_get_table_creation_templates() -> None:
 
 @pytest.mark.unit
 def test_map_archetype_fields_to_note_model() -> None:
-    from ankiforge.services.cards.note_type_roles import map_archetype_fields_to_note_model
+    from ankidraft.services.cards.note_type_roles import map_archetype_fields_to_note_model
 
     # 1. Matching exact et insensible à la casse
     mapped = map_archetype_fields_to_note_model(["Front", "Back"], ["front", "back", "notes"])
@@ -131,7 +131,7 @@ def test_map_archetype_fields_to_note_model() -> None:
 
 @pytest.mark.unit
 def test_create_table_rows_for_archetype() -> None:
-    from ankiforge.services.cards.note_type_roles import (
+    from ankidraft.services.cards.note_type_roles import (
         create_table_rows_for_archetype,
         find_role_archetype_by_id,
     )

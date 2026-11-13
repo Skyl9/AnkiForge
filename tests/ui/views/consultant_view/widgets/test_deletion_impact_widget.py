@@ -8,16 +8,16 @@ import uuid
 import pytest
 from pytestqt.qtbot import QtBot
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
-from ankiforge.ui.views.consultant_view.widgets.garde_fou_views import DeletionImpactWidget
-from ankiforge.ui.views.consultant_view.widgets.mcp_garde_fou_widget import MCPGardeFouWidget
+from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankidraft.ui.views.consultant_view.widgets.garde_fou_views import DeletionImpactWidget
+from ankidraft.ui.views.consultant_view.widgets.mcp_garde_fou_widget import MCPGardeFouWidget
 
 pytestmark = [pytest.mark.ui]
 

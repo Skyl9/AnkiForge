@@ -2,8 +2,8 @@ import pytest
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QFrame, QGraphicsDropShadowEffect, QWidget
 
-from ankiforge.ui.components.panels import MetricCard
-from ankiforge.ui.theme import apply_shadow
+from ankidraft.ui.components.panels import MetricCard
+from ankidraft.ui.theme import apply_shadow
 
 pytestmark = pytest.mark.ui
 

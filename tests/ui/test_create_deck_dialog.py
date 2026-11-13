@@ -7,11 +7,11 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import DeckModel
-from ankiforge.repositories.deck_repository import DeckRepository
-from ankiforge.ui.components.hierarchy_breadcrumb_bar import HierarchyBreadcrumbBar
-from ankiforge.ui.components.hierarchy_completer import HierarchyCompleter
-from ankiforge.ui.dialogs.create_deck_dialog import CreateDeckDialog
+from ankidraft.database.models import DeckModel
+from ankidraft.repositories.deck_repository import DeckRepository
+from ankidraft.ui.components.hierarchy_breadcrumb_bar import HierarchyBreadcrumbBar
+from ankidraft.ui.components.hierarchy_completer import HierarchyCompleter
+from ankidraft.ui.dialogs.create_deck_dialog import CreateDeckDialog
 
 pytestmark = pytest.mark.ui
 

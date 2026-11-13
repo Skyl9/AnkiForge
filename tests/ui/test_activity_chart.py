@@ -2,9 +2,9 @@
 
 import pytest
 
-from ankiforge.ui.style_engine import ThemeProfile
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.widgets.activity_chart import ActivityChartWidget
+from ankidraft.ui.style_engine import ThemeProfile
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.ui.widgets.activity_chart import ActivityChartWidget
 
 pytestmark = pytest.mark.ui
 

@@ -20,10 +20,10 @@ import pytest
 from PySide6.QtGui import QShortcut
 from PySide6.QtWidgets import QLineEdit
 
-from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope
-from ankiforge.ui.views.batch_view import BatchView
-from ankiforge.ui.views.batch_view.widgets.batch_staging_panel import BatchStagingPanel
-from ankiforge.ui.views.creation_view import CreationView
+from ankidraft.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope
+from ankidraft.ui.views.batch_view import BatchView
+from ankidraft.ui.views.batch_view.widgets.batch_staging_panel import BatchStagingPanel
+from ankidraft.ui.views.creation_view import CreationView
 
 pytestmark = pytest.mark.ui
 
@@ -75,7 +75,7 @@ def test_creation_view_review_shortcuts(qtbot: Any, mock_db: Any) -> None:
         patch.object(view, "_on_edit_card") as mock_edit,
         patch.object(view, "_on_prev_card") as mock_prev,
         patch.object(view, "_on_next_card") as mock_next,
-        patch("ankiforge.ui.shortcuts.manager.is_text_input_focused", return_value=False),
+        patch("ankidraft.ui.shortcuts.manager.is_text_input_focused", return_value=False),
     ):
         for rec in table_bindings:
             rec.shortcut.activated.emit()
@@ -172,7 +172,7 @@ def test_batch_staging_panel_review_shortcuts(qtbot: Any, mock_db: Any) -> None:
         patch.object(panel, "_on_prev_card") as mock_prev_card,
         patch.object(panel, "_on_next_card") as mock_next_card,
         patch.object(panel, "_nav_to_task") as mock_nav_task,
-        patch("ankiforge.ui.shortcuts.manager.is_text_input_focused", return_value=False),
+        patch("ankidraft.ui.shortcuts.manager.is_text_input_focused", return_value=False),
     ):
         for rec in table_bindings:
             rec.shortcut.activated.emit()
@@ -245,7 +245,7 @@ def test_text_input_prioritary_neutralizes_review_gestures(qtbot: Any, mock_db: 
     table_bindings = [rec for rec in manager._bindings if rec.target is view.results_table]
 
     with (
-        patch("ankiforge.ui.shortcuts.manager.is_text_input_focused", return_value=True),
+        patch("ankidraft.ui.shortcuts.manager.is_text_input_focused", return_value=True),
         patch.object(view, "_on_validate_card") as mock_val,
         patch.object(view, "_on_reject_card") as mock_rej,
         patch.object(view, "_on_edit_card") as mock_edit,

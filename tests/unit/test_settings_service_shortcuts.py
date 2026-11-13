@@ -7,9 +7,9 @@ Vérifie :
 - méthodes delete_value et delete_category sur SettingModel.
 """
 
-from ankiforge.database.models import SettingModel
-from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.shortcuts import ShortcutId
+from ankidraft.database.models import SettingModel
+from ankidraft.services.settings_service import SettingsService
+from ankidraft.ui.shortcuts import ShortcutId
 
 
 def test_setting_model_delete_value(mock_db) -> None:

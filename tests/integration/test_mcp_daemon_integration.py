@@ -17,9 +17,9 @@ from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.server.mcpserver import MCPServer
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.services.ai.mcp_daemon import MCPServerDaemon, find_available_port, is_port_in_use
-from ankiforge.services.ai.mcp_server import mcp
+from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.services.ai.mcp_daemon import MCPServerDaemon, find_available_port, is_port_in_use
+from ankidraft.services.ai.mcp_server import mcp
 
 pytestmark = pytest.mark.integration
 
@@ -32,7 +32,7 @@ def test_find_available_port_never_probes_past_the_valid_range(monkeypatch):
     interrogés, en déclarant toute la plage occupée — sinon le test dépendrait de quels
     ports happen à être libres, ce qui le rendrait aussi aléatoire que le bug.
     """
-    import ankiforge.services.ai.mcp_daemon as mcp_daemon
+    import ankidraft.services.ai.mcp_daemon as mcp_daemon
 
     probed: list[int] = []
 
@@ -123,7 +123,7 @@ def capture_uvicorn_logs():
     """Collecte les enregistrements du logger `uvicorn` pendant le bloc.
 
     Le logger `uvicorn` est configuré avec `propagate = False` (LOGGING_CONFIG d'Uvicorn) :
-    ses enregistrements n'atteignent jamais le logger racine, donc ni `caplog` ni `ankiforge.log`
+    ses enregistrements n'atteignent jamais le logger racine, donc ni `caplog` ni `ankidraft.log`
     ne les voient. Sans ce collecteur, la régression serait invisible.
 
     À n'englober qu'APRÈS `daemon.start()` : `uvicorn.Config.load()` appelle `fileConfig()`,
@@ -179,7 +179,7 @@ def test_mcp_server_daemon_stop_does_not_log_cancelled_error(tmp_path, caplog):
     reported = "\n".join(formatter.format(r) if r.exc_info is None else formatter.formatException(r.exc_info) for r in uvicorn_log_capture)
     assert "CancelledError" not in reported, f"Arrêt du daemon bruyant :\n{reported}"
 
-    # 2. Aucune exception journalisée par le code AnkiForge lui-même (donc absent d'ankiforge.log).
+    # 2. Aucune exception journalisée par le code AnkiForge lui-même (donc absent d'ankidraft.log).
     assert "CancelledError" not in caplog.text, f"Arrêt du daemon bruyant :\n{caplog.text}"
 
     # 3. Le port réseau est libéré et l'état stopped marqué (jeton conservé sur disque pour stabilité).
@@ -235,7 +235,7 @@ def test_mcp_server_daemon_uvicorn_bind_collision_retries_without_deadlock(tmp_p
                 return 9350
             return real_find_available_port(start_port=start_port, max_attempts=max_attempts, host=host)
 
-        monkeypatch.setattr("ankiforge.services.ai.mcp_daemon.find_available_port", _mock_find_available_port)
+        monkeypatch.setattr("ankidraft.services.ai.mcp_daemon.find_available_port", _mock_find_available_port)
 
         daemon = MCPServerDaemon(
             mcp_server=dummy_mcp,

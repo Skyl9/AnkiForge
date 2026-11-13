@@ -21,14 +21,14 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.ui.style_engine import (
+from ankidraft.ui.style_engine import (
     JETBRAINS_DARK,
     JETBRAINS_LIGHT,
     ThemeFamily,
     ThemeProfile,
     get_style_engine,
 )
-from ankiforge.ui.style_engine.theme_storage import (
+from ankidraft.ui.style_engine.theme_storage import (
     CURRENT_FORMAT_VERSION,
     CURRENT_MAJOR_VERSION,
     ThemeValidationError,
@@ -414,7 +414,7 @@ def test_style_engine_scans_library_and_survives_restart(temp_themes_dir: Path, 
     save_theme_family_to_library(sample_family, themes_dir=temp_themes_dir, target_stem="persisted_custom")
 
     # Balayer la bibliothèque avec le dossier temporaire
-    with patch("ankiforge.utils.paths.get_themes_dir", return_value=temp_themes_dir):
+    with patch("ankidraft.utils.paths.get_themes_dir", return_value=temp_themes_dir):
         loaded_families = engine.load_theme_library(themes_dir=temp_themes_dir)
         assert any(f.id == "persisted_custom" for f in loaded_families)
 
@@ -442,9 +442,9 @@ def test_style_engine_scans_library_and_survives_restart(temp_themes_dir: Path, 
 @pytest.mark.ui
 def test_general_tab_theme_import_export_buttons(qtbot, temp_themes_dir: Path, sample_family: ThemeFamily):
     """Vérifie la présence des boutons d'import/export et la sélection du thème importé dans l'onglet Général."""
-    from ankiforge.ui.widgets.settings_modal.tabs.general_tab import GeneralTab
+    from ankidraft.ui.widgets.settings_modal.tabs.general_tab import GeneralTab
 
-    with patch("ankiforge.utils.paths.get_themes_dir", return_value=temp_themes_dir):
+    with patch("ankidraft.utils.paths.get_themes_dir", return_value=temp_themes_dir):
         engine = get_style_engine()
         engine.load_theme_library(themes_dir=temp_themes_dir)
 

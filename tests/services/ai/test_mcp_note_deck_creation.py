@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentChunkModel,
@@ -31,8 +31,8 @@ from ankiforge.database.models import (
     StagedPatchModel,
     db,
 )
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
 
 pytestmark = pytest.mark.integration
 
@@ -357,7 +357,7 @@ def test_create_notes_batch_flow(sample_setup):
 
 def test_create_note_and_batch_space_separated_tags_and_coverage(sample_setup):
     """Vérifie le découpage des tags délimités par des espaces et la traçabilité RAG automatique."""
-    from ankiforge.utils.tags import clean_source_slug, parse_note_tags
+    from ankidraft.utils.tags import clean_source_slug, parse_note_tags
 
     async def _run() -> None:
         # 1. Créer un document et un fragment source

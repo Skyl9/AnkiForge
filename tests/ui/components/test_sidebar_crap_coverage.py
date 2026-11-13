@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from ankiforge.ui.components.sidebar import Sidebar
-from ankiforge.ui.style_engine import JETBRAINS_DARK
-from ankiforge.ui.theme import DesignTokens
+from ankidraft.ui.components.sidebar import Sidebar
+from ankidraft.ui.style_engine import JETBRAINS_DARK
+from ankidraft.ui.theme import DesignTokens
 
 pytestmark = pytest.mark.ui
 
@@ -106,7 +106,7 @@ def test_sidebar_item_collapsed_width_centre_icone(qtbot: Any) -> None:
 
 def test_sidebar_item_collapsed_style_declare_dans_engine() -> None:
     """La règle QSS d'icône centrée en mode replié est déclarée dans StyleEngine (zéro style en dur)."""
-    from ankiforge.ui.style_engine import StyleEngine
+    from ankidraft.ui.style_engine import StyleEngine
 
     stylesheet = StyleEngine.instance().generate_stylesheet()
     assert 'SidebarItem[collapsed="true"]' in stylesheet

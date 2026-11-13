@@ -14,9 +14,9 @@ from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
-from ankiforge.ui.components.buttons import SecondaryButton
-from ankiforge.ui.dialogs.feedback_dialog import FeedbackDialog
-from ankiforge.ui.theme import DesignTokens
+from ankidraft.ui.components.buttons import SecondaryButton
+from ankidraft.ui.dialogs.feedback_dialog import FeedbackDialog
+from ankidraft.ui.theme import DesignTokens
 
 pytestmark = pytest.mark.ui
 
@@ -151,7 +151,7 @@ class TestFeedbackDialog:
         dialog.feature_title_input.setText("Idée Export")
 
         target_file = str(tmp_path / "test_export.md")
-        with patch("ankiforge.ui.dialogs.feedback_dialog.QFileDialog.getSaveFileName", return_value=(target_file, "Markdown (*.md)")):
+        with patch("ankidraft.ui.dialogs.feedback_dialog.QFileDialog.getSaveFileName", return_value=(target_file, "Markdown (*.md)")):
             dialog._on_export_clicked()
 
         assert Path(target_file).exists()
@@ -164,7 +164,7 @@ class TestFeedbackDialog:
         dialog = FeedbackDialog(tab="bug", initial_title="GitHub Test")
         qtbot.addWidget(dialog)
 
-        with patch("ankiforge.ui.dialogs.feedback_dialog.QDesktopServices.openUrl") as mock_open_url:
+        with patch("ankidraft.ui.dialogs.feedback_dialog.QDesktopServices.openUrl") as mock_open_url:
             dialog._on_github_clicked()
             assert mock_open_url.called
             call_url: QUrl = mock_open_url.call_args[0][0]
@@ -187,7 +187,7 @@ class TestFeedbackDialog:
         mock_log.write_text("crash content", encoding="utf-8")
 
         with (
-            patch("ankiforge.services.crash_reporter_service.CrashReporterService.get_crash_log_path", return_value=mock_log),
+            patch("ankidraft.services.crash_reporter_service.CrashReporterService.get_crash_log_path", return_value=mock_log),
             patch("PySide6.QtGui.QDesktopServices.openUrl") as mock_open_url,
         ):
             dialog = FeedbackDialog(tab="bug")

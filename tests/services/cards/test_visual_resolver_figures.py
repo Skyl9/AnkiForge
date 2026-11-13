@@ -10,12 +10,12 @@ from __future__ import annotations
 import pytest
 from PIL import Image
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentChunkModel,
     DocumentModel,
     MediaModel,
 )
-from ankiforge.services.cards.visual_resolver import VisualPayloadResolver
+from ankidraft.services.cards.visual_resolver import VisualPayloadResolver
 
 pytestmark = pytest.mark.unit
 
@@ -25,7 +25,7 @@ def figures_doc(tmp_path, monkeypatch):
     """Un document non-album à trois fragments, dont deux porteurs de figure."""
     media_dir = tmp_path / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr("ankiforge.utils.paths.get_media_dir", lambda *args, **kwargs: media_dir)
+    monkeypatch.setattr("ankidraft.utils.paths.get_media_dir", lambda *args, **kwargs: media_dir)
 
     for name in ("fig_a.png", "fig_b.png"):
         Image.new("RGB", (60, 40), color="white").save(media_dir / name)

@@ -5,12 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
 )
-from ankiforge.services.cards.import_manager import ImportManager
+from ankidraft.services.cards.import_manager import ImportManager
 
 pytestmark = pytest.mark.integration
 

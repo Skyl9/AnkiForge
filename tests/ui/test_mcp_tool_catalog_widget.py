@@ -9,10 +9,10 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QListWidget, QTableWidget
 
-from ankiforge.ui.views.consultant_view.widgets.mcp_dashboard_widget import (
+from ankidraft.ui.views.consultant_view.widgets.mcp_dashboard_widget import (
     MCPServerDashboardWidget,
 )
-from ankiforge.ui.views.consultant_view.widgets.mcp_tool_catalog_widget import (
+from ankidraft.ui.views.consultant_view.widgets.mcp_tool_catalog_widget import (
     MCPToolCatalogWidget,
     MCPToolItem,
     get_all_mcp_tools,
@@ -323,7 +323,7 @@ def test_mcp_dashboard_widget_integration_catalog_tab(qtbot: Any) -> None:
 
 def test_mcp_tool_catalog_buttons_and_chips_geometry(qtbot: Any, dummy_tools: list[DummyTool]) -> None:
     """Vérifie que les boutons d'action et les puces de filtre ont des hauteurs et densités valides sans rognage."""
-    from ankiforge.ui.components.buttons import COMPACT_BUTTON_HEIGHT
+    from ankidraft.ui.components.buttons import COMPACT_BUTTON_HEIGHT
 
     widget = MCPToolCatalogWidget(raw_tools=dummy_tools)
     qtbot.addWidget(widget)

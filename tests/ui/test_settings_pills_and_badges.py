@@ -1,10 +1,10 @@
 from PySide6.QtWidgets import QLabel
 
-from ankiforge.ui.components.badges import Badge
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.widgets.settings_modal.components.collapsible_group import CollapsibleSettingsGroup
-from ankiforge.ui.widgets.settings_modal.components.settings_card import apply_pill_badge_style
-from ankiforge.ui.widgets.settings_modal.tabs.storage_tab import StorageMaintenanceTab
+from ankidraft.ui.components.badges import Badge
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.ui.widgets.settings_modal.components.collapsible_group import CollapsibleSettingsGroup
+from ankidraft.ui.widgets.settings_modal.components.settings_card import apply_pill_badge_style
+from ankidraft.ui.widgets.settings_modal.tabs.storage_tab import StorageMaintenanceTab
 
 
 def test_apply_pill_badge_style_fluid_pill(qtbot):

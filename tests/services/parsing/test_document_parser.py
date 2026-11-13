@@ -8,9 +8,9 @@ import docx
 import pytest
 from pptx import Presentation
 
-import ankiforge.services.parsing.document_parser as document_parser
-from ankiforge.services.parsing.document_parser import DocumentParser
-from ankiforge.services.parsing.marker_service import MarkerOptions, MarkerService
+import ankidraft.services.parsing.document_parser as document_parser
+from ankidraft.services.parsing.document_parser import DocumentParser
+from ankidraft.services.parsing.marker_service import MarkerOptions, MarkerService
 
 pytestmark = pytest.mark.unit
 
@@ -106,7 +106,7 @@ def test_parse_pptx_success(tmp_path):
     assert "Titre Slide 2" in result
 
 
-@patch("ankiforge.services.parsing.document_parser.docx", None)
+@patch("ankidraft.services.parsing.document_parser.docx", None)
 def test_parse_docx_missing_lib(tmp_path):
     """Test 6: Si l'import de python-docx échoue, on doit lever une erreur claire."""
     fake_docx = tmp_path / "test.docx"
@@ -124,8 +124,8 @@ def test_parse_docx_missing_lib(tmp_path):
 # ==========================================
 
 
-@patch("ankiforge.services.parsing.document_parser.MediaManager")
-@patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
+@patch("ankidraft.services.parsing.document_parser.MediaManager")
+@patch("ankidraft.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
 @patch("subprocess.Popen")
 def test_parse_pdf_with_marker_success(mock_popen, mock_get_marker, MockMediaManager, tmp_path):
     """Test 7: Simule l'extraction d'un PDF avec Marker."""
@@ -171,13 +171,13 @@ def test_marker_executable_is_found_in_bundle_resources(tmp_path, monkeypatch):
 
     monkeypatch.setattr(document_parser.sys, "executable", str(executable))
     monkeypatch.setattr(document_parser.shutil, "which", lambda _: None)
-    monkeypatch.setattr("ankiforge.utils.paths.get_tools_search_dirs", lambda: [])
+    monkeypatch.setattr("ankidraft.utils.paths.get_tools_search_dirs", lambda: [])
 
     assert DocumentParser.get_marker_executable() == str(marker)
 
 
 def test_marker_executable_is_found_in_persistent_venv(tmp_path, monkeypatch):
-    """Le Marker installé depuis une application packagée est résolu dans ~/.ankiforge/tools."""
+    """Le Marker installé depuis une application packagée est résolu dans ~/.ankidraft/tools."""
     # Le nom et le dossier du binaire dépendent de la plateforme (``bin/marker_single``
     # sous POSIX, ``Scripts/marker_single.exe`` sous Windows) : le service fait foi.
     venv_dir = tmp_path / "tools" / "marker" / "venv"
@@ -186,7 +186,7 @@ def test_marker_executable_is_found_in_persistent_venv(tmp_path, monkeypatch):
     marker.write_text("#!/bin/sh", encoding="utf-8")
     marker.chmod(marker.stat().st_mode | stat.S_IXUSR)
 
-    monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tmp_path / "tools"])
+    monkeypatch.setattr("ankidraft.services.parsing.marker_service.get_tools_search_dirs", lambda: [tmp_path / "tools"])
     monkeypatch.setattr(MarkerService, "_is_venv_compatible", lambda _: True)
     monkeypatch.setattr(document_parser.shutil, "which", lambda _: None)
     monkeypatch.setattr(document_parser.sys, "executable", str(tmp_path / "app"))
@@ -197,7 +197,7 @@ def test_marker_executable_is_found_in_persistent_venv(tmp_path, monkeypatch):
 def test_marker_installer_uses_external_python_and_persistent_venv(tmp_path, monkeypatch):
     commands: list[list[str]] = []
     tools_dir = tmp_path / "tools"
-    monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
+    monkeypatch.setattr("ankidraft.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
     monkeypatch.setattr(MarkerService, "_find_python", lambda: "/usr/local/bin/python3")
     monkeypatch.setattr(MarkerService, "_find_uv", lambda: None)
     monkeypatch.setattr(MarkerService, "_is_python_compatible", lambda _: True)
@@ -222,7 +222,7 @@ def test_marker_installer_uses_external_python_and_persistent_venv(tmp_path, mon
         marker_path.chmod(marker_path.stat().st_mode | stat.S_IXUSR)
         return FakeProcess()
 
-    monkeypatch.setattr("ankiforge.services.parsing.marker_service.subprocess.Popen", fake_popen)
+    monkeypatch.setattr("ankidraft.services.parsing.marker_service.subprocess.Popen", fake_popen)
     executable = marker_path
 
     assert MarkerService.install() == executable
@@ -230,7 +230,7 @@ def test_marker_installer_uses_external_python_and_persistent_venv(tmp_path, mon
     assert commands[1][1:4] == ["-m", "pip", "install"]
 
 
-@patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
+@patch("ankidraft.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
 @patch("subprocess.Popen")
 def test_parse_pdf_marker_crash(mock_popen, mock_get_marker, tmp_path):
     """Test 8: Vérifie ce qui se passe si l'IA plante."""
@@ -253,7 +253,7 @@ def test_parse_pdf_marker_crash(mock_popen, mock_get_marker, tmp_path):
     assert "Marker a échoué avec le code erreur 1" in str(exc_info.value)
 
 
-@patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
+@patch("ankidraft.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
 @patch("subprocess.Popen")
 def test_parse_pdf_no_md_generated(mock_popen, mock_get_marker, tmp_path):
     """Test 9: L'IA dit qu'elle a fini, mais le .md n'est pas là !"""
@@ -276,7 +276,7 @@ def test_parse_pdf_no_md_generated(mock_popen, mock_get_marker, tmp_path):
     assert "Marker n'a pas généré de fichier .md" in str(exc_info.value)
 
 
-@patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value=None)
+@patch("ankidraft.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value=None)
 @patch("pypdf.PdfReader")
 def test_parse_pdf_pypdf_fallback_success(mock_reader_cls, mock_get_marker, tmp_path):
     """Test 10: Vérifie le fallback pypdf si Marker n'est pas installé."""
@@ -476,8 +476,8 @@ def test_parse_python_plain_module_keeps_code(tmp_path):
 # ==========================================
 
 
-@patch("ankiforge.services.parsing.document_parser.MediaManager")
-@patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
+@patch("ankidraft.services.parsing.document_parser.MediaManager")
+@patch("ankidraft.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
 @patch("subprocess.Popen")
 def test_parse_pdf_with_marker_options_explicit(mock_popen, mock_get_marker, MockMediaManager, tmp_path):
     """Vérifie la transmission fidèle des options explicites MarkerOptions à la CLI et à l'environnement."""
@@ -540,8 +540,8 @@ def test_parse_pdf_with_marker_options_explicit(mock_popen, mock_get_marker, Moc
     assert env.get("TORCH_DEVICE") == "cpu"
 
 
-@patch("ankiforge.services.parsing.document_parser.MediaManager")
-@patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
+@patch("ankidraft.services.parsing.document_parser.MediaManager")
+@patch("ankidraft.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
 @patch("subprocess.Popen")
 def test_parse_pdf_with_marker_options_from_env(mock_popen, mock_get_marker, MockMediaManager, tmp_path, monkeypatch):
     """Vérifie que les variables ANKIFORGE_MARKER_* sont résolues automatiquement par défaut."""
@@ -589,8 +589,8 @@ def test_parse_pdf_with_marker_options_from_env(mock_popen, mock_get_marker, Moc
     assert env.get("TORCH_DEVICE") == "mps"
 
 
-@patch("ankiforge.services.parsing.document_parser.MediaManager")
-@patch("ankiforge.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
+@patch("ankidraft.services.parsing.document_parser.MediaManager")
+@patch("ankidraft.services.parsing.document_parser.DocumentParser.get_marker_executable", return_value="/usr/local/bin/marker_single")
 @patch("subprocess.Popen")
 def test_parse_pdf_with_marker_default_retrocompatibility(mock_popen, mock_get_marker, MockMediaManager, tmp_path, monkeypatch):
     """Vérifie la rétrocompatibilité stricte et l'injection par défaut de TORCH_DEVICE sans option explicite."""

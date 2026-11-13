@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 from PySide6.QtGui import QGuiApplication
 
-from ankiforge.ui.views.consultant_view.widgets.mcp_dashboard_widget import (
+from ankidraft.ui.views.consultant_view.widgets.mcp_dashboard_widget import (
     MCPServerDashboardWidget,
 )
 
@@ -83,13 +83,13 @@ def test_mcp_dashboard_widget_snippets_generation(qtbot: Any) -> None:
     claude_cfg = widget.get_snippet_config("claude")
     parsed_claude = json.loads(claude_cfg)
     assert "mcpServers" in parsed_claude
-    assert parsed_claude["mcpServers"]["ankiforge"]["url"] == "http://127.0.0.1:8765/mcp"
-    assert parsed_claude["mcpServers"]["ankiforge"]["headers"]["Authorization"] == "Bearer secret_abc"
+    assert parsed_claude["mcpServers"]["ankidraft"]["url"] == "http://127.0.0.1:8765/mcp"
+    assert parsed_claude["mcpServers"]["ankidraft"]["headers"]["Authorization"] == "Bearer secret_abc"
 
     # 2. Antigravity agy
     agy_cfg = widget.get_snippet_config("agy")
     parsed_agy = json.loads(agy_cfg)
-    assert parsed_agy["name"] == "ankiforge"
+    assert parsed_agy["name"] == "ankidraft"
     assert parsed_agy["url"] == "http://127.0.0.1:8765/mcp"
 
     # 3. Cursor
@@ -147,7 +147,7 @@ def test_mcp_dashboard_widget_pending_request_banner(qtbot: Any) -> None:
 
 def test_mcp_dashboard_widget_no_border_cascade_on_children(qtbot: Any) -> None:
     """Vérifie que les conteneurs QFrame sont scopés par ID et qu'aucun QLabel enfant n'hérite de bordure parasite."""
-    from ankiforge.ui.style_engine import JETBRAINS_LIGHT
+    from ankidraft.ui.style_engine import JETBRAINS_LIGHT
 
     widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765, initial_token="secret_xyz")
     qtbot.addWidget(widget)
@@ -183,7 +183,7 @@ def test_mcp_dashboard_widget_no_border_cascade_on_children(qtbot: Any) -> None:
 
 def test_mcp_dashboard_segmented_tab_bar_integration(qtbot: Any) -> None:
     """Vérifie l'intégration du composant officiel SegmentedTabBar en mode subtab."""
-    from ankiforge.ui.components.tabs.segmented_tab_bar import SegmentedTabBar
+    from ankidraft.ui.components.tabs.segmented_tab_bar import SegmentedTabBar
 
     widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765)
     qtbot.addWidget(widget)
@@ -208,8 +208,8 @@ def test_mcp_activity_detail_dialog(qtbot: Any) -> None:
     """Vérifie l'affichage et les contrôles du dialogue d'inspection détaillée."""
     from datetime import datetime
 
-    from ankiforge.services.ai.mcp_tracker import MCPActivityRecord
-    from ankiforge.ui.views.consultant_view.widgets.mcp_dashboard_widget import (
+    from ankidraft.services.ai.mcp_tracker import MCPActivityRecord
+    from ankidraft.ui.views.consultant_view.widgets.mcp_dashboard_widget import (
         MCPActivityDetailDialog,
     )
 
@@ -287,7 +287,7 @@ def test_mcp_dashboard_sub_tabs_navigation(qtbot: Any) -> None:
 
 def test_mcp_dashboard_telemetry_badge_dynamic_update(qtbot: Any) -> None:
     """Vérifie l'actualisation dynamique du badge et du libellé Activité (N) sur le sous-onglet."""
-    from ankiforge.services.ai.mcp_tracker import get_mcp_activity_tracker
+    from ankidraft.services.ai.mcp_tracker import get_mcp_activity_tracker
 
     tracker = get_mcp_activity_tracker()
     tracker.clear_history()
@@ -321,8 +321,8 @@ def test_mcp_dashboard_telemetry_badge_dynamic_update(qtbot: Any) -> None:
 
 def test_mcp_dashboard_patch_staged_notification_and_badge(qtbot: Any, monkeypatch: Any) -> None:
     """Vérifie l'actualisation dynamique du badge et l'affichage d'un toast discret sans redirection forcée."""
-    from ankiforge.database.models import StagedPatchModel
-    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+    from ankidraft.database.models import StagedPatchModel
+    from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
 
     StagedPatchModel.delete().execute()
 
@@ -361,9 +361,9 @@ def test_mcp_dashboard_event_bus_relay(qtbot: Any) -> None:
     """Vérifie que MCPPatchStagedEvent sur l'EventBus met à jour le dashboard de manière thread-safe."""
     from PySide6.QtWidgets import QApplication
 
-    from ankiforge.database.models import StagedPatchModel
-    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
-    from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
+    from ankidraft.database.models import StagedPatchModel
+    from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+    from ankidraft.utils.event_bus import MCPPatchStagedEvent, event_bus
 
     StagedPatchModel.delete().execute()
 
@@ -399,9 +399,9 @@ def test_mcp_dashboard_event_bus_relay(qtbot: Any) -> None:
 
 def test_mcp_dashboard_auto_selection_on_empty_queue(qtbot: Any) -> None:
     """Vérifie que si la file était vide et l'utilisateur sur l'onglet Garde-Fou, le premier patch est sélectionné."""
-    from ankiforge.database.models import StagedPatchModel
-    from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
-    from ankiforge.utils.event_bus import MCPPatchStagedEvent, event_bus
+    from ankidraft.database.models import StagedPatchModel
+    from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
+    from ankidraft.utils.event_bus import MCPPatchStagedEvent, event_bus
 
     StagedPatchModel.delete().execute()
 
@@ -444,7 +444,7 @@ def test_mcp_dashboard_auto_selection_on_empty_queue(qtbot: Any) -> None:
 
 def test_mcp_dashboard_full_contract_and_theme_propagation(qtbot: Any) -> None:
     """Valide le contrat complet des 5 sous-onglets et la propagation du thème à tous les sous-composants."""
-    from ankiforge.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT
+    from ankidraft.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT
 
     widget = MCPServerDashboardWidget(initial_status="running", initial_port=8765, initial_token="token_contract")
     qtbot.addWidget(widget)
@@ -513,7 +513,7 @@ def test_mcp_dashboard_subtabs_navigation_without_separator(qtbot: Any) -> None:
     assert widget.stacked_widget.currentIndex() == 0
 
     # Le rafraîchissement de thème ne fait pas référence au séparateur supprimé
-    from ankiforge.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT
+    from ankidraft.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT
 
     widget.refresh_theme(JETBRAINS_DARK)
     widget.refresh_theme(JETBRAINS_LIGHT)

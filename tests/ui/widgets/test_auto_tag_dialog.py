@@ -1,6 +1,6 @@
 import pytest
 
-from ankiforge.ui.widgets.auto_tag_dialog import AutoTagDialog
+from ankidraft.ui.widgets.auto_tag_dialog import AutoTagDialog
 
 pytestmark = pytest.mark.ui
 

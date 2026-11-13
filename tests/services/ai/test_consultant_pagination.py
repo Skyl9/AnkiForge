@@ -10,14 +10,14 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.ai.mcp_tool_registry import (
+from ankidraft.services.ai.mcp_tool_registry import (
     DEFAULT_CONSULTANT_TOOLS,
     MCPToolRegistry,
 )

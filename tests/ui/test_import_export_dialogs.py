@@ -3,9 +3,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PySide6.QtWidgets import QLabel
 
-from ankiforge.database.models import DeckModel
-from ankiforge.ui.dialogs.export_dialog import ExportDialog
-from ankiforge.ui.dialogs.import_dialog import ImportDialog
+from ankidraft.database.models import DeckModel
+from ankidraft.ui.dialogs.export_dialog import ExportDialog
+from ankidraft.ui.dialogs.import_dialog import ImportDialog
 
 pytestmark = pytest.mark.ui
 
@@ -55,8 +55,8 @@ def test_export_dialog_init(qtbot):
     assert "export_collection.apkg" in dialog.dest_input.text()
 
 
-@patch("ankiforge.ui.dialogs.export_dialog.QMessageBox.information")
-@patch("ankiforge.ui.dialogs.export_dialog.show_toast")
+@patch("ankidraft.ui.dialogs.export_dialog.QMessageBox.information")
+@patch("ankidraft.ui.dialogs.export_dialog.show_toast")
 def test_export_dialog_trigger(mock_toast, mock_info, qtbot):
     dialog = ExportDialog()
     qtbot.addWidget(dialog)
@@ -71,7 +71,7 @@ def test_export_dialog_trigger(mock_toast, mock_info, qtbot):
     assert mock_info.called
 
 
-@patch("ankiforge.ui.dialogs.export_dialog.QFileDialog.getSaveFileName")
+@patch("ankidraft.ui.dialogs.export_dialog.QFileDialog.getSaveFileName")
 def test_export_dialog_browse_destination_adds_apkg_suffix(mock_save_dialog, qtbot):
     dialog = ExportDialog()
     qtbot.addWidget(dialog)
@@ -85,8 +85,8 @@ def test_export_dialog_browse_destination_adds_apkg_suffix(mock_save_dialog, qtb
     assert dialog.dest_input.text() == "/tmp/existing.apkg"
 
 
-@patch("ankiforge.ui.dialogs.export_dialog.QMessageBox.information")
-@patch("ankiforge.ui.dialogs.export_dialog.show_toast")
+@patch("ankidraft.ui.dialogs.export_dialog.QMessageBox.information")
+@patch("ankidraft.ui.dialogs.export_dialog.show_toast")
 def test_export_dialog_normalizes_directory_and_missing_extension(mock_toast, mock_info, qtbot, tmp_path):
     dialog = ExportDialog()
     qtbot.addWidget(dialog)
@@ -124,7 +124,7 @@ def test_export_dialog_normalizes_directory_and_missing_extension(mock_toast, mo
 
 
 def test_export_dialog_buttons_default_states(qtbot):
-    from ankiforge.ui.components.buttons import SecondaryButton
+    from ankidraft.ui.components.buttons import SecondaryButton
 
     dialog = ExportDialog()
     qtbot.addWidget(dialog)
@@ -190,7 +190,7 @@ def test_export_dialog_anki_tip_sans_emoji(qtbot):
 
 
 def test_card_export_dialog_stylesheet_scoped_to_qdialog(qtbot):
-    from ankiforge.ui.dialogs.card_export_dialog import CardExportDialog
+    from ankidraft.ui.dialogs.card_export_dialog import CardExportDialog
 
     dialog = CardExportDialog()
     qtbot.addWidget(dialog)

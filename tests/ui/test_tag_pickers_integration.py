@@ -7,15 +7,15 @@ import uuid
 import pytest
 from pytestqt.qtbot import QtBot
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.ui.views.edition_view.group_edit_dialog import GroupEditDialog
-from ankiforge.ui.views.edition_view.note_tags_editor import NoteTagsEditorWidget
+from ankidraft.ui.views.edition_view.group_edit_dialog import GroupEditDialog
+from ankidraft.ui.views.edition_view.note_tags_editor import NoteTagsEditorWidget
 
 pytestmark = pytest.mark.ui
 

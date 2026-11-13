@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.ui.dialogs.card_export_dialog import CardExportDialog
+from ankidraft.database.models import DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.ui.dialogs.card_export_dialog import CardExportDialog
 
 pytestmark = pytest.mark.ui
 
@@ -82,8 +82,8 @@ def test_card_export_dialog_format_switch(mock_notes_db, qtbot):
     assert dialog.dest_input.text().endswith(".md")
 
 
-@patch("ankiforge.ui.dialogs.card_export_dialog.show_toast")
-@patch("ankiforge.ui.dialogs.card_export_dialog.QMessageBox.information")
+@patch("ankidraft.ui.dialogs.card_export_dialog.show_toast")
+@patch("ankidraft.ui.dialogs.card_export_dialog.QMessageBox.information")
 def test_card_export_dialog_trigger(mock_info, mock_toast, mock_notes_db, tmp_path, qtbot):
     notes = mock_notes_db
     selected_ids = [notes[0].id]
@@ -105,9 +105,9 @@ def test_card_export_dialog_trigger(mock_info, mock_toast, mock_notes_db, tmp_pa
     assert mock_toast.called
 
 
-@patch("ankiforge.ui.dialogs.card_export_dialog.CardExportDialog.exec")
+@patch("ankidraft.ui.dialogs.card_export_dialog.CardExportDialog.exec")
 def test_edition_view_quick_export_button_and_dialog(mock_exec, mock_notes_db, qtbot):
-    from ankiforge.ui.views.edition_view.view import EditionView
+    from ankidraft.ui.views.edition_view.view import EditionView
 
     view = EditionView()
     qtbot.addWidget(view)

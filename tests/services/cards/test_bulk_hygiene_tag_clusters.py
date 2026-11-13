@@ -5,14 +5,14 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel
-from ankiforge.services.cards.bulk_hygiene_service import (
+from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel
+from ankidraft.services.cards.bulk_hygiene_service import (
     BulkHygieneService,
     TagClustersReport,
     TagMergePlan,
     TagMergeResult,
 )
-from ankiforge.utils.tags import parse_note_tags
+from ankidraft.utils.tags import parse_note_tags
 
 pytestmark = pytest.mark.integration
 

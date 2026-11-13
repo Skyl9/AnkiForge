@@ -149,17 +149,17 @@ class Worker:
         def run(self):
             return 42
 """
-    funcs = extract_functions(code, Path("src/ankiforge/services/worker.py"), Path("."))
+    funcs = extract_functions(code, Path("src/ankidraft/services/worker.py"), Path("."))
     assert len(funcs) == 2
 
     # execute englobe la complexité de helper (1 de base + 1 if de helper = 2)
     exec_func = next(f for f in funcs if f.name == "execute")
-    assert exec_func.namespace == "ankiforge.services.worker.Worker"
+    assert exec_func.namespace == "ankidraft.services.worker.Worker"
     assert exec_func.complexity == 2
 
     # run est dans la sous-classe imbriquée
     run_func = next(f for f in funcs if f.name == "run")
-    assert run_func.namespace == "ankiforge.services.worker.Worker.SubTask"
+    assert run_func.namespace == "ankidraft.services.worker.Worker.SubTask"
     assert run_func.complexity == 1
 
 
@@ -167,7 +167,7 @@ class Worker:
 def test_coverage_report_line_and_branch_matching() -> None:
     """Valide l'extraction de la couverture depuis un rapport LCOV."""
     report = CoverageReport()
-    file_path = "src/ankiforge/module.py"
+    file_path = "src/ankidraft/module.py"
 
     # Lignes 10 à 14
     report.add_line(file_path, 10, hits=1)
@@ -187,14 +187,14 @@ def test_coverage_report_line_and_branch_matching() -> None:
     assert cov_br == 50.0
 
     # Fichier absent du rapport -> None
-    assert report.coverage_for_function("src/ankiforge/unknown.py", 1, 5) is None
+    assert report.coverage_for_function("src/ankidraft/unknown.py", 1, 5) is None
 
 
 @pytest.mark.unit
 def test_parse_lcov_file(tmp_path: Path) -> None:
     """Valide le parsing d'un fichier LCOV réel."""
     lcov_content = """
-SF:src/ankiforge/sample.py
+SF:src/ankidraft/sample.py
 DA:1,1
 DA:2,1
 DA:3,0
@@ -206,10 +206,10 @@ end_of_record
     lcov_file.write_text(lcov_content.strip(), encoding="utf-8")
 
     report = parse_lcov_file(lcov_file)
-    assert "src/ankiforge/sample.py" in report.lines
-    assert report.lines["src/ankiforge/sample.py"][1] == (1, 1)
-    assert report.lines["src/ankiforge/sample.py"][3] == (0, 1)
-    assert report.branches["src/ankiforge/sample.py"][2] == (1, 2)
+    assert "src/ankidraft/sample.py" in report.lines
+    assert report.lines["src/ankidraft/sample.py"][1] == (1, 1)
+    assert report.lines["src/ankidraft/sample.py"][3] == (0, 1)
+    assert report.branches["src/ankidraft/sample.py"][2] == (1, 2)
 
 
 @pytest.mark.unit

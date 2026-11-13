@@ -18,9 +18,9 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtGui import QShortcut
 
-from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope
-from ankiforge.ui.views.edition_view import EditionView
+from ankidraft.database.models import NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.ui.shortcuts import ShortcutId, ShortcutManager, ShortcutScope
+from ankidraft.ui.views.edition_view import EditionView
 
 pytestmark = pytest.mark.ui
 
@@ -146,7 +146,7 @@ def test_bare_keys_suspended_and_edit_isolated_to_table(qtbot: Any, sample_editi
 
     # 1. Simuler focus sur un champ de texte (saisie prioritaire absorbant les touches nues)
     with (
-        patch("ankiforge.ui.shortcuts.manager.is_text_input_focused", return_value=True),
+        patch("ankidraft.ui.shortcuts.manager.is_text_input_focused", return_value=True),
         patch.object(view, "_toggle_suspend_selected") as mock_suspend,
         patch.object(view, "_edit_focused_card") as mock_edit,
     ):
@@ -158,7 +158,7 @@ def test_bare_keys_suspended_and_edit_isolated_to_table(qtbot: Any, sample_editi
 
     # 2. Quand la saisie n'est pas focalisée (table focalisée)
     with (
-        patch("ankiforge.ui.shortcuts.manager.is_text_input_focused", return_value=False),
+        patch("ankidraft.ui.shortcuts.manager.is_text_input_focused", return_value=False),
         patch.object(view, "_toggle_suspend_selected") as mock_suspend,
         patch.object(view, "_edit_focused_card") as mock_edit,
     ):

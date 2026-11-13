@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from ankiforge.security.signatures import (
+from ankidraft.security.signatures import (
     parse_checksums_manifest,
     verify_binary_against_manifest,
     verify_file_sha256,
@@ -34,13 +34,13 @@ class TestManifestParsing:
         raw_manifest = (
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  AnkiForge-macos-arm64.dmg\n"
             "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945 *AnkiForge-x86_64.AppImage\n"
-            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  ankiforge-windows-x64.zip\r\n"
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  ankidraft-windows-x64.zip\r\n"
         )
         parsed = parse_checksums_manifest(raw_manifest)
         assert len(parsed) == 3
         assert parsed["AnkiForge-macos-arm64.dmg"] == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         assert parsed["AnkiForge-x86_64.AppImage"] == "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
-        assert parsed["ankiforge-windows-x64.zip"] == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        assert parsed["ankidraft-windows-x64.zip"] == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 
     def test_parse_ignores_comments_and_empty_lines(self) -> None:
         raw_manifest = "# Empreintes SHA-256 officielles AnkiForge\n\n   \nba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  AnkiForge-macos-arm64.dmg\n# Fin du fichier\n"

@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from ankiforge.ui.components.inputs import StyledComboBox
-from ankiforge.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT, get_style_engine
+from ankidraft.ui.components.inputs import StyledComboBox
+from ankidraft.ui.style_engine import JETBRAINS_DARK, JETBRAINS_LIGHT, get_style_engine
 
 pytestmark = pytest.mark.ui
 

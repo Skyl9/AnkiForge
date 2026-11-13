@@ -2,9 +2,9 @@ import csv
 
 import pytest
 
-from ankiforge.database.models import DeckModel, NoteModel, NoteTypeModel
-from ankiforge.services.cards.import_manager import ImportManager
-from ankiforge.services.cards.store_manager import StoreManager
+from ankidraft.database.models import DeckModel, NoteModel, NoteTypeModel
+from ankidraft.services.cards.import_manager import ImportManager
+from ankidraft.services.cards.store_manager import StoreManager
 
 pytestmark = pytest.mark.integration
 

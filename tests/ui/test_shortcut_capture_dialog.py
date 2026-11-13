@@ -13,8 +13,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.ui.shortcuts import ShortcutId
-from ankiforge.ui.widgets.settings_modal.dialogs.shortcut_capture_dialog import (
+from ankidraft.ui.shortcuts import ShortcutId
+from ankidraft.ui.widgets.settings_modal.dialogs.shortcut_capture_dialog import (
     ShortcutCaptureDialog,
     key_event_to_sequence_str,
 )

@@ -8,12 +8,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.database.models.cards import NoteTypeModel
-from ankiforge.services.cards.latex_compiler_service import (
+from ankidraft.database.models.cards import NoteTypeModel
+from ankidraft.services.cards.latex_compiler_service import (
     LatexCompilationError,
     LatexCompilerService,
 )
-from ankiforge.services.cards.latex_environment_service import (
+from ankidraft.services.cards.latex_environment_service import (
     LatexBinaryInfo,
 )
 
@@ -116,9 +116,9 @@ class TestLatexCompilerService:
 
         assert actual_filename == expected_filename
 
-    @patch("ankiforge.services.cards.latex_compiler_service.LatexCompilerService._get_latex_env_service")
-    @patch("ankiforge.services.cards.latex_compiler_service.get_active_profile")
-    @patch("ankiforge.services.profile_manager.ProfileManager.get_media_dir")
+    @patch("ankidraft.services.cards.latex_compiler_service.LatexCompilerService._get_latex_env_service")
+    @patch("ankidraft.services.cards.latex_compiler_service.get_active_profile")
+    @patch("ankidraft.services.profile_manager.ProfileManager.get_media_dir")
     def test_compile_snippet_cache_hit(
         self,
         mock_get_media_dir,
@@ -150,7 +150,7 @@ class TestLatexCompilerService:
         mock_env.detect_latex_binary.assert_not_called()
         mock_env.detect_dvisvgm_binary.assert_not_called()
 
-    @patch("ankiforge.services.cards.latex_compiler_service.LatexCompilerService._get_latex_env_service")
+    @patch("ankidraft.services.cards.latex_compiler_service.LatexCompilerService._get_latex_env_service")
     def test_compile_snippet_latex_unavailable(self, mock_get_latex_env_service) -> None:
         """Teste l'erreur quand l'environnement LaTeX n'est pas disponible."""
         mock_env = self._make_mock_env_service(latex_available=False)
@@ -165,10 +165,10 @@ class TestLatexCompilerService:
 
         assert "Environnement LaTeX non disponible" in str(exc_info.value)
 
-    @patch("ankiforge.services.cards.latex_compiler_service.LatexCompilerService._get_latex_env_service")
-    @patch("ankiforge.services.cards.latex_compiler_service.get_active_profile")
-    @patch("ankiforge.services.profile_manager.ProfileManager.get_media_dir")
-    @patch("ankiforge.services.cards.latex_compiler_service.tempfile.TemporaryDirectory")
+    @patch("ankidraft.services.cards.latex_compiler_service.LatexCompilerService._get_latex_env_service")
+    @patch("ankidraft.services.cards.latex_compiler_service.get_active_profile")
+    @patch("ankidraft.services.profile_manager.ProfileManager.get_media_dir")
+    @patch("ankidraft.services.cards.latex_compiler_service.tempfile.TemporaryDirectory")
     @patch("subprocess.run")
     def test_compile_snippet_success(
         self,
@@ -204,7 +204,7 @@ class TestLatexCompilerService:
             patch("pathlib.Path.write_text"),
             patch("pathlib.Path.exists", side_effect=[True, True, False]),
             patch("shutil.copy2"),
-            patch("ankiforge.services.cards.latex_compiler_service.MediaModel.get_or_create"),
+            patch("ankidraft.services.cards.latex_compiler_service.MediaModel.get_or_create"),
         ):
             # Mock subprocess.run pour latex et dvisvgm
             mock_latex_result = MagicMock()
@@ -255,10 +255,10 @@ class TestLatexCompilerService:
             for call in mock_subprocess_run.call_args_list:
                 assert call[1]["timeout"] == 10.0
 
-    @patch("ankiforge.services.cards.latex_compiler_service.LatexCompilerService._get_latex_env_service")
-    @patch("ankiforge.services.cards.latex_compiler_service.get_active_profile")
-    @patch("ankiforge.services.profile_manager.ProfileManager.get_media_dir")
-    @patch("ankiforge.services.cards.latex_compiler_service.tempfile.TemporaryDirectory")
+    @patch("ankidraft.services.cards.latex_compiler_service.LatexCompilerService._get_latex_env_service")
+    @patch("ankidraft.services.cards.latex_compiler_service.get_active_profile")
+    @patch("ankidraft.services.profile_manager.ProfileManager.get_media_dir")
+    @patch("ankidraft.services.cards.latex_compiler_service.tempfile.TemporaryDirectory")
     @patch("subprocess.run")
     def test_compile_snippet_latex_failure(
         self,
@@ -300,10 +300,10 @@ class TestLatexCompilerService:
             assert "Échec de la compilation LaTeX" in str(exc_info.value)
             assert exc_info.value.log_excerpt is not None
 
-    @patch("ankiforge.services.cards.latex_compiler_service.LatexCompilerService._get_latex_env_service")
-    @patch("ankiforge.services.cards.latex_compiler_service.get_active_profile")
-    @patch("ankiforge.services.profile_manager.ProfileManager.get_media_dir")
-    @patch("ankiforge.services.cards.latex_compiler_service.tempfile.TemporaryDirectory")
+    @patch("ankidraft.services.cards.latex_compiler_service.LatexCompilerService._get_latex_env_service")
+    @patch("ankidraft.services.cards.latex_compiler_service.get_active_profile")
+    @patch("ankidraft.services.profile_manager.ProfileManager.get_media_dir")
+    @patch("ankidraft.services.cards.latex_compiler_service.tempfile.TemporaryDirectory")
     @patch("subprocess.run")
     def test_compile_snippet_timeout(
         self,
@@ -339,10 +339,10 @@ class TestLatexCompilerService:
 
             assert "Timeout" in str(exc_info.value)
 
-    @patch("ankiforge.services.cards.latex_compiler_service.LatexCompilerService._get_latex_env_service")
-    @patch("ankiforge.services.cards.latex_compiler_service.get_active_profile")
-    @patch("ankiforge.services.profile_manager.ProfileManager.get_media_dir")
-    @patch("ankiforge.services.cards.latex_compiler_service.tempfile.TemporaryDirectory")
+    @patch("ankidraft.services.cards.latex_compiler_service.LatexCompilerService._get_latex_env_service")
+    @patch("ankidraft.services.cards.latex_compiler_service.get_active_profile")
+    @patch("ankidraft.services.profile_manager.ProfileManager.get_media_dir")
+    @patch("ankidraft.services.cards.latex_compiler_service.tempfile.TemporaryDirectory")
     @patch("subprocess.run")
     def test_compile_snippet_dvisvgm_failure(
         self,

@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.database.models import DocumentModel
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.mcp_tool_registry import DEFAULT_CONSULTANT_TOOLS, MCPToolRegistry
+from ankidraft.database.models import DocumentModel
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.mcp_tool_registry import DEFAULT_CONSULTANT_TOOLS, MCPToolRegistry
 
 pytestmark = pytest.mark.integration
 
@@ -22,7 +22,7 @@ def test_search_knowledge_context_no_documents():
 def test_search_knowledge_context_no_results():
     """Vérifie le message quand la recherche ne retourne aucun résultat."""
     _doc = DocumentModel.create(title="Cours de Chimie.pdf", file_path="/fake/chimie.pdf", format="pdf")
-    with patch("ankiforge.services.ai.rag_service.RAGService.search", return_value=[]):
+    with patch("ankidraft.services.ai.rag_service.RAGService.search", return_value=[]):
         res = MCPToolRegistry.search_knowledge_context("concept_introuvable_xyz")
         assert "Aucun passage pertinent trouvé" in res
 
@@ -50,7 +50,7 @@ def test_search_knowledge_context_with_results():
         },
     ]
 
-    with patch("ankiforge.services.ai.rag_service.RAGService.search", return_value=mock_chunks):
+    with patch("ankidraft.services.ai.rag_service.RAGService.search", return_value=mock_chunks):
         res = MCPToolRegistry.search_knowledge_context("mitochondrie ATP", max_chunks=2)
 
     assert "Contexte Documentaire RAG" in res
@@ -91,7 +91,7 @@ def test_search_knowledge_context_mcp_tool_registry_dispatch():
         }
     ]
 
-    with patch("ankiforge.services.ai.rag_service.RAGService.search", return_value=mock_chunks):
+    with patch("ankidraft.services.ai.rag_service.RAGService.search", return_value=mock_chunks):
         obs = MCPToolRegistry.search_knowledge_context(query="aspirine COX", max_chunks=1)
 
     assert "Contexte Documentaire RAG" in obs

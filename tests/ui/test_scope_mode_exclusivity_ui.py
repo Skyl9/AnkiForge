@@ -8,10 +8,10 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel
 
-from ankiforge.database.models import DocumentChunkModel, DocumentModel
-from ankiforge.repositories.document_repository import DocumentRepository
-from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
-from ankiforge.ui.views.documents_view.dialogs.delimitation_dialog import (
+from ankidraft.database.models import DocumentChunkModel, DocumentModel
+from ankidraft.repositories.document_repository import DocumentRepository
+from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+from ankidraft.ui.views.documents_view.dialogs.delimitation_dialog import (
     DocumentDelimitationDialog,
     SectionRowWidget,
 )

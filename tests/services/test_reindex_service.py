@@ -4,9 +4,9 @@ import uuid
 
 import pytest
 
-from ankiforge.database.models import DocumentChunkModel, DocumentModel
-from ankiforge.services.parsing.chunking_service import ChunkingService
-from ankiforge.services.reindex_service import (
+from ankidraft.database.models import DocumentChunkModel, DocumentModel
+from ankidraft.services.parsing.chunking_service import ChunkingService
+from ankidraft.services.reindex_service import (
     REINDEX_EMPTY,
     REINDEX_ERROR,
     REINDEX_OK,
@@ -52,8 +52,8 @@ def test_reindex_document_stamps_version_and_rebuilds_chunks(mock_db, monkeypatc
     doc.chunk_strategy_version = 0
     doc.save()
 
-    monkeypatch.setattr("ankiforge.services.reindex_service.VectorManager", MockVectorManager)
-    monkeypatch.setattr("ankiforge.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
+    monkeypatch.setattr("ankidraft.services.reindex_service.VectorManager", MockVectorManager)
+    monkeypatch.setattr("ankidraft.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
 
     events: list[str] = []
     status = reindex_document(doc.id, progress_cb=events.append)
@@ -86,8 +86,8 @@ def test_reindex_document_preserves_structural_container_flag(mock_db, monkeypat
     doc.chunk_strategy_version = 0
     doc.save()
 
-    monkeypatch.setattr("ankiforge.services.reindex_service.VectorManager", MockVectorManager)
-    monkeypatch.setattr("ankiforge.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
+    monkeypatch.setattr("ankidraft.services.reindex_service.VectorManager", MockVectorManager)
+    monkeypatch.setattr("ankidraft.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
 
     assert reindex_document(doc.id) == REINDEX_OK
 
@@ -112,8 +112,8 @@ def test_reindex_document_preserves_audio_timestamps(mock_db, monkeypatch) -> No
     doc.chunk_strategy_version = 0
     doc.save()
 
-    monkeypatch.setattr("ankiforge.services.reindex_service.VectorManager", MockVectorManager)
-    monkeypatch.setattr("ankiforge.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
+    monkeypatch.setattr("ankidraft.services.reindex_service.VectorManager", MockVectorManager)
+    monkeypatch.setattr("ankidraft.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
 
     assert reindex_document(doc.id) == REINDEX_OK
 
@@ -130,8 +130,8 @@ def test_reindex_document_reports_fragment_progress(mock_db, monkeypatch) -> Non
     doc.chunk_strategy_version = 0
     doc.save()
 
-    monkeypatch.setattr("ankiforge.services.reindex_service.VectorManager", MockVectorManager)
-    monkeypatch.setattr("ankiforge.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
+    monkeypatch.setattr("ankidraft.services.reindex_service.VectorManager", MockVectorManager)
+    monkeypatch.setattr("ankidraft.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
 
     seen: list[tuple[int, int]] = []
     assert reindex_document(doc.id, fragment_cb=lambda cur, tot: seen.append((cur, tot))) == REINDEX_OK
@@ -149,16 +149,16 @@ def test_reindex_document_empty_returns_empty_status(mock_db, monkeypatch) -> No
     doc.chunk_strategy_version = 0
     doc.save()
 
-    monkeypatch.setattr("ankiforge.services.reindex_service.VectorManager", MockVectorManager)
-    monkeypatch.setattr("ankiforge.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
+    monkeypatch.setattr("ankidraft.services.reindex_service.VectorManager", MockVectorManager)
+    monkeypatch.setattr("ankidraft.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
 
     status = reindex_document(doc.id)
     assert status == REINDEX_EMPTY
 
 
 def test_reindex_document_missing_doc_returns_error(mock_db, monkeypatch) -> None:
-    monkeypatch.setattr("ankiforge.services.reindex_service.VectorManager", MockVectorManager)
-    monkeypatch.setattr("ankiforge.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
+    monkeypatch.setattr("ankidraft.services.reindex_service.VectorManager", MockVectorManager)
+    monkeypatch.setattr("ankidraft.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
 
     status = reindex_document(9_999_999)
     assert status == REINDEX_ERROR
@@ -182,8 +182,8 @@ def test_reindex_document_preserves_note_links_through_tags(mock_db, monkeypatch
         pass
 
     ctx = _Ctx()
-    monkeypatch.setattr("ankiforge.services.reindex_service.VectorManager", MockVectorManager)
-    monkeypatch.setattr("ankiforge.services.audit.coverage_alignment_service.CoverageAlignmentService", _MockAlignment)
+    monkeypatch.setattr("ankidraft.services.reindex_service.VectorManager", MockVectorManager)
+    monkeypatch.setattr("ankidraft.services.audit.coverage_alignment_service.CoverageAlignmentService", _MockAlignment)
 
     status = reindex_document(doc.id)
     assert status == REINDEX_OK
@@ -224,8 +224,8 @@ def test_revectorize_document_preserves_existing_chunks(mock_db, monkeypatch) ->
     content = "# Chapitre\n\nIntro.\n\n## Section A\n\nContenu A.\n\n## Section B\n\nContenu B."
     doc = DocumentModel.create(title=f"Doc revec {uid}", content=content, file_type="md")
 
-    monkeypatch.setattr("ankiforge.services.reindex_service.VectorManager", MockVectorManager)
-    monkeypatch.setattr("ankiforge.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
+    monkeypatch.setattr("ankidraft.services.reindex_service.VectorManager", MockVectorManager)
+    monkeypatch.setattr("ankidraft.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
     assert reindex_document(doc.id) == REINDEX_OK
 
     before = _chunks_snapshot(doc)
@@ -240,6 +240,6 @@ def test_revectorize_document_preserves_existing_chunks(mock_db, monkeypatch) ->
 
 
 def test_revectorize_document_missing_doc_returns_error(mock_db, monkeypatch) -> None:
-    monkeypatch.setattr("ankiforge.services.reindex_service.VectorManager", MockVectorManager)
-    monkeypatch.setattr("ankiforge.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
+    monkeypatch.setattr("ankidraft.services.reindex_service.VectorManager", MockVectorManager)
+    monkeypatch.setattr("ankidraft.services.audit.coverage_alignment_service.CoverageAlignmentService", MockAlignmentService)
     assert revectorize_document(9_999_999) == REINDEX_ERROR

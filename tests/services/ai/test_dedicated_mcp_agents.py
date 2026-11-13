@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from ankiforge.database.models import PersonaModel
-from ankiforge.services.ai.mcp_tool_registry import MCPToolRegistry
+from ankidraft.database.models import PersonaModel
+from ankidraft.services.ai.mcp_tool_registry import MCPToolRegistry
 
 pytestmark = pytest.mark.integration
 

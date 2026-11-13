@@ -12,9 +12,9 @@ import pytest
 from PIL import Image
 from pptx import Presentation
 
-from ankiforge.services.parsing.chunking_service import ChunkingService
-from ankiforge.services.parsing.document_parser import DocumentParser
-from ankiforge.services.parsing.pptx_parser import PptxParser
+from ankidraft.services.parsing.chunking_service import ChunkingService
+from ankidraft.services.parsing.document_parser import DocumentParser
+from ankidraft.services.parsing.pptx_parser import PptxParser
 
 pytestmark = pytest.mark.unit
 

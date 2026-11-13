@@ -5,18 +5,18 @@ from typing import Any
 import pytest
 from PySide6.QtCore import Qt
 
-from ankiforge.database.models import DocumentChunkModel, DocumentModel
-from ankiforge.repositories.document_repository import DocumentRepository
-from ankiforge.services.batch.slicing_service import SliceUnit
-from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeWidget
-from ankiforge.ui.views.batch_view.dialogs.batch_slice_composer_dialog import (
+from ankidraft.database.models import DocumentChunkModel, DocumentModel
+from ankidraft.repositories.document_repository import DocumentRepository
+from ankidraft.services.batch.slicing_service import SliceUnit
+from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeWidget
+from ankidraft.ui.views.batch_view.dialogs.batch_slice_composer_dialog import (
     RECAP_PREVIEW_MIN_HEIGHT,
     BatchSliceComposerDialog,
     _RecapTaskCard,
 )
-from ankiforge.ui.views.batch_view.view import BatchView
-from ankiforge.ui.views.batch_view.widgets import AutoSliceWidget
-from ankiforge.utils.region_address import RegionAddress, RegionScope
+from ankidraft.ui.views.batch_view.view import BatchView
+from ankidraft.ui.views.batch_view.widgets import AutoSliceWidget
+from ankidraft.utils.region_address import RegionAddress, RegionScope
 
 pytestmark = pytest.mark.ui
 
@@ -378,7 +378,7 @@ def test_auto_slice_widget_headings_and_tokens(qtbot: Any) -> None:
 
 def test_auto_slice_widget_granularity_tiers_and_custom_sync(qtbot: Any) -> None:
     """Vérifie les 4 paliers de granularité, les presets et le basculement automatique en Personnalisé."""
-    from ankiforge.services.batch.slicing_service import GranularityLevel
+    from ankidraft.services.batch.slicing_service import GranularityLevel
 
     content = f"# Chapitre 1\n\n{LONG_PART1}\n\n## Section 1.1\n\n{LONG_PART2}\n\n### Sous-section 1.1.1\n\n{LONG_PART1}\n"
     widget = AutoSliceWidget()

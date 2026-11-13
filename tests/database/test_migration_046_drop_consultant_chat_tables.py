@@ -5,8 +5,8 @@ import importlib
 import pytest
 from peewee_migrate import Migrator
 
-from ankiforge.database.migration import run_migrations
-from ankiforge.database.models import db
+from ankidraft.database.migration import run_migrations
+from ankidraft.database.models import db
 
 pytestmark = pytest.mark.integration
 
@@ -15,7 +15,7 @@ def test_migration_046_drops_consultant_tables(mock_db):
     """Vérifie que la migration 046 supprime proprement les tables de chat consultant."""
     run_migrations()
 
-    mod_046 = importlib.import_module("ankiforge.database.migrations.046_drop_consultant_chat_tables")
+    mod_046 = importlib.import_module("ankidraft.database.migrations.046_drop_consultant_chat_tables")
     migrate_046 = mod_046.migrate
 
     # Recréer explicitement les tables pour tester leur suppression

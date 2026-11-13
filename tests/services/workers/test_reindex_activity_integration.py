@@ -11,13 +11,13 @@ from collections.abc import Callable
 
 import pytest
 
-from ankiforge.database.models import DocumentModel
-from ankiforge.services.reindex_activity_service import ReindexActivityService
-from ankiforge.services.reindex_service import REINDEX_ERROR, REINDEX_OK
-from ankiforge.services.workers import coverage_worker as cw
-from ankiforge.services.workers import migration_reindex_worker as mrw
-from ankiforge.services.workers.coverage_worker import CoverageWorker
-from ankiforge.services.workers.migration_reindex_worker import MigrationReindexWorker
+from ankidraft.database.models import DocumentModel
+from ankidraft.services.reindex_activity_service import ReindexActivityService
+from ankidraft.services.reindex_service import REINDEX_ERROR, REINDEX_OK
+from ankidraft.services.workers import coverage_worker as cw
+from ankidraft.services.workers import migration_reindex_worker as mrw
+from ankidraft.services.workers.coverage_worker import CoverageWorker
+from ankidraft.services.workers.migration_reindex_worker import MigrationReindexWorker
 
 pytestmark = pytest.mark.integration
 

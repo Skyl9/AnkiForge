@@ -7,13 +7,13 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtWidgets import QMessageBox
 
-from ankiforge.database.models import LLMConfigModel
-from ankiforge.services.ai.model_catalog import ModelCatalog
-from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.components.model_selector.dialog import ModelCardWidget, ModelDiscoveryDialog
-from ankiforge.ui.components.model_selector.selector import ModelSelectorWidget
-from ankiforge.ui.widgets.settings_modal.dialogs.model_config_dialog import ModelConfigDialog
-from ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
+from ankidraft.database.models import LLMConfigModel
+from ankidraft.services.ai.model_catalog import ModelCatalog
+from ankidraft.services.settings_service import SettingsService
+from ankidraft.ui.components.model_selector.dialog import ModelCardWidget, ModelDiscoveryDialog
+from ankidraft.ui.components.model_selector.selector import ModelSelectorWidget
+from ankidraft.ui.widgets.settings_modal.dialogs.model_config_dialog import ModelConfigDialog
+from ankidraft.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
 
 pytestmark = pytest.mark.ui
 

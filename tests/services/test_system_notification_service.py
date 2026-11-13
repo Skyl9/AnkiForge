@@ -11,8 +11,8 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtWidgets import QApplication, QWidget
 
-from ankiforge.services.settings_service import SettingsService
-from ankiforge.services.system.notification_service import (
+from ankidraft.services.settings_service import SettingsService
+from ankidraft.services.system.notification_service import (
     NotificationMode,
     SystemNotificationService,
 )

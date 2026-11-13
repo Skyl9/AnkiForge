@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 import requests
 
-from ankiforge.services.parsing.web_importer import (
+from ankidraft.services.parsing.web_importer import (
     DEFAULT_MAX_BYTES,
     WebImporter,
     WebImportError,
@@ -73,13 +73,13 @@ def importer(monkeypatch) -> WebImporter:
             return "# Page 2\n\nContenu de la page suivante."
         return ""
 
-    monkeypatch.setattr("ankiforge.services.parsing.web_importer.trafilatura.extract", fake_extract)
+    monkeypatch.setattr("ankidraft.services.parsing.web_importer.trafilatura.extract", fake_extract)
     return WebImporter()
 
 
 def _patch_get(monkeypatch, responses: dict[str, FakeResp], default: FakeResp | None = None) -> None:
     fake = _fake_get_routing(responses=responses, default=default or FakeResp())
-    monkeypatch.setattr("ankiforge.services.parsing.web_importer.requests.get", fake)
+    monkeypatch.setattr("ankidraft.services.parsing.web_importer.requests.get", fake)
     monkeypatch.setattr(requests.Session, "get", fake)
 
 
@@ -125,7 +125,7 @@ def test_analyze_url_timeout(importer, monkeypatch) -> None:
     def boom(*args, **kwargs):
         raise requests.exceptions.Timeout()
 
-    monkeypatch.setattr("ankiforge.services.parsing.web_importer.requests.get", boom)
+    monkeypatch.setattr("ankidraft.services.parsing.web_importer.requests.get", boom)
     with pytest.raises(WebImportError) as exc:
         importer.analyze_url(WebImportRequest(url="https://example.com/slow"))
     assert exc.value.category == "timeout"
@@ -135,7 +135,7 @@ def test_analyze_url_connection_error(importer, monkeypatch) -> None:
     def boom(*args, **kwargs):
         raise requests.exceptions.ConnectionError()
 
-    monkeypatch.setattr("ankiforge.services.parsing.web_importer.requests.get", boom)
+    monkeypatch.setattr("ankidraft.services.parsing.web_importer.requests.get", boom)
     with pytest.raises(WebImportError) as exc:
         importer.analyze_url(WebImportRequest(url="https://example.com/dns"))
     assert exc.value.category == "network"
@@ -214,7 +214,7 @@ def test_analyze_html_spa_detection_and_empty_dynamic(importer) -> None:
 
 
 def test_analyze_html_mathml_converted_to_latex(importer) -> None:
-    from ankiforge.services.parsing.web_importer import trafilatura
+    from ankidraft.services.parsing.web_importer import trafilatura
 
     trafilatura.extract = lambda *a, **k: "Formule : <annotation encoding='application/x-tex'>E = mc^2</annotation>"
     request = WebImportRequest(url="https://example.com/math")
@@ -231,7 +231,7 @@ def test_analyze_html_download_images(importer, monkeypatch) -> None:
             seen["store_called"] += 1
             return SimpleNamespace(filename=f"web_image_{seen['store_called']}.png")
 
-    from ankiforge.services.parsing.web_importer import trafilatura
+    from ankidraft.services.parsing.web_importer import trafilatura
 
     trafilatura.extract = lambda *a, **k: "![alt](https://cdn.example.com/img.jpg)"
     img = FakeResp(html="", content_type="image/jpeg", body=b"\x89PNG\r\n\x1a\n fake data")
@@ -303,7 +303,7 @@ def test_webimporterror_carries_category_and_status() -> None:
 
 
 def test_analyze_html_recovers_tables_dropped_by_trafilatura(importer, monkeypatch) -> None:
-    from ankiforge.services.parsing.web_importer import trafilatura
+    from ankidraft.services.parsing.web_importer import trafilatura
 
     trafilatura.extract = lambda *a, **k: "Java Software uses the following file suffixes:\n\nFrequently used file names include:"
     html = (
@@ -322,7 +322,7 @@ def test_analyze_html_recovers_tables_dropped_by_trafilatura(importer, monkeypat
 
 
 def test_analyze_html_inserts_tables_in_reading_order(importer, monkeypatch) -> None:
-    from ankiforge.services.parsing.web_importer import trafilatura
+    from ankidraft.services.parsing.web_importer import trafilatura
 
     trafilatura.extract = lambda *a, **k: "This section lists commonly used file suffixes and names.\n\nJava Software uses the following file suffixes:\n\nFrequently used file names include:"
     html = (
@@ -351,7 +351,7 @@ def test_analyze_html_inserts_tables_in_reading_order(importer, monkeypatch) -> 
 
 
 def test_analyze_html_does_not_duplicate_tables_already_extracted(importer, monkeypatch) -> None:
-    from ankiforge.services.parsing.web_importer import trafilatura
+    from ankidraft.services.parsing.web_importer import trafilatura
 
     trafilatura.extract = lambda *a, **k: "| File Type | Suffix |\n| --- | --- |\n| Java source | .java |"
     html = "<html><body><table><thead><tr><th>File Type</th><th>Suffix</th></tr></thead><tbody><tr><td>Java source</td><td>.java</td></tr></tbody></table></body></html>"

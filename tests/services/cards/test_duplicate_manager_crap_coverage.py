@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     IgnoredDuplicateModel,
@@ -16,7 +16,7 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.cards.duplicate_manager import DuplicateManager, strip_html
+from ankidraft.services.cards.duplicate_manager import DuplicateManager, strip_html
 
 pytestmark = pytest.mark.unit
 

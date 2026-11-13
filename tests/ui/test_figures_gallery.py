@@ -13,14 +13,14 @@ import pytest
 from PIL import Image
 from PySide6.QtCore import Qt
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentChunkModel,
     DocumentModel,
     MediaModel,
 )
-from ankiforge.services.cards.visual_resolver import VisualPayloadResolver
-from ankiforge.ui.components import EmptyStateWidget
-from ankiforge.ui.views.documents_view.widgets.figures_gallery import (
+from ankidraft.services.cards.visual_resolver import VisualPayloadResolver
+from ankidraft.ui.components import EmptyStateWidget
+from ankidraft.ui.views.documents_view.widgets.figures_gallery import (
     FigureCard,
     FiguresGalleryWidget,
 )

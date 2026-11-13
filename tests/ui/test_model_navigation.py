@@ -3,9 +3,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from ankiforge.database.models import NoteTypeModel
-from ankiforge.ui.main_window import MainWindow
-from ankiforge.ui.views.card_models_view import CardModelsView
+from ankidraft.database.models import NoteTypeModel
+from ankidraft.ui.main_window import MainWindow
+from ankidraft.ui.views.card_models_view import CardModelsView
 
 pytestmark = pytest.mark.ui
 

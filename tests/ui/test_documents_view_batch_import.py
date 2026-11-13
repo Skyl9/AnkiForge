@@ -14,20 +14,20 @@ from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QTreeWidgetItem
 from shiboken6 import isValid
 
-from ankiforge.database.models import DocumentModel
-from ankiforge.services.workers.coverage_worker import CoverageWorker
-from ankiforge.services.workers.document_batch_worker import (
+from ankidraft.database.models import DocumentModel
+from ankidraft.services.workers.coverage_worker import CoverageWorker
+from ankidraft.services.workers.document_batch_worker import (
     DocumentBatchTask,
     DocumentBatchWorker,
 )
-from ankiforge.ui.views.documents_view import DocumentsView
-from ankiforge.ui.views.documents_view.view import batch_summary_message
-from ankiforge.ui.widgets.toast import ToastLevel, ToastManager
+from ankidraft.ui.views.documents_view import DocumentsView
+from ankidraft.ui.views.documents_view.view import batch_summary_message
+from ankidraft.ui.widgets.toast import ToastLevel, ToastManager
 
 pytestmark = pytest.mark.ui
 
-DIALOG_PATH = "ankiforge.ui.views.documents_view.view.QFileDialog"
-WORKER_PATH = "ankiforge.ui.views.documents_view.view.DocumentBatchWorker"
+DIALOG_PATH = "ankidraft.ui.views.documents_view.view.QFileDialog"
+WORKER_PATH = "ankidraft.ui.views.documents_view.view.DocumentBatchWorker"
 
 
 def _make_files(tmp_path, names: list[str]) -> list[str]:
@@ -199,7 +199,7 @@ def test_tree_widget_drop_still_supports_internal_move(qtbot) -> None:
     view.tree_explorer.itemMoved.connect(lambda s, t: moved.append((s, t)))
 
     mime = QMimeData()
-    mime.setText("application/x-ankiforge-internal")
+    mime.setText("application/x-ankidraft-internal")
     event = QDropEvent(
         QPointF(1, 1),
         Qt.DropAction.MoveAction,
@@ -496,7 +496,7 @@ def test_shutdown_cancels_the_running_batch_worker(qtbot, tmp_path) -> None:
     worker = DocumentBatchWorker([DocumentBatchTask(index=i, path=p) for i, p in enumerate(paths)])
     view._bind_batch_worker(worker, worker.tasks)
     try:
-        with patch("ankiforge.services.workers.document_batch_worker.DocumentParser", return_value=_BlockingParser()):
+        with patch("ankidraft.services.workers.document_batch_worker.DocumentParser", return_value=_BlockingParser()):
             worker.start()
             assert started.wait(5)
             view.shutdown()

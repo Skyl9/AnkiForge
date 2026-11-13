@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import NoteTypeModel, StagedPatchModel
-from ankiforge.ui.widgets.card_semantic_diff_widget import (
+from ankidraft.database.models import NoteTypeModel, StagedPatchModel
+from ankidraft.ui.widgets.card_semantic_diff_widget import (
     CardSemanticDiffWidget,
     compute_field_word_diff_html,
 )

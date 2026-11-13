@@ -17,10 +17,10 @@ import pytest
 from mcp.client.session import ClientSession
 from mcp.client.sse import sse_client
 
-from ankiforge.database.models import NoteModel, NoteTypeModel, NoteVersionModel, StagedPatchModel
-from ankiforge.services.ai.mcp_daemon import MCPServerDaemon
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankidraft.database.models import NoteModel, NoteTypeModel, NoteVersionModel, StagedPatchModel
+from ankidraft.services.ai.mcp_daemon import MCPServerDaemon
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
 
 pytestmark = [pytest.mark.integration, pytest.mark.ui]
 
@@ -83,7 +83,7 @@ def test_mcp_proposal_reaches_workspace_inspector_and_applies(qtbot, tmp_path):
     assert StagedPatchModel.get(StagedPatchModel.patch_id == patch_id).status == "pending"
 
     # 3. L'ouverture de la vue charge la file dans le Garde-Fou MCP
-    from ankiforge.ui.views.consultant_view.view import ConsultantView
+    from ankidraft.ui.views.consultant_view.view import ConsultantView
 
     view = ConsultantView(ai_manager=None)
     qtbot.addWidget(view)

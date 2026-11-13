@@ -8,14 +8,14 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import Qt
 
-from ankiforge.services.plugins.manifest_schema import AddonStatus
-from ankiforge.services.plugins.plugin_manager import PluginManager
-from ankiforge.ui.dialogs.addon_manager_dialog import (
+from ankidraft.services.plugins.manifest_schema import AddonStatus
+from ankidraft.services.plugins.plugin_manager import PluginManager
+from ankidraft.ui.dialogs.addon_manager_dialog import (
     AddonConfigForm,
     AddonDetailWidget,
     AddonManagerWidget,
 )
-from ankiforge.ui.widgets.settings_modal import SettingsModal
+from ankidraft.ui.widgets.settings_modal import SettingsModal
 
 pytestmark = pytest.mark.ui
 

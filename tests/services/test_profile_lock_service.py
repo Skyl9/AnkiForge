@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.services.profile_lock_service import ProfileLockService, is_pid_alive
+from ankidraft.services.profile_lock_service import ProfileLockService, is_pid_alive
 
 pytestmark = pytest.mark.unit
 
@@ -62,7 +62,7 @@ def test_stale_lock_auto_recovery(temp_profiles_dir):
         f.write(f"{fake_dead_pid}\npytest\nhost\n")
 
     # Should detect dead PID and auto-recover
-    with patch("ankiforge.services.profile_lock_service.is_pid_alive", return_value=False):
+    with patch("ankidraft.services.profile_lock_service.is_pid_alive", return_value=False):
         acquired, lock_info = ProfileLockService.acquire_lock(profile, profiles_dir=temp_profiles_dir)
         assert acquired is True
         assert lock_info is None

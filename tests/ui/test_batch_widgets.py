@@ -9,22 +9,22 @@ from PySide6.QtCore import QPoint
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QAbstractItemView
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     PipelineModel,
     PipelineStepModel,
 )
-from ankiforge.services.ai.orchestrator import PipelineOrchestrator
-from ankiforge.services.batch.models import (
+from ankidraft.services.ai.orchestrator import PipelineOrchestrator
+from ankidraft.services.batch.models import (
     BatchGenerationConfig,
     BatchScopeSnapshot,
     BatchSourceBlock,
     BatchTaskSnapshot,
     BatchTaskStatus,
 )
-from ankiforge.services.workers.batch_worker import BatchTaskPayload, BatchWorker
-from ankiforge.ui.components import IconButton
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.views.batch_view.widgets import BatchQueueTable
+from ankidraft.services.workers.batch_worker import BatchTaskPayload, BatchWorker
+from ankidraft.ui.components import IconButton
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.ui.views.batch_view.widgets import BatchQueueTable
 
 pytestmark = pytest.mark.ui
 

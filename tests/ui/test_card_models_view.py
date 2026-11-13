@@ -7,11 +7,11 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QMessageBox
 
-from ankiforge.database.models import NoteTypeModel
-from ankiforge.services.cards.snippet_library import SnippetLibrary
-from ankiforge.ui.dialogs.css_conflict_dialog import CSSConflictDialog
-from ankiforge.ui.dialogs.model_import_dialog import ModelImportDialog
-from ankiforge.ui.views.card_models_view import CardModelsView
+from ankidraft.database.models import NoteTypeModel
+from ankidraft.services.cards.snippet_library import SnippetLibrary
+from ankidraft.ui.dialogs.css_conflict_dialog import CSSConflictDialog
+from ankidraft.ui.dialogs.model_import_dialog import ModelImportDialog
+from ankidraft.ui.views.card_models_view import CardModelsView
 
 pytestmark = pytest.mark.ui
 
@@ -259,7 +259,7 @@ def test_card_models_view_vertical_splitter_and_collider(qtbot, mock_db):
 
 def test_snippet_drawer_master_detail_and_creation(qtbot):
     """Vérifie la navigation Master-Detail, l'inspection de code et la création in-place de snippets."""
-    from ankiforge.ui.components.snippet_drawer import SnippetLibraryDrawer
+    from ankidraft.ui.components.snippet_drawer import SnippetLibraryDrawer
 
     drawer = SnippetLibraryDrawer()
     qtbot.addWidget(drawer)
@@ -312,7 +312,7 @@ def test_glow_line_edit_hover_and_focus_state(qtbot, mock_db):
     from PySide6.QtCore import QEvent, QPointF
     from PySide6.QtGui import QEnterEvent, QFocusEvent
 
-    from ankiforge.ui.components.inputs import GlowLineEdit
+    from ankidraft.ui.components.inputs import GlowLineEdit
 
     search_input = GlowLineEdit(placeholder="Rechercher un modèle...")
     qtbot.addWidget(search_input)
@@ -404,8 +404,8 @@ def test_card_models_view_toolbar_balanced(qtbot, mock_db):
 
 def test_snippet_card_click_opens_detail_and_insert_at_cursor(qtbot):
     """Vérifie que le clic sur la carte bascule vers l'édition et que le bouton Insérer au curseur émet le signal."""
-    from ankiforge.services.cards.snippet_library import SnippetLibrary
-    from ankiforge.ui.components.snippet_drawer import SnippetCardWidget
+    from ankidraft.services.cards.snippet_library import SnippetLibrary
+    from ankidraft.ui.components.snippet_drawer import SnippetCardWidget
 
     snippet = SnippetLibrary.get_by_id("callout_info")
     assert snippet is not None
@@ -436,8 +436,8 @@ def test_snippet_card_action_buttons_hidden_by_default_revealed_on_hover(qtbot):
     from PySide6.QtCore import QEvent, QPointF
     from PySide6.QtGui import QEnterEvent
 
-    from ankiforge.services.cards.snippet_library import SnippetLibrary
-    from ankiforge.ui.components.snippet_drawer import SnippetCardWidget
+    from ankidraft.services.cards.snippet_library import SnippetLibrary
+    from ankidraft.ui.components.snippet_drawer import SnippetCardWidget
 
     snippet = SnippetLibrary.get_by_id("callout_info")
     assert snippet is not None
@@ -465,8 +465,8 @@ def test_snippet_card_action_buttons_hidden_by_default_revealed_on_hover(qtbot):
 
 def test_snippet_card_title_elided_and_no_wrap(qtbot):
     """Le titre de la carte est en mode elision (pas de retour à la ligne) pour tenir dans une sidebar étroite."""
-    from ankiforge.services.cards.snippet_library import SnippetLibrary
-    from ankiforge.ui.components.snippet_drawer import SnippetCardWidget
+    from ankidraft.services.cards.snippet_library import SnippetLibrary
+    from ankidraft.ui.components.snippet_drawer import SnippetCardWidget
 
     snippet = SnippetLibrary.get_by_id("callout_info")
     card = SnippetCardWidget(snippet)
@@ -478,8 +478,8 @@ def test_snippet_card_title_elided_and_no_wrap(qtbot):
 
 def test_snippet_drawer_detail_header_compact_icon_buttons(qtbot):
     """L'en-tête de la vue détail remplace Retour/Supprimer par des IconButton compacts 24px avec tooltips."""
-    from ankiforge.ui.components.buttons import IconButton
-    from ankiforge.ui.components.snippet_drawer import SnippetLibraryDrawer
+    from ankidraft.ui.components.buttons import IconButton
+    from ankidraft.ui.components.snippet_drawer import SnippetLibraryDrawer
 
     drawer = SnippetLibraryDrawer()
     qtbot.addWidget(drawer)
@@ -501,8 +501,8 @@ def test_snippet_drawer_detail_header_compact_icon_buttons(qtbot):
 
 def test_snippet_drawer_create_header_compact_cancel(qtbot):
     """L'en-tête de la vue création remplace Annuler par un IconButton compact 24px avec tooltip."""
-    from ankiforge.ui.components.buttons import IconButton
-    from ankiforge.ui.components.snippet_drawer import SnippetLibraryDrawer
+    from ankidraft.ui.components.buttons import IconButton
+    from ankidraft.ui.components.snippet_drawer import SnippetLibraryDrawer
 
     drawer = SnippetLibraryDrawer()
     qtbot.addWidget(drawer)
@@ -517,7 +517,7 @@ def test_snippet_drawer_create_header_compact_cancel(qtbot):
 
 def test_snippet_drawer_form_cards_reduced_padding(qtbot):
     """Les cartes métadonnées et code des formulaires détail/création allègent leurs marges internes."""
-    from ankiforge.ui.components.snippet_drawer import SnippetLibraryDrawer
+    from ankidraft.ui.components.snippet_drawer import SnippetLibraryDrawer
 
     drawer = SnippetLibraryDrawer()
     qtbot.addWidget(drawer)
@@ -534,7 +534,7 @@ def test_snippet_drawer_form_cards_reduced_padding(qtbot):
 
 def test_card_models_view_cursor_linked_insertion(qtbot, mock_db):
     """Vérifie que l'insertion de snippet s'effectue précisément à la position du curseur dans l'éditeur actif."""
-    from ankiforge.services.cards.snippet_library import SnippetLibrary
+    from ankidraft.services.cards.snippet_library import SnippetLibrary
 
     view = CardModelsView()
     qtbot.addWidget(view)
@@ -578,7 +578,7 @@ def test_card_models_view_cursor_linked_insertion(qtbot, mock_db):
 
 def test_html_linter_and_css_linter():
     """Vérifie la détection précise des erreurs de syntaxe par HTMLLinter et CSSLinter."""
-    from ankiforge.ui.components.code_editor import CSSLinter, HTMLLinter
+    from ankidraft.ui.components.code_editor import CSSLinter, HTMLLinter
 
     # 1. HTML Linter : balises orphelines, non fermées, champs Anki inconnus
     html_valid = '<div class="card">\n  <p>{{Front}}</p>\n  <hr id="answer">\n</div>'
@@ -616,7 +616,7 @@ def test_html_linter_and_css_linter():
 
 def test_code_editor_gutter_autocomplete_and_lint_status(qtbot):
     """Vérifie la synchronisation de la gouttière native, le statut du linter et l'autocomplétion."""
-    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+    from ankidraft.ui.components.code_editor import CodeEditorWithGutter
 
     editor_wrapper = CodeEditorWithGutter(placeholder="{{Front}}", mode="html")
     qtbot.addWidget(editor_wrapper)
@@ -657,7 +657,7 @@ def test_code_editor_auto_closing_tags_and_braces(qtbot):
     from PySide6.QtCore import QEvent
     from PySide6.QtGui import QKeyEvent
 
-    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+    from ankidraft.ui.components.code_editor import CodeEditorWithGutter
 
     wrapper = CodeEditorWithGutter(placeholder="", mode="html")
     qtbot.addWidget(wrapper)
@@ -703,7 +703,7 @@ def test_syntax_highlighters(qtbot):
     """Vérifie l'application de la coloration syntaxique HTML et CSS."""
     from PySide6.QtWidgets import QTextEdit
 
-    from ankiforge.ui.components.code_editor import CSSSyntaxHighlighter, HTMLSyntaxHighlighter
+    from ankidraft.ui.components.code_editor import CSSSyntaxHighlighter, HTMLSyntaxHighlighter
 
     # 1. HTML Highlighter
     ed_html = QTextEdit()
@@ -720,7 +720,7 @@ def test_syntax_highlighters(qtbot):
 
 def test_modern_css_linter_no_false_positives():
     """Vérifie que le CSS moderne (variables, clamp, calc, at-rules, multi-lignes) ne génère aucun faux positif."""
-    from ankiforge.ui.components.code_editor import CSSLinter
+    from ankidraft.ui.components.code_editor import CSSLinter
 
     modern_css = """
     :root {
@@ -775,7 +775,7 @@ def test_modern_css_linter_no_false_positives():
 
 def test_color_swatches_detection():
     """Vérifie l'extraction précise des codes couleurs (hex, rgb, rgba, hsl)."""
-    from ankiforge.ui.components.code_editor import extract_colors_from_text
+    from ankidraft.ui.components.code_editor import extract_colors_from_text
 
     line_1 = "--bg-color: #ffffff; --accent: #5c6bc0;"
     colors_1 = extract_colors_from_text(line_1)
@@ -794,7 +794,7 @@ def test_code_formatter_css_and_html_and_shortcuts(qtbot):
     from PySide6.QtCore import QEvent
     from PySide6.QtGui import QKeyEvent
 
-    from ankiforge.ui.components.code_editor import CodeEditorWithGutter, CSSFormatter, HTMLFormatter
+    from ankidraft.ui.components.code_editor import CodeEditorWithGutter, CSSFormatter, HTMLFormatter
 
     # 1. Formatage CSS
     unformatted_css = ":root{--bg:#fff;--fg:#000;}.card{padding:10px;margin:0 auto;}"
@@ -892,7 +892,7 @@ def test_card_models_role_guide_apply_to_description(qtbot, mock_db):
 
     test_directive = "Gabarit pour questions médicales à choix multiples (QCM)."
 
-    with patch("ankiforge.ui.views.card_models_view.view.NoteTypeRoleGuideDialog") as mock_dialog_cls:
+    with patch("ankidraft.ui.views.card_models_view.view.NoteTypeRoleGuideDialog") as mock_dialog_cls:
         mock_dlg = mock_dialog_cls.return_value
         mock_dlg.exec.return_value = 1  # QDialog.DialogCode.Accepted
         mock_dlg.selected_directive = test_directive
@@ -910,7 +910,7 @@ def test_card_models_role_guide_direct_apply_without_popup(qtbot, mock_db):
     view.description_input.setText("Ancienne directive personnalisée")
     new_directive = "| Concept | Directive | Champs |\n|---|---|---|\n| Q/R | Direct | Front, Back |"
 
-    with patch("ankiforge.ui.views.card_models_view.view.NoteTypeRoleGuideDialog") as mock_dialog_cls:
+    with patch("ankidraft.ui.views.card_models_view.view.NoteTypeRoleGuideDialog") as mock_dialog_cls:
         mock_dlg = mock_dialog_cls.return_value
         mock_dlg.exec.return_value = 1
         mock_dlg.selected_directive = new_directive
@@ -941,7 +941,7 @@ def test_card_models_table_badge_detection(qtbot, mock_db):
 
 def test_responsive_top_action_bar_preview_sync(qtbot):
     """Vérifie l'API de synchronisation et l'état checkable du bouton d'aperçu dans ResponsiveTopActionBar."""
-    from ankiforge.ui.views.card_models_view.widgets.responsive_action_bar import ResponsiveTopActionBar
+    from ankidraft.ui.views.card_models_view.widgets.responsive_action_bar import ResponsiveTopActionBar
 
     bar = ResponsiveTopActionBar()
     qtbot.addWidget(bar)
@@ -1021,7 +1021,7 @@ def _make_html_editor(qtbot: Any) -> Any:
     Retourne le conteneur ``CodeEditorWithGutter`` : le conserver vivant est
     indispensable car son éditeur natif et son completer en dépendent.
     """
-    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+    from ankidraft.ui.components.code_editor import CodeEditorWithGutter
 
     wrapper = CodeEditorWithGutter(placeholder="", mode="html")
     qtbot.addWidget(wrapper)
@@ -1142,7 +1142,7 @@ def test_code_editor_css_free_typing_then_enter_inserts_newline(qtbot):
     Taper un mot libre ne doit ni ouvrir le popup, ni permettre à Entrée d'insérer une
     propriété CSS (ex. ``background-color: ``).
     """
-    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+    from ankidraft.ui.components.code_editor import CodeEditorWithGutter
 
     wrapper = CodeEditorWithGutter(placeholder="", mode="css")
     qtbot.addWidget(wrapper)
@@ -1192,7 +1192,7 @@ def test_code_editor_ctrl_space_opens_catalog(qtbot):
 
 def test_code_editor_css_prefix_ignores_decimals_and_detects_classes(qtbot):
     """Le déclencheur CSS `.` couvre les sélecteurs composés mais ignore les nombres décimaux."""
-    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+    from ankidraft.ui.components.code_editor import CodeEditorWithGutter
 
     wrapper = CodeEditorWithGutter(placeholder="", mode="css")
     qtbot.addWidget(wrapper)
@@ -1267,7 +1267,7 @@ def test_code_editor_html_tag_completion_consumes_adjacent_closing_angle(qtbot):
 
 def test_code_editor_css_hyphenated_properties_and_selectors_no_duplication(qtbot):
     """Les propriétés CSS et sélecteurs à tirets sont complétés sans duplication de préfixe."""
-    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+    from ankidraft.ui.components.code_editor import CodeEditorWithGutter
 
     wrapper = CodeEditorWithGutter(placeholder="", mode="css")
     qtbot.addWidget(wrapper)
@@ -1450,7 +1450,7 @@ def test_code_editor_apply_css_class_html_empty_selection(qtbot):
 
 def test_code_editor_apply_css_class_css_mode(qtbot):
     """En CSS, une sélection est enveloppée dans .{classe} { ... }, ou insère le squelette vierge."""
-    from ankiforge.ui.components.code_editor import CodeEditorWithGutter
+    from ankidraft.ui.components.code_editor import CodeEditorWithGutter
 
     wrapper = CodeEditorWithGutter(placeholder="", mode="css")
     qtbot.addWidget(wrapper)

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.services.update_checker import (
+from ankidraft.services.update_checker import (
     SETTINGS_KEY_CACHED_METADATA,
     SETTINGS_KEY_CACHED_VERSION,
     SETTINGS_KEY_CHANNEL,
@@ -20,7 +20,7 @@ from ankiforge.services.update_checker import (
     set_check_interval_seconds,
     set_update_channel,
 )
-from ankiforge.utils.environment import get_app_qsettings
+from ankidraft.utils.environment import get_app_qsettings
 
 pytestmark = pytest.mark.unit
 
@@ -227,7 +227,7 @@ def test_update_checker_nightly_no_false_alarm_when_build_date_missing() -> None
     worker.signals.no_update.connect(lambda _: no_update_called.append(True))
 
     # Simulation d'un build avec build_date vide (build incomplet / _version.py manquant)
-    from ankiforge.version import AppVersionInfo
+    from ankidraft.version import AppVersionInfo
 
     dummy_info = AppVersionInfo(
         version="1.0.5",
@@ -240,7 +240,7 @@ def test_update_checker_nightly_no_false_alarm_when_build_date_missing() -> None
 
     with (
         patch("requests.get", return_value=fake_response),
-        patch("ankiforge.services.update_checker.VERSION_INFO", dummy_info),
+        patch("ankidraft.services.update_checker.VERSION_INFO", dummy_info),
     ):
         worker.run()
 
@@ -264,7 +264,7 @@ def test_update_checker_handles_network_error_gracefully() -> None:
 
 def test_semver_tuple_and_comparison_logic() -> None:
     """Vérifie l'exactitude mathématique de parse_semver_tuple et is_version_strictly_greater."""
-    from ankiforge.services.update_checker import is_version_strictly_greater, parse_semver_tuple
+    from ankidraft.services.update_checker import is_version_strictly_greater, parse_semver_tuple
 
     assert parse_semver_tuple("v1.1.0") == (1, 1, 0)
     assert parse_semver_tuple("1.1.0") == (1, 1, 0)
@@ -352,10 +352,10 @@ def test_update_checker_handles_rate_limit_403_with_tags_fallback() -> None:
 
 def test_get_cached_update_info_returns_none_when_no_cache() -> None:
     """Vérifie que get_cached_update_info retourne None quand le cache QSettings est vide."""
-    from ankiforge.services.update_checker import get_cached_update_info
+    from ankidraft.services.update_checker import get_cached_update_info
 
     # get_app_qsettings est importée localement dans get_cached_update_info — on la patche à sa source
-    with patch("ankiforge.utils.environment.get_app_qsettings") as mock_settings:
+    with patch("ankidraft.utils.environment.get_app_qsettings") as mock_settings:
         mock_s = MagicMock()
         mock_s.value.side_effect = lambda key, default="": default
         mock_settings.return_value = mock_s
@@ -366,8 +366,8 @@ def test_get_cached_update_info_returns_none_when_no_cache() -> None:
 
 def test_get_cached_update_info_returns_none_when_cache_equals_current() -> None:
     """Vérifie que get_cached_update_info retourne None si la version cachée = version installée."""
-    from ankiforge.services.update_checker import get_cached_update_info
-    from ankiforge.version import AppVersionInfo
+    from ankidraft.services.update_checker import get_cached_update_info
+    from ankidraft.version import AppVersionInfo
 
     dummy_version = AppVersionInfo(
         version="1.0.5",
@@ -379,8 +379,8 @@ def test_get_cached_update_info_returns_none_when_cache_equals_current() -> None
     )
 
     with (
-        patch("ankiforge.utils.environment.get_app_qsettings") as mock_settings,
-        patch("ankiforge.services.update_checker.VERSION_INFO", dummy_version),
+        patch("ankidraft.utils.environment.get_app_qsettings") as mock_settings,
+        patch("ankidraft.services.update_checker.VERSION_INFO", dummy_version),
     ):
         mock_s = MagicMock()
         mock_s.value.side_effect = lambda key, default="": {"updates/cached_latest_version": "1.0.5"}.get(key, default)
@@ -392,8 +392,8 @@ def test_get_cached_update_info_returns_none_when_cache_equals_current() -> None
 
 def test_get_cached_update_info_returns_update_info_when_newer_cached() -> None:
     """Vérifie que get_cached_update_info retourne un UpdateInfo valide si version cachée > version installée."""
-    from ankiforge.services.update_checker import get_cached_update_info
-    from ankiforge.version import AppVersionInfo
+    from ankidraft.services.update_checker import get_cached_update_info
+    from ankidraft.version import AppVersionInfo
 
     dummy_version = AppVersionInfo(
         version="1.0.5",
@@ -405,8 +405,8 @@ def test_get_cached_update_info_returns_update_info_when_newer_cached() -> None:
     )
 
     with (
-        patch("ankiforge.utils.environment.get_app_qsettings") as mock_settings,
-        patch("ankiforge.services.update_checker.VERSION_INFO", dummy_version),
+        patch("ankidraft.utils.environment.get_app_qsettings") as mock_settings,
+        patch("ankidraft.services.update_checker.VERSION_INFO", dummy_version),
     ):
         cache = {
             "updates/cached_latest_version": "1.1.0",
@@ -435,7 +435,7 @@ def test_update_checker_304_updates_last_check_timestamp() -> None:
     settings.setValue(SETTINGS_KEY_ETAG_STABLE, 'W/"test-etag"')
     settings.remove(SETTINGS_KEY_LAST_CHECK)
 
-    with patch("requests.get", return_value=fake_response), patch("ankiforge.utils.environment.is_development", return_value=False):
+    with patch("requests.get", return_value=fake_response), patch("ankidraft.utils.environment.is_development", return_value=False):
         worker.run()
 
     last_check = settings.value(SETTINGS_KEY_LAST_CHECK)
@@ -500,7 +500,7 @@ def test_update_checker_respects_disabled_interval() -> None:
 
     with (
         patch("requests.get") as mock_get,
-        patch("ankiforge.utils.environment.is_development", return_value=False),
+        patch("ankidraft.utils.environment.is_development", return_value=False),
     ):
         worker.run()
         mock_get.assert_not_called()
@@ -526,7 +526,7 @@ def test_update_checker_zero_interval_always_checks() -> None:
 
     with (
         patch("requests.get", return_value=fake_response) as mock_get,
-        patch("ankiforge.utils.environment.is_development", return_value=False),
+        patch("ankidraft.utils.environment.is_development", return_value=False),
     ):
         worker.run()
         mock_get.assert_called_once()

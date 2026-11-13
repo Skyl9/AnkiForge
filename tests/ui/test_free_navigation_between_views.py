@@ -17,8 +17,8 @@ import pytest
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QMessageBox, QWidget
 
-from ankiforge.ui.components.nav_badge import NavBadgeButton
-from ankiforge.ui.main_window import MainWindow
+from ankidraft.ui.components.nav_badge import NavBadgeButton
+from ankidraft.ui.main_window import MainWindow
 
 pytestmark = pytest.mark.ui
 
@@ -62,13 +62,13 @@ def no_mcp_autostart() -> Iterator[None]:
     timer outlive la fixture et référence un `MCPStatusWidget` déjà détruit, ce qui fait
     échouer le teardown Qt. On force donc `is_testing()` pendant toute la construction.
     """
-    with patch("ankiforge.utils.environment.is_testing", return_value=True):
+    with patch("ankidraft.utils.environment.is_testing", return_value=True):
         yield
 
 
 @pytest.fixture
 def window(qtbot: Any, mock_db: Any) -> MainWindow:
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         win = MainWindow(ai_manager=None)
     qtbot.addWidget(win)
     return win
@@ -81,7 +81,7 @@ def install_probe(window: MainWindow) -> Iterator[Callable[..., DirtyViewProbe]]
     Les finaliseurs de fixtures précèdent `cleanup_qt_widgets`, qui ferme les widgets
     orphelins : sans cette restauration, `closeEvent` verrait encore une vue sale.
     """
-    from ankiforge.ui.main_window import DummyView
+    from ankidraft.ui.main_window import DummyView
 
     installed: list[str] = []
 
@@ -150,7 +150,7 @@ class TestNavigationIsNeverBlocked:
 class TestWorkStateSurvivesRoundTrip:
     def test_batch_queue_survives_creation_refresh_data(self, qtbot: Any, mock_db: Any) -> None:
         """`BatchView.refresh_data()` ne doit ni vider ni remplacer la file d'attente."""
-        from ankiforge.ui.views.batch_view import BatchView
+        from ankidraft.ui.views.batch_view import BatchView
 
         view = BatchView()
         qtbot.addWidget(view)
@@ -167,7 +167,7 @@ class TestWorkStateSurvivesRoundTrip:
 
     def test_batch_staging_review_state_survives_creation_refresh_data(self, qtbot: Any, mock_db: Any) -> None:
         """Une revue en cours (panneau de staging) n'est pas réinitialisée par refresh_data()."""
-        from ankiforge.ui.views.batch_view import BatchView
+        from ankidraft.ui.views.batch_view import BatchView
 
         view = BatchView()
         qtbot.addWidget(view)
@@ -185,7 +185,7 @@ class TestWorkStateSurvivesRoundTrip:
 
     def test_creation_generated_cards_survive_refresh_data(self, qtbot: Any, mock_db: Any) -> None:
         """`CreationView.refresh_data()` ne doit ni vider ni recalculer les cartes générées."""
-        from ankiforge.ui.views.creation_view import CreationView
+        from ankidraft.ui.views.creation_view import CreationView
 
         view = CreationView()
         qtbot.addWidget(view)
@@ -246,7 +246,7 @@ class TestDestructiveGuards:
 
         with (
             patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.No),
-            patch("ankiforge.database.maintenance.execute_clean_shutdown") as shutdown,
+            patch("ankidraft.database.maintenance.execute_clean_shutdown") as shutdown,
         ):
             MainWindow.closeEvent(window, event)
 
@@ -261,7 +261,7 @@ class TestDestructiveGuards:
 
         with (
             patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes),
-            patch("ankiforge.database.maintenance.execute_clean_shutdown") as shutdown,
+            patch("ankidraft.database.maintenance.execute_clean_shutdown") as shutdown,
         ):
             MainWindow.closeEvent(window, event)
 
@@ -271,7 +271,7 @@ class TestDestructiveGuards:
     def test_close_event_never_asks_when_nothing_is_dirty(self, window: MainWindow, install_probe: Any, no_modal_dialog: Any) -> None:
         event = QCloseEvent()
 
-        with patch("ankiforge.database.maintenance.execute_clean_shutdown"):
+        with patch("ankidraft.database.maintenance.execute_clean_shutdown"):
             MainWindow.closeEvent(window, event)
 
         assert event.isAccepted()
@@ -281,7 +281,7 @@ class TestDestructiveGuards:
         install_probe("batch", dirty=True)
         original_profile = window.profile_name
 
-        with patch("ankiforge.services.profile_lock_service.ProfileLockService.acquire_lock", return_value=(True, None)) as acquire:
+        with patch("ankidraft.services.profile_lock_service.ProfileLockService.acquire_lock", return_value=(True, None)) as acquire:
             window.switch_to_profile("other")
 
         acquire.assert_not_called()
@@ -347,7 +347,7 @@ class TestNavBadge:
     @pytest.mark.parametrize("layout_id", ["ide", "macos", "dashboard", "glassmorphism"])
     def test_every_layout_actually_renders_the_badge(self, qtbot: Any, layout_id: str) -> None:
         """Chaque layout rend une pastille visible, et sait la masquer."""
-        from ankiforge.ui.layouts.layout_manager import LayoutManager
+        from ankidraft.ui.layouts.layout_manager import LayoutManager
 
         layout = LayoutManager.create_layout(layout_id, profile_name="default")
         qtbot.addWidget(layout)
@@ -376,7 +376,7 @@ class TestNavBadge:
 
     @pytest.mark.parametrize("layout_id", ["ide", "macos", "dashboard", "glassmorphism"])
     def test_set_nav_badge_ignores_unknown_views(self, qtbot: Any, layout_id: str) -> None:
-        from ankiforge.ui.layouts.layout_manager import LayoutManager
+        from ankidraft.ui.layouts.layout_manager import LayoutManager
 
         layout = LayoutManager.create_layout(layout_id, profile_name="default")
         qtbot.addWidget(layout)
@@ -386,7 +386,7 @@ class TestNavBadge:
 
     def test_badge_style_is_declared_in_the_central_stylesheet(self) -> None:
         """Règle d'or DESIGN.md : le style d'un nouveau widget vit dans `StyleEngine`, pas codé en dur."""
-        from ankiforge.ui.style_engine import StyleEngine
+        from ankidraft.ui.style_engine import StyleEngine
 
         stylesheet = StyleEngine.instance().generate_stylesheet()
         block = stylesheet.split("/* --- NavBadgeButton")[1].split("}")[0]
@@ -449,7 +449,7 @@ class TestNavBadge:
 
     def test_batch_view_reports_active_tasks_only(self, qtbot: Any, mock_db: Any) -> None:
         """La pastille ne compte que les tâches actives : une frappe terminée l'éteint."""
-        from ankiforge.ui.views.batch_view import BatchView
+        from ankidraft.ui.views.batch_view import BatchView
 
         view = BatchView()
         qtbot.addWidget(view)
@@ -473,7 +473,7 @@ class TestNavBadge:
         assert view.pending_work_count() == 0
 
     def test_creation_view_reports_unsaved_cards(self, qtbot: Any, mock_db: Any) -> None:
-        from ankiforge.ui.views.creation_view import CreationView
+        from ankidraft.ui.views.creation_view import CreationView
 
         view = CreationView()
         qtbot.addWidget(view)

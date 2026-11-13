@@ -6,17 +6,17 @@ import io
 import pytest
 from PIL import Image
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentChunkModel,
     DocumentModel,
     DocumentPageModel,
     db,
 )
-from ankiforge.services.ai.base import LLMProvider
-from ankiforge.services.ai.vision_category_service import VisionCategoryService
-from ankiforge.services.cards.media_manager import MediaManager
-from ankiforge.services.rag.vector_manager import VectorManager
-from ankiforge.services.rag.visual_rag_service import VisualRAGService
+from ankidraft.services.ai.base import LLMProvider
+from ankidraft.services.ai.vision_category_service import VisionCategoryService
+from ankidraft.services.cards.media_manager import MediaManager
+from ankidraft.services.rag.vector_manager import VectorManager
+from ankidraft.services.rag.visual_rag_service import VisualRAGService
 
 pytestmark = pytest.mark.integration
 

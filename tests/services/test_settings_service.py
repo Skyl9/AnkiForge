@@ -2,8 +2,8 @@
 
 import pytest
 
-from ankiforge.database.models import SettingModel
-from ankiforge.services.settings_service import SettingsService
+from ankidraft.database.models import SettingModel
+from ankidraft.services.settings_service import SettingsService
 
 pytestmark = pytest.mark.integration
 

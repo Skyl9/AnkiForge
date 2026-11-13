@@ -12,10 +12,10 @@ from typing import Any
 import httpx
 import pytest
 
-from ankiforge.__main__ import main, parse_cli_args
-from ankiforge.services.ai.mcp_cli import resolve_target_profile, run_mcp_server_cli
-from ankiforge.services.profile_manager import ProfileManager
-from ankiforge.utils.paths import get_active_profile
+from ankidraft.__main__ import main, parse_cli_args
+from ankidraft.services.ai.mcp_cli import resolve_target_profile, run_mcp_server_cli
+from ankidraft.services.profile_manager import ProfileManager
+from ankidraft.utils.paths import get_active_profile
 
 
 @pytest.mark.unit
@@ -54,7 +54,7 @@ def test_parse_cli_args_rotate_mcp_token_standalone() -> None:
 
 @pytest.mark.unit
 def test_cli_help_documents_mcp_server_options(capsys: pytest.CaptureFixture[str]) -> None:
-    """Vérifie que 'ankiforge --help' documente explicitement --mcp-server, --port, --profile et --rotate-mcp-token."""
+    """Vérifie que 'ankidraft --help' documente explicitement --mcp-server, --port, --profile et --rotate-mcp-token."""
     with pytest.raises(SystemExit) as exc_info:
         main(["--help"])
     assert exc_info.value.code == 0
@@ -104,9 +104,8 @@ def test_cli_rotate_mcp_token_standalone_generates_and_exits(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Vérifie que 'ankiforge --rotate-mcp-token' génère un nouveau jeton dans le dossier app_data et quitte avec code 0."""
-    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
-    monkeypatch.setattr("ankiforge.__main__.get_app_data_dir", lambda: tmp_path)
+    """Vérifie que 'ankidraft --rotate-mcp-token' génère un nouveau jeton dans le dossier app_data et quitte avec code 0."""
+    monkeypatch.setattr("ankidraft.utils.paths.get_app_data_dir", lambda: tmp_path)
 
     token_file = tmp_path / "mcp_auth_token"
     token_file.write_text("old_token_1234567890", encoding="utf-8")
@@ -125,8 +124,8 @@ def test_cli_rotate_mcp_token_standalone_generates_and_exits(
 
 @pytest.mark.unit
 def test_sync_mcp_client_config_updates_authorization_header(tmp_path: Path) -> None:
-    """Vérifie que sync_mcp_client_config met à jour le header Authorization de l'entrée ankiforge."""
-    from ankiforge.services.ai.mcp_daemon import sync_mcp_client_config
+    """Vérifie que sync_mcp_client_config met à jour le header Authorization de l'entrée ankidraft."""
+    from ankidraft.services.ai.mcp_daemon import sync_mcp_client_config
 
     client_cfg = tmp_path / "mcp_config.json"
     initial_content = {
@@ -135,7 +134,7 @@ def test_sync_mcp_client_config_updates_authorization_header(tmp_path: Path) -> 
                 "url": "http://localhost:4401/mcp",
                 "disabled": True,
             },
-            "ankiforge": {
+            "ankidraft": {
                 "url": "http://127.0.0.1:8765/mcp",
                 "headers": {"Authorization": "Bearer old-bearer-token"},
             },
@@ -148,7 +147,7 @@ def test_sync_mcp_client_config_updates_authorization_header(tmp_path: Path) -> 
     assert updated is True
 
     data = json.loads(client_cfg.read_text(encoding="utf-8"))
-    assert data["mcpServers"]["ankiforge"]["headers"]["Authorization"] == f"Bearer {new_token}"
+    assert data["mcpServers"]["ankidraft"]["headers"]["Authorization"] == f"Bearer {new_token}"
     assert data["mcpServers"]["penpot"]["disabled"] is True
 
 
@@ -180,7 +179,7 @@ def test_run_mcp_server_cli_initializes_db_and_banner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Vérifie l'initialisation BDD, l'affichage de la bannière et l'arrêt propre via stop_event."""
-    monkeypatch.setattr("ankiforge.services.ai.mcp_cli.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankidraft.services.ai.mcp_cli.get_app_data_dir", lambda: tmp_path)
     monkeypatch.setattr(ProfileManager, "PROFILES_DIR", tmp_path / "profiles")
 
     stop_event = threading.Event()
@@ -256,7 +255,7 @@ def test_run_mcp_server_cli_startup_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Vérifie le comportement en cas d'échec de démarrage du daemon (code de sortie 1)."""
-    monkeypatch.setattr("ankiforge.services.ai.mcp_cli.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankidraft.services.ai.mcp_cli.get_app_data_dir", lambda: tmp_path)
     monkeypatch.setattr(ProfileManager, "PROFILES_DIR", tmp_path / "profiles")
 
     class FailingDaemon:
@@ -286,7 +285,7 @@ def test_run_mcp_server_cli_unexpected_daemon_death(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Vérifie qu'un crash inattendu du thread daemon est détecté et renvoie le code 1."""
-    monkeypatch.setattr("ankiforge.services.ai.mcp_cli.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankidraft.services.ai.mcp_cli.get_app_data_dir", lambda: tmp_path)
     monkeypatch.setattr(ProfileManager, "PROFILES_DIR", tmp_path / "profiles")
 
     class CrashingDaemon:
@@ -344,7 +343,7 @@ def test_run_mcp_server_cli_signal_interception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Vérifie l'interception de signaux système (SIGINT/SIGTERM) et l'arrêt ordonné."""
-    monkeypatch.setattr("ankiforge.services.ai.mcp_cli.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankidraft.services.ai.mcp_cli.get_app_data_dir", lambda: tmp_path)
     monkeypatch.setattr(ProfileManager, "PROFILES_DIR", tmp_path / "profiles")
 
     signal_handlers: dict[int, Any] = {}
@@ -410,10 +409,10 @@ def test_run_mcp_server_cli_e2e_real_daemon(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test d'intégration simulant l'invocation CLI et le cycle de vie réseau réel avec arrêt gracieux."""
-    monkeypatch.setattr("ankiforge.utils.paths.get_app_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("ankidraft.utils.paths.get_app_data_dir", lambda: tmp_path)
     monkeypatch.setattr(ProfileManager, "PROFILES_DIR", tmp_path / "profiles")
 
-    from ankiforge.services.ai.mcp_daemon import find_available_port
+    from ankidraft.services.ai.mcp_daemon import find_available_port
 
     test_port = find_available_port(start_port=9600)
     stop_event = threading.Event()

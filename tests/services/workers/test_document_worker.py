@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.services.parsing.marker_service import MarkerOptions
-from ankiforge.services.workers.document_worker import DocumentWorker
+from ankidraft.services.parsing.marker_service import MarkerOptions
+from ankidraft.services.workers.document_worker import DocumentWorker
 
 pytestmark = pytest.mark.integration
 
@@ -19,7 +19,7 @@ def test_document_worker_relays_marker_options(qtbot) -> None:
 
     assert worker.marker_options == options
 
-    with patch("ankiforge.services.workers.document_worker.DocumentParser") as mock_parser_cls:
+    with patch("ankidraft.services.workers.document_worker.DocumentParser") as mock_parser_cls:
         mock_parser = MagicMock()
         mock_parser.parse_document.return_value = "# Contenu extrait"
         mock_parser_cls.return_value = mock_parser
@@ -43,7 +43,7 @@ def test_document_worker_default_marker_options_none(qtbot) -> None:
 
     assert worker.marker_options is None
 
-    with patch("ankiforge.services.workers.document_worker.DocumentParser") as mock_parser_cls:
+    with patch("ankidraft.services.workers.document_worker.DocumentParser") as mock_parser_cls:
         mock_parser = MagicMock()
         mock_parser.parse_document.return_value = "# Chimie"
         mock_parser_cls.return_value = mock_parser

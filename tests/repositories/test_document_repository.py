@@ -6,10 +6,10 @@ import json
 
 import pytest
 
-from ankiforge.database.models import DocumentChunkModel, DocumentModel, NoteModel, NoteTypeModel
-from ankiforge.repositories.document_repository import DocumentRepository
-from ankiforge.services.markdown.structurer import MarkdownStructurer
-from ankiforge.utils.region_address import RegionAddress, RegionScope
+from ankidraft.database.models import DocumentChunkModel, DocumentModel, NoteModel, NoteTypeModel
+from ankidraft.repositories.document_repository import DocumentRepository
+from ankidraft.services.markdown.structurer import MarkdownStructurer
+from ankidraft.utils.region_address import RegionAddress, RegionScope
 
 pytestmark = pytest.mark.integration
 
@@ -79,7 +79,7 @@ def test_ensure_folder_hierarchy_creates_parents_and_leaf() -> None:
 
 
 def test_heal_folder_hierarchies_creates_missing_parents() -> None:
-    from ankiforge.database.models import FolderModel
+    from ankidraft.database.models import FolderModel
 
     repo = DocumentRepository()
     # Création directe d'un dossier sans ses parents

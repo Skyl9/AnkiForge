@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "script"))
 
 from build_standalone import compile_translation_catalogs, copy_app_resources_to_bundle  # noqa: E402 — dépend du sys.path ci-dessus
 
-from ankiforge.utils import i18n  # noqa: E402 — idem
+from ankidraft.utils import i18n  # noqa: E402 — idem
 
 
 @pytest.fixture
@@ -51,12 +51,12 @@ def minimal_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Racine projet minimale à la place du vrai dépôt.
 
     Copier les vraies racines ``src/ressources`` (≈ 36 Mo, ≈ 9 000 fichiers) et
-    ``src/ankiforge/resources`` ne vérifie rien de plus qu'un fichier témoin, mais
+    ``src/ankidraft/resources`` ne vérifie rien de plus qu'un fichier témoin, mais
     transforme chaque test en vidage disque : c'est ce qui faisait expirer la CI
     Windows (30 s) sans rien prouver sur la copie elle-même.
     """
     project_root = tmp_path / "projet"
-    translations = project_root / "src" / "ankiforge" / "resources" / "translations"
+    translations = project_root / "src" / "ankidraft" / "resources" / "translations"
     translations.mkdir(parents=True)
     (translations / f"{i18n.CATALOG_STEM}_{i18n.SOURCE_LANGUAGE}.ts").write_text("<TS/>", encoding="utf-8")
     icons = project_root / "src" / "ressources" / "icons"
@@ -71,26 +71,26 @@ def test_catalogs_are_copied_into_the_mac_bundle(frozen_bundle: Path, minimal_pr
     """``copy_app_resources_to_bundle`` doit déposer les catalogues là où Qt ira les lire."""
     copy_app_resources_to_bundle(frozen_bundle, "darwin")
 
-    translations = frozen_bundle / "Contents" / "Resources" / "src" / "ankiforge" / "resources" / "translations"
+    translations = frozen_bundle / "Contents" / "Resources" / "src" / "ankidraft" / "resources" / "translations"
     assert translations.is_dir(), f"Catalogues absents du bundle : {translations}"
     assert list(translations.glob("*.ts")), "Aucun catalogue source embarqué"
 
 
 def test_catalogs_survive_a_missing_legacy_resources_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``src/ressources`` absent ne doit plus faire disparaître ``src/ankiforge/resources``.
+    """``src/ressources`` absent ne doit plus faire disparaître ``src/ankidraft/resources``.
 
     L'ancien code faisait un ``return`` dès que le premier dossier manquait : les
     catalogues, qui vivent dans le second, disparaissaient du bundle sans le moindre
     avertissement.
     """
     project_root = tmp_path / "projet"
-    (project_root / "src" / "ankiforge" / "resources" / "translations").mkdir(parents=True)
-    (project_root / "src" / "ankiforge" / "resources" / "translations" / "ankiforge_en.ts").write_text("<TS/>", encoding="utf-8")
+    (project_root / "src" / "ankidraft" / "resources" / "translations").mkdir(parents=True)
+    (project_root / "src" / "ankidraft" / "resources" / "translations" / "ankidraft_en.ts").write_text("<TS/>", encoding="utf-8")
 
     monkeypatch.setattr("build_standalone.PROJECT_ROOT", project_root)
     copy_app_resources_to_bundle(tmp_path / "dist", "linux")
 
-    copied = tmp_path / "dist" / "src" / "ankiforge" / "resources" / "translations" / "ankiforge_en.ts"
+    copied = tmp_path / "dist" / "src" / "ankidraft" / "resources" / "translations" / "ankidraft_en.ts"
     assert copied.is_file(), f"Catalogues non copiés : {copied}"
 
 
@@ -99,7 +99,7 @@ def test_translations_resolve_inside_a_frozen_mac_bundle(frozen_bundle: Path, mi
     copy_app_resources_to_bundle(frozen_bundle, "darwin")
 
     resolved = i18n.translations_dir()
-    assert resolved == frozen_bundle / "Contents" / "Resources" / "src" / "ankiforge" / "resources" / "translations"
+    assert resolved == frozen_bundle / "Contents" / "Resources" / "src" / "ankidraft" / "resources" / "translations"
     source_ts = resolved / f"{i18n.CATALOG_STEM}_{i18n.SOURCE_LANGUAGE}.ts"
     assert source_ts.is_file(), f"Catalogue source absent du bundle : {source_ts}"
 
@@ -115,7 +115,7 @@ def test_translations_resolve_inside_a_flat_bundle(tmp_path: Path, monkeypatch: 
     monkeypatch.setattr(sys, "executable", str(executable))
     copy_app_resources_to_bundle(dist_dir, "linux")
 
-    assert i18n.translations_dir() == dist_dir / "src" / "ankiforge" / "resources" / "translations"
+    assert i18n.translations_dir() == dist_dir / "src" / "ankidraft" / "resources" / "translations"
 
 
 # ── 2. Les deux coutures de build déclarent les catalogues compilés ──────────────
@@ -147,7 +147,7 @@ def test_nuitka_build_compiles_catalogs_before_packaging(monkeypatch: pytest.Mon
 
     def fake_compile(language: str) -> Path:
         compiled.append(language)
-        return PROJECT_ROOT / "src" / "ankiforge" / "resources" / "translations" / f"ankiforge_{language}.qm"
+        return PROJECT_ROOT / "src" / "ankidraft" / "resources" / "translations" / f"ankidraft_{language}.qm"
 
     monkeypatch.setattr("build_standalone.compile_catalog", fake_compile)
     compile_translation_catalogs()

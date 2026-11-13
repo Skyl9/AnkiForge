@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.services.cards.latex_environment_service import (
+from ankidraft.services.cards.latex_environment_service import (
     LatexBinaryInfo,
     LatexEnvironmentService,
     LatexEnvironmentStatus,
@@ -24,7 +24,7 @@ class TestLatexEnvironmentService:
         with (
             patch("shutil.which", return_value="/usr/bin/latex"),
             patch(
-                "ankiforge.services.cards.latex_environment_service.LatexEnvironmentService._get_version",
+                "ankidraft.services.cards.latex_environment_service.LatexEnvironmentService._get_version",
                 return_value="pdfTeX 3.141592653-2.6-1.40.24 (TeX Live 2023)",
             ),
         ):
@@ -43,7 +43,7 @@ class TestLatexEnvironmentService:
         with (
             patch("shutil.which", side_effect=[None, "/usr/bin/pdflatex"]),
             patch(
-                "ankiforge.services.cards.latex_environment_service.LatexEnvironmentService._get_version",
+                "ankidraft.services.cards.latex_environment_service.LatexEnvironmentService._get_version",
                 return_value="pdfTeX 3.141592653-2.6-1.40.24",
             ),
         ):
@@ -67,7 +67,7 @@ class TestLatexEnvironmentService:
         with (
             patch("shutil.which", return_value="/usr/bin/dvisvgm"),
             patch(
-                "ankiforge.services.cards.latex_environment_service.LatexEnvironmentService._get_version",
+                "ankidraft.services.cards.latex_environment_service.LatexEnvironmentService._get_version",
                 return_value="dvisvgm 3.0",
             ),
         ):
@@ -84,7 +84,7 @@ class TestLatexEnvironmentService:
         with (
             patch("shutil.which", return_value="/usr/bin/dvipng"),
             patch(
-                "ankiforge.services.cards.latex_environment_service.LatexEnvironmentService._get_version",
+                "ankidraft.services.cards.latex_environment_service.LatexEnvironmentService._get_version",
                 return_value="dvipng 1.17",
             ),
         ):
@@ -235,7 +235,7 @@ class TestLatexEnvironmentService:
         with (
             patch("shutil.which", return_value="/usr/bin/latex"),
             patch(
-                "ankiforge.services.cards.latex_environment_service.LatexEnvironmentService._get_version",
+                "ankidraft.services.cards.latex_environment_service.LatexEnvironmentService._get_version",
                 return_value="TeX Live 2023",
             ),
         ):
@@ -251,7 +251,7 @@ class TestLatexEnvironmentService:
             with (
                 patch("shutil.which", return_value="/usr/local/bin/latex"),
                 patch(
-                    "ankiforge.services.cards.latex_environment_service.LatexEnvironmentService._get_version",
+                    "ankidraft.services.cards.latex_environment_service.LatexEnvironmentService._get_version",
                     return_value="TeX Live 2024",
                 ),
             ):
@@ -287,7 +287,7 @@ class TestLatexEnvironmentService:
 
     def test_get_custom_paths_from_settings(self) -> None:
         """Teste la récupération des chemins personnalisés depuis les settings."""
-        with patch("ankiforge.services.settings_service.SettingsService.get", side_effect=["/custom/latex", "/custom/dvisvgm", ""]):
+        with patch("ankidraft.services.settings_service.SettingsService.get", side_effect=["/custom/latex", "/custom/dvisvgm", ""]):
             service = LatexEnvironmentService()
             paths = service.get_custom_paths_from_settings()
 

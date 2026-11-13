@@ -9,7 +9,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from ankiforge.security.signatures import verify_manifest_signature
+from ankidraft.security.signatures import verify_manifest_signature
 from script.sign_release import (
     ENV_SIGNING_KEY,
     generate_keypair,

@@ -1,4 +1,4 @@
-"""Tests unitaires pour le module ankiforge.utils.environment et le cloisonnement Dev/Prod/Test."""
+"""Tests unitaires pour le module ankidraft.utils.environment et le cloisonnement Dev/Prod/Test."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.services.profile_manager import ProfileManager
-from ankiforge.utils.environment import (
+from ankidraft.services.profile_manager import ProfileManager
+from ankidraft.utils.environment import (
     AppEnvironment,
     clone_production_data_to_development,
     get_current_environment,
@@ -22,7 +22,7 @@ from ankiforge.utils.environment import (
     is_testing,
     set_environment,
 )
-from ankiforge.utils.paths import get_app_data_dir, get_tools_search_dirs
+from ankidraft.utils.paths import get_app_data_dir, get_tools_search_dirs
 
 pytestmark = pytest.mark.unit
 
@@ -30,20 +30,24 @@ pytestmark = pytest.mark.unit
 @pytest.fixture(autouse=True)
 def reset_environment_state():
     """Réinitialise l'état global de l'environnement après chaque test."""
-    original_env_var = os.environ.get("ANKIFORGE_ENV")
-    original_custom_dir = os.environ.get("ANKIFORGE_DATA_DIR")
+    original_env_var = os.environ.get("ANKIDRAFT_ENV") or os.environ.get("ANKIFORGE_ENV")
+    original_custom_dir = os.environ.get("ANKIDRAFT_DATA_DIR") or os.environ.get("ANKIFORGE_DATA_DIR")
     yield
-    import ankiforge.utils.environment as env_mod
+    import ankidraft.utils.environment as env_mod
 
     env_mod._current_env = None
     if original_env_var is not None:
+        os.environ["ANKIDRAFT_ENV"] = original_env_var
         os.environ["ANKIFORGE_ENV"] = original_env_var
     else:
+        os.environ.pop("ANKIDRAFT_ENV", None)
         os.environ.pop("ANKIFORGE_ENV", None)
 
     if original_custom_dir is not None:
+        os.environ["ANKIDRAFT_DATA_DIR"] = original_custom_dir
         os.environ["ANKIFORGE_DATA_DIR"] = original_custom_dir
     else:
+        os.environ.pop("ANKIDRAFT_DATA_DIR", None)
         os.environ.pop("ANKIFORGE_DATA_DIR", None)
 
 
@@ -85,29 +89,31 @@ def test_set_environment_string_aliases():
 
 def test_cli_flags_override():
     """Vérifie que les drapeaux CLI --dev et --prod sont respectés."""
-    import ankiforge.utils.environment as env_mod
+    import ankidraft.utils.environment as env_mod
 
     env_mod._current_env = None
+    os.environ.pop("ANKIDRAFT_ENV", None)
     os.environ.pop("ANKIFORGE_ENV", None)
     os.environ.pop("PYTEST_CURRENT_TEST", None)
 
-    with patch.object(sys, "argv", ["ankiforge", "--dev"]):
+    with patch.object(sys, "argv", ["ankidraft", "--dev"]):
         assert get_current_environment() == AppEnvironment.DEVELOPMENT
 
     env_mod._current_env = None
-    with patch.object(sys, "argv", ["ankiforge", "--prod"]):
+    with patch.object(sys, "argv", ["ankidraft", "--prod"]):
         assert get_current_environment() == AppEnvironment.PRODUCTION
 
 
 def test_frozen_binary_detection():
     """Vérifie qu'un binaire gelé sans drapeau CLI est identifié comme Production."""
-    import ankiforge.utils.environment as env_mod
+    import ankidraft.utils.environment as env_mod
 
     env_mod._current_env = None
+    os.environ.pop("ANKIDRAFT_ENV", None)
     os.environ.pop("ANKIFORGE_ENV", None)
     os.environ.pop("PYTEST_CURRENT_TEST", None)
 
-    with patch.object(sys, "argv", ["ankiforge"]), patch.object(sys, "frozen", True, create=True):
+    with patch.object(sys, "argv", ["ankidraft"]), patch.object(sys, "frozen", True, create=True):
         assert get_current_environment() == AppEnvironment.PRODUCTION
 
 
@@ -117,17 +123,17 @@ def test_app_data_dir_isolation():
 
     set_environment(AppEnvironment.DEVELOPMENT)
     dev_dir = get_app_data_dir()
-    assert dev_dir.name == ".ankiforge-dev"
+    assert dev_dir.name == ".ankidraft-dev"
     assert dev_dir.parent == Path.home()
 
     set_environment(AppEnvironment.PRODUCTION)
     prod_dir = get_app_data_dir()
-    assert prod_dir.name == ".ankiforge"
+    assert prod_dir.name == ".ankidraft"
     assert prod_dir.parent == Path.home()
 
     set_environment(AppEnvironment.TESTING)
     test_dir = get_app_data_dir()
-    assert test_dir.name == ".ankiforge-test"
+    assert test_dir.name == ".ankidraft-test"
     assert test_dir.parent == Path.home()
 
     assert dev_dir != prod_dir
@@ -146,16 +152,16 @@ def test_app_data_dir_custom_override(tmp_path: Path):
 def test_qsettings_isolation():
     """Vérifie que les domaines QSettings sont strictement séparés entre Dev, Prod et Test."""
     set_environment(AppEnvironment.DEVELOPMENT)
-    assert get_settings_org_name() == "AnkiForgeOrg-Dev"
-    assert get_settings_app_name() == "AnkiForge-Dev"
+    assert get_settings_org_name() == "AnkiDraftOrg-Dev"
+    assert get_settings_app_name() == "AnkiDraft-Dev"
 
     set_environment(AppEnvironment.PRODUCTION)
-    assert get_settings_org_name() == "AnkiForgeOrg"
-    assert get_settings_app_name() == "AnkiForge"
+    assert get_settings_org_name() == "AnkiDraftOrg"
+    assert get_settings_app_name() == "AnkiDraft"
 
     set_environment(AppEnvironment.TESTING)
-    assert get_settings_org_name() == "AnkiForgeOrg-Test"
-    assert get_settings_app_name().startswith("AnkiForge-Test")
+    assert get_settings_org_name() == "AnkiDraftOrg-Test"
+    assert get_settings_app_name().startswith("AnkiDraft-Test")
 
 
 def test_testing_qsettings_are_isolated_per_xdist_worker(monkeypatch):
@@ -164,7 +170,7 @@ def test_testing_qsettings_are_isolated_per_xdist_worker(monkeypatch):
     Un `QSettings.clear()` dans un worker effacerait sinon les préférences d'un autre.
     Le contrat verifie est l'isolation des fichiers, pas la formule de nommage.
     """
-    from ankiforge.utils.environment import get_app_qsettings
+    from ankidraft.utils.environment import get_app_qsettings
 
     set_environment(AppEnvironment.TESTING)
     monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw0")
@@ -182,12 +188,12 @@ def test_profile_manager_dynamic_profiles_dir():
 
     set_environment(AppEnvironment.DEVELOPMENT)
     assert pm.profiles_dir.name == "profiles"
-    assert pm.profiles_dir.parent.name == ".ankiforge-dev"
-    assert ProfileManager.PROFILES_DIR.parent.name == ".ankiforge-dev"
+    assert pm.profiles_dir.parent.name == ".ankidraft-dev"
+    assert ProfileManager.PROFILES_DIR.parent.name == ".ankidraft-dev"
 
     set_environment(AppEnvironment.PRODUCTION)
-    assert pm.profiles_dir.parent.name == ".ankiforge"
-    assert ProfileManager.PROFILES_DIR.parent.name == ".ankiforge"
+    assert pm.profiles_dir.parent.name == ".ankidraft"
+    assert ProfileManager.PROFILES_DIR.parent.name == ".ankidraft"
 
 
 def test_get_tools_search_dirs():
@@ -197,23 +203,23 @@ def test_get_tools_search_dirs():
 
     search_dirs = get_tools_search_dirs()
     assert len(search_dirs) == 2
-    assert search_dirs[0] == Path.home() / ".ankiforge-dev" / "tools"
-    assert search_dirs[1] == Path.home() / ".ankiforge" / "tools"
+    assert search_dirs[0] == Path.home() / ".ankidraft-dev" / "tools"
+    assert search_dirs[1] == Path.home() / ".ankidraft" / "tools"
 
     set_environment(AppEnvironment.PRODUCTION)
     search_dirs_prod = get_tools_search_dirs()
     assert len(search_dirs_prod) == 1
-    assert search_dirs_prod[0] == Path.home() / ".ankiforge" / "tools"
+    assert search_dirs_prod[0] == Path.home() / ".ankidraft" / "tools"
 
 
 def test_clone_production_data_to_development(tmp_path: Path):
     """Vérifie la copie sécurisée des profils et médias de production vers dev."""
-    fake_prod = tmp_path / ".ankiforge"
-    fake_dev = tmp_path / ".ankiforge-dev"
+    fake_prod = tmp_path / ".ankidraft"
+    fake_dev = tmp_path / ".ankidraft-dev"
 
     prod_profile = fake_prod / "profiles" / "mon_espace"
     prod_profile.mkdir(parents=True)
-    (prod_profile / "ankiforge.db").write_text("fake sqlite content")
+    (prod_profile / "ankidraft.db").write_text("fake sqlite content")
 
     media_dir = prod_profile / "media"
     media_dir.mkdir()
@@ -225,7 +231,7 @@ def test_clone_production_data_to_development(tmp_path: Path):
         assert cloned_profiles == 1
         assert copied_media == 1
 
-        dev_db = fake_dev / "profiles" / "mon_espace" / "ankiforge.db"
+        dev_db = fake_dev / "profiles" / "mon_espace" / "ankidraft.db"
         dev_media = fake_dev / "profiles" / "mon_espace" / "media" / "sample_audio.mp3"
 
         assert dev_db.exists()

@@ -9,7 +9,7 @@ from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QToolButton
 from pytestqt.qtbot import QtBot
 
-from ankiforge.ui.widgets.note_editor_widget import NoteFieldEditorWidget
+from ankidraft.ui.widgets.note_editor_widget import NoteFieldEditorWidget
 
 pytestmark = pytest.mark.ui
 
@@ -44,7 +44,7 @@ def test_note_field_generate_tts_action(qtbot: QtBot) -> None:
     mock_svc = MagicMock()
     mock_svc.synthesize.return_value = ("[sound:tts_mock123.mp3]", Path("/fake/tts_mock123.mp3"))
 
-    with patch("ankiforge.services.cards.tts_service.get_tts_service", return_value=mock_svc):
+    with patch("ankidraft.services.cards.tts_service.get_tts_service", return_value=mock_svc):
         # Clic sur le bouton de génération TTS
         qtbot.mouseClick(widget.btn_tts_generate, Qt.MouseButton.LeftButton)
 
@@ -74,14 +74,14 @@ def test_note_field_audio_playback_trigger(qtbot: QtBot, tmp_path: Path) -> None
     mock_devices.defaultAudioOutput.return_value = mock_default_device
 
     with (
-        patch("ankiforge.ui.widgets.note_editor_widget.QMediaPlayer", return_value=mock_player),
-        patch("ankiforge.ui.widgets.note_editor_widget.QAudioOutput", return_value=mock_output),
-        patch("ankiforge.ui.widgets.note_editor_widget.QMediaDevices", mock_devices),
+        patch("ankidraft.ui.widgets.note_editor_widget.QMediaPlayer", return_value=mock_player),
+        patch("ankidraft.ui.widgets.note_editor_widget.QAudioOutput", return_value=mock_output),
+        patch("ankidraft.ui.widgets.note_editor_widget.QMediaDevices", mock_devices),
         patch(
-            "ankiforge.ui.widgets.note_editor_widget.SettingsService.get",
+            "ankidraft.ui.widgets.note_editor_widget.SettingsService.get",
             return_value=None,
         ),
-        patch("ankiforge.utils.paths.resolve_media_path", return_value=audio_file),
+        patch("ankidraft.utils.paths.resolve_media_path", return_value=audio_file),
     ):
         widget = NoteFieldEditorWidget(field_name="Front", initial_value="Texte [sound:test_voice.mp3]")
         qtbot.addWidget(widget)
@@ -104,7 +104,7 @@ def test_note_field_audio_playback_trigger(qtbot: QtBot, tmp_path: Path) -> None
         mock_player.play.assert_called_once()
 
     # Gestion d'erreur : le slot consigne en log et notifie via un toast
-    with patch("ankiforge.ui.widgets.note_editor_widget.logger") as mock_logger, patch("ankiforge.ui.widgets.note_editor_widget.show_toast") as mock_toast:
+    with patch("ankidraft.ui.widgets.note_editor_widget.logger") as mock_logger, patch("ankidraft.ui.widgets.note_editor_widget.show_toast") as mock_toast:
         widget._on_player_error(QMediaPlayer.Error.ResourceError, "codec manquant")
         mock_logger.error.assert_called_once()
         mock_toast.assert_called_once()

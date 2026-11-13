@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.database.models.cards import NoteTypeModel
-from ankiforge.utils.anki_renderer import (
+from ankidraft.database.models.cards import NoteTypeModel
+from ankidraft.utils.anki_renderer import (
     _is_empty,
     _process_conditionals,
     _process_front_side,
@@ -102,11 +102,11 @@ def test_render_anki_card_theme_defaults_keep_preview_readable():
 
 def test_process_media_references_images_and_sounds(tmp_path, monkeypatch):
     """Vérifie la réécriture des balises d'images et de son [sound:...] dans le HTML."""
-    from ankiforge.utils.anki_renderer import _process_media_references
+    from ankidraft.utils.anki_renderer import _process_media_references
 
     media_dir = tmp_path / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr("ankiforge.utils.paths.get_media_dir", lambda *_: media_dir)
+    monkeypatch.setattr("ankidraft.utils.paths.get_media_dir", lambda *_: media_dir)
 
     # Création d'une fausse image et d'un faux fichier audio
     test_img = media_dir / "carte_france.png"
@@ -243,7 +243,7 @@ def test_render_anki_card_latex_with_compiler_ready() -> None:
     fields = {}
     note_type = _make_mock_note_type()
 
-    with patch("ankiforge.utils.anki_renderer.LatexCompilerService") as mock_compiler_cls:
+    with patch("ankidraft.utils.anki_renderer.LatexCompilerService") as mock_compiler_cls:
         compiler_instance = _make_mock_compiler(ready=True)
         mock_compiler_cls.return_value = compiler_instance
 

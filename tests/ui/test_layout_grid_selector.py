@@ -6,8 +6,8 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent
 
-from ankiforge.ui.layouts.layout_manager import LayoutManager
-from ankiforge.ui.widgets.settings_modal.components.layout_grid_selector import (
+from ankidraft.ui.layouts.layout_manager import LayoutManager
+from ankidraft.ui.widgets.settings_modal.components.layout_grid_selector import (
     LayoutGridSelector,
     LayoutThumbnailCard,
 )

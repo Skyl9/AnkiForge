@@ -9,7 +9,7 @@ Vérifie :
 
 import pytest
 
-from ankiforge.utils.anki_renderer import (
+from ankidraft.utils.anki_renderer import (
     _process_conditionals,
     _sanitize_fields,
     should_generate_card,

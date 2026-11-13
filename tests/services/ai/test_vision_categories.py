@@ -6,15 +6,15 @@ import pytest
 from PIL import Image
 from pypdf import PdfReader
 
-from ankiforge.database.models import DocumentPageModel, LLMConfigModel
-from ankiforge.services.ai.base import MockProvider
-from ankiforge.services.ai.flexible_service import AnthropicProvider
-from ankiforge.services.ai.ocr_service import OCRService, build_multimodal_payload
-from ankiforge.services.ai.vision_category_service import VisionCategory, VisionCategoryService
-from ankiforge.services.cards.album_service import AlbumService
-from ankiforge.services.cards.media_manager import MediaManager
-from ankiforge.services.workers.album_worker import AlbumOCRWorker, AlbumPDFWorker
-from ankiforge.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
+from ankidraft.database.models import DocumentPageModel, LLMConfigModel
+from ankidraft.services.ai.base import MockProvider
+from ankidraft.services.ai.flexible_service import AnthropicProvider
+from ankidraft.services.ai.ocr_service import OCRService, build_multimodal_payload
+from ankidraft.services.ai.vision_category_service import VisionCategory, VisionCategoryService
+from ankidraft.services.cards.album_service import AlbumService
+from ankidraft.services.cards.media_manager import MediaManager
+from ankidraft.services.workers.album_worker import AlbumOCRWorker, AlbumPDFWorker
+from ankidraft.ui.widgets.settings_modal.tabs.ai_engines_tab import AIEnginesTab
 
 pytestmark = pytest.mark.integration
 
@@ -681,7 +681,7 @@ def test_ai_engines_tab_ui(qtbot):
 
 def test_apple_vision_hash_and_binary_cleanup(tmp_path: Path):
     """Vérifie le calcul du hash du script Swift et le nettoyage des anciens binaires orphelins."""
-    from ankiforge.services.ai.ocr_service import OCRService, get_swift_ocr_hash
+    from ankidraft.services.ai.ocr_service import OCRService, get_swift_ocr_hash
 
     h = get_swift_ocr_hash()
     assert isinstance(h, str)
@@ -710,7 +710,7 @@ def test_apple_vision_hash_and_binary_cleanup(tmp_path: Path):
 
 def test_swift_ocr_source_contains_multilingual_and_2d_sort():
     """Vérifie que la source Swift active le multilinguisme, désactive la correction et intègre le tri 2D."""
-    from ankiforge.services.ai.ocr_service import SWIFT_OCR_SOURCE
+    from ankidraft.services.ai.ocr_service import SWIFT_OCR_SOURCE
 
     assert "automaticallyDetectsLanguage = true" in SWIFT_OCR_SOURCE
     assert "usesLanguageCorrection = false" in SWIFT_OCR_SOURCE
@@ -810,7 +810,7 @@ def test_album_ocr_worker_with_unknown_category_reports_honest_failure(tmp_path:
 
 def test_ocr_service_accepts_model_id_and_data_type_directly(tmp_path: Path):
     """Vérifie qu'OCRService transcrit directement avec model_id et ImageDataType (sans VisionCategory)."""
-    from ankiforge.services.ai.vision_category_service import IMAGE_DATA_TYPES
+    from ankidraft.services.ai.vision_category_service import IMAGE_DATA_TYPES
 
     service = OCRService()
     img_path = _create_test_img(tmp_path / "direct_model.png")
@@ -858,7 +858,7 @@ def test_transcribe_page_appel_vlm_hors_transaction_sqlite(tmp_path: Path):
     doc = album_svc.create_album_from_images("Album Tx", [img])
     page = album_svc.get_album_pages(doc.id)[0]
 
-    from ankiforge.database.models import DocumentPageModel
+    from ankidraft.database.models import DocumentPageModel
 
     model_db = DocumentPageModel._meta.database
 

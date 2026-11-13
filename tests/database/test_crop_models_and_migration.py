@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from ankiforge.database.base import db
-from ankiforge.database.models import (
+from ankidraft.database.base import db
+from ankidraft.database.models import (
     DocumentModel,
     DocumentPageModel,
     MediaModel,
@@ -54,7 +54,7 @@ def test_migration_idempotence_and_self_healing_for_crop_and_bounding_box():
 
     La migration post-migration dans migration.py doit auto-guérir ces colonnes sans erreur si elles sont absentes.
     """
-    from ankiforge.database.migration import run_migrations
+    from ankidraft.database.migration import run_migrations
 
     # run_migrations sur la base de test existante doit s'exécuter sans erreur
     run_migrations()

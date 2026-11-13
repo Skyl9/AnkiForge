@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from peewee import SqliteDatabase
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     FlagDefinitionModel,
@@ -15,7 +15,7 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.profile_content_transfer import ProfileContentTransfer
+from ankidraft.services.profile_content_transfer import ProfileContentTransfer
 
 pytestmark = pytest.mark.integration
 
@@ -39,14 +39,14 @@ def transfer_setup(tmp_path: Path):
     source_dir.mkdir(parents=True)
     source_media = source_dir / "media"
     source_media.mkdir()
-    source_db = SqliteDatabase(str(source_dir / "ankiforge.db"))
+    source_db = SqliteDatabase(str(source_dir / "ankidraft.db"))
 
     # Target Profile
     target_dir = profiles_dir / "target"
     target_dir.mkdir(parents=True)
     target_media = target_dir / "media"
     target_media.mkdir()
-    target_db = SqliteDatabase(str(target_dir / "ankiforge.db"))
+    target_db = SqliteDatabase(str(target_dir / "ankidraft.db"))
 
     # Init schemas in both
     for db in (source_db, target_db):

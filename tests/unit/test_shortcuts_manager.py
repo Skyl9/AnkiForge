@@ -3,8 +3,8 @@
 import pytest
 from PySide6.QtWidgets import QLineEdit, QWidget
 
-from ankiforge.ui.shortcuts.manager import ShortcutManager, is_text_input_focused
-from ankiforge.ui.shortcuts.models import (
+from ankidraft.ui.shortcuts.manager import ShortcutManager, is_text_input_focused
+from ankidraft.ui.shortcuts.models import (
     ShortcutCategory,
     ShortcutDefinition,
     ShortcutId,

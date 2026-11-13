@@ -3,19 +3,19 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PySide6.QtWidgets import QApplication, QLabel, QWidget
 
-from ankiforge.database.base import db
-from ankiforge.database.migration import run_migrations
-from ankiforge.services.profile_manager import ProfileManager
-from ankiforge.ui.main_window import MainWindow
-from ankiforge.ui.widgets.profile_selector import ProfileSelectorDialog
-from ankiforge.ui.widgets.profile_switch_overlay import ProfileSwitchOverlay
+from ankidraft.database.base import db
+from ankidraft.database.migration import run_migrations
+from ankidraft.services.profile_manager import ProfileManager
+from ankidraft.ui.main_window import MainWindow
+from ankidraft.ui.widgets.profile_selector import ProfileSelectorDialog
+from ankidraft.ui.widgets.profile_switch_overlay import ProfileSwitchOverlay
 
 pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
 def mock_profiles_dir(tmp_path):
-    with patch("ankiforge.services.profile_manager.ProfileManager.PROFILES_DIR", tmp_path):
+    with patch("ankidraft.services.profile_manager.ProfileManager.PROFILES_DIR", tmp_path):
         yield tmp_path
 
 
@@ -198,9 +198,9 @@ def test_switch_profile_fast_path_ne_lance_pas_migrations_ni_seed(mock_profiles_
 
     with (
         patch.object(ProfileManager, "_is_db_ready", return_value=True),
-        patch("ankiforge.database.migration.run_migrations") as m_run,
-        patch("ankiforge.database.models.seed_initial_data") as m_seed,
-        patch("ankiforge.database.models.init_db") as m_init,
+        patch("ankidraft.database.migration.run_migrations") as m_run,
+        patch("ankidraft.database.models.seed_initial_data") as m_seed,
+        patch("ankidraft.database.models.init_db") as m_init,
     ):
         pm.switch_profile(profile)
         m_run.assert_not_called()

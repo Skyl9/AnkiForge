@@ -9,8 +9,8 @@ from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QApplication
 
-from ankiforge.ui.widgets.settings_modal import SettingsModal
-from ankiforge.ui.widgets.settings_modal.search_registry import SettingDescriptor, SettingSearchResult
+from ankidraft.ui.widgets.settings_modal import SettingsModal
+from ankidraft.ui.widgets.settings_modal.search_registry import SettingDescriptor, SettingSearchResult
 
 
 def _un_descriptor(tab_index: int) -> SettingDescriptor:

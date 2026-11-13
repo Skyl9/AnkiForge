@@ -7,16 +7,16 @@ import pytest
 from PySide6.QtCore import QItemSelection, QItemSelectionModel, Qt
 from PySide6.QtWidgets import QAbstractItemView
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.ui.views.edition_view import EditionView
-from ankiforge.ui.views.edition_view.group_edit_dialog import GroupEditDialog
-from ankiforge.utils.tags import parse_note_tags
+from ankidraft.ui.views.edition_view import EditionView
+from ankidraft.ui.views.edition_view.group_edit_dialog import GroupEditDialog
+from ankidraft.utils.tags import parse_note_tags
 
 pytestmark = pytest.mark.ui
 
@@ -221,8 +221,8 @@ def test_edition_view_check_uncheck_all(qtbot, edition_test_data):
 
 def test_edition_view_tag_hygiene_button_and_dialog_integration(qtbot, edition_test_data, monkeypatch):
     """Vérifie la présence du bouton d'hygiène des tags et la répercussion de la fusion sur EditionView."""
-    from ankiforge.services.cards.bulk_hygiene_service import TagMergeResult
-    from ankiforge.ui.dialogs.tag_hygiene_dialog import TagHygieneDialog
+    from ankidraft.services.cards.bulk_hygiene_service import TagMergeResult
+    from ankidraft.ui.dialogs.tag_hygiene_dialog import TagHygieneDialog
 
     view = EditionView(ai_manager=None)
     qtbot.addWidget(view)

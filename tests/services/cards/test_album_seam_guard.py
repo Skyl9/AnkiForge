@@ -20,7 +20,7 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-SRC_ROOT = Path(__file__).resolve().parents[3] / "src" / "ankiforge"
+SRC_ROOT = Path(__file__).resolve().parents[3] / "src" / "ankidraft"
 
 #: La couture elle-même : elle a le droit de résoudre le fichier brut, c'est son métier.
 ALLOWED_MODULES: frozenset[str] = frozenset(
@@ -52,6 +52,8 @@ ROTATION_EXEMPTED_MODULES: frozenset[str] = frozenset(
         # La clé de cache doit changer quand la planche pivote, sinon l'orientation
         # précédente continuerait d'être servie. Aucune image n'y est produite.
         "ui/views/documents_view/widgets/album_thumbnails.py",
+        # Sérialisation Peewee pour transfert inter-profil (copie fidèle de l'attribut sans rendu d'image).
+        "services/profile_content_transfer.py",
     }
 )
 

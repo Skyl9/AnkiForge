@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from PySide6.QtWidgets import QLabel, QWidget
 
-from ankiforge.ui.widgets.toast import Toast, ToastLevel, ToastManager, show_import_toast, show_toast
+from ankidraft.ui.widgets.toast import Toast, ToastLevel, ToastManager, show_import_toast, show_toast
 
 pytestmark = pytest.mark.ui
 
@@ -205,7 +205,7 @@ def test_toast_manager_triggers_background_notification(parent_widget: QWidget, 
     """Vérifie que ToastManager sollicite SystemNotificationService quand la fenêtre hôte est en arrière-plan."""
     from unittest.mock import patch
 
-    from ankiforge.services.system.notification_service import SystemNotificationService
+    from ankidraft.services.system.notification_service import SystemNotificationService
 
     manager = ToastManager.get_instance()
     manager.clear()
@@ -231,7 +231,7 @@ def test_toast_manager_default_title_fallback_in_notification(parent_widget: QWi
     """Vérifie que le titre par défaut du niveau sémantique est utilisé si le titre du toast est vide."""
     from unittest.mock import patch
 
-    from ankiforge.services.system.notification_service import SystemNotificationService
+    from ankidraft.services.system.notification_service import SystemNotificationService
 
     manager = ToastManager.get_instance()
     manager.clear()

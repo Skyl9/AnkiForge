@@ -4,9 +4,9 @@ from typing import Any
 import pytest
 from PySide6.QtWidgets import QFrame, QLabel, QScrollArea, QSpinBox
 
-from ankiforge.ui.components import StyledComboBox
-from ankiforge.ui.theme import DesignTokens
-from ankiforge.ui.views.pipelines_view.widgets.step_inspector import StepInspectorPanel
+from ankidraft.ui.components import StyledComboBox
+from ankidraft.ui.theme import DesignTokens
+from ankidraft.ui.views.pipelines_view.widgets.step_inspector import StepInspectorPanel
 
 pytestmark = pytest.mark.ui
 

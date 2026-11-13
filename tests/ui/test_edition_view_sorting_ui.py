@@ -19,10 +19,10 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMenu
 from pytestqt.qtbot import QtBot
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.services.settings_service import SettingsService
-from ankiforge.ui.models.sorting import SortCriterion, SortDirection, SortOrder
-from ankiforge.ui.views.edition_view import EditionView
+from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.services.settings_service import SettingsService
+from ankidraft.ui.models.sorting import SortCriterion, SortDirection, SortOrder
+from ankidraft.ui.views.edition_view import EditionView
 
 pytestmark = pytest.mark.ui
 
@@ -135,7 +135,7 @@ def test_context_menu_contains_sort_submenu_and_reset(
     view.refresh_data()
 
     # 1. Vérification du sous-menu dans le menu contextuel
-    from ankiforge.ui.theme import StyledMenu
+    from ankidraft.ui.theme import StyledMenu
 
     captured_menus: list[Any] = []
     monkeypatch.setattr(StyledMenu, "exec", lambda self_m, *args, **kwargs: captured_menus.append(self_m))

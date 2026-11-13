@@ -4,18 +4,18 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentChunkModel,
     DocumentModel,
     DocumentPageModel,
     MediaModel,
 )
-from ankiforge.services.cards.album_service import (
+from ankidraft.services.cards.album_service import (
     AlbumService,
     crop_box_rotated_to_source,
     crop_box_source_to_rotated,
 )
-from ankiforge.services.cards.media_manager import MediaManager
+from ankidraft.services.cards.media_manager import MediaManager
 
 pytestmark = pytest.mark.integration
 
@@ -164,7 +164,7 @@ def test_crop_box_coordinate_transforms():
 
 def test_thumbnail_cache_key_includes_crop():
     """Vérifie que la clé de cache de vignette change quand la page est recadrée."""
-    from ankiforge.ui.views.documents_view.widgets.album_thumbnails import ThumbnailCache
+    from ankidraft.ui.views.documents_view.widgets.album_thumbnails import ThumbnailCache
 
     doc = DocumentModel.create(title="Doc Thumb Key Test")
     media = MediaModel.create(filename="f.png", original_name="f.png", checksum="chk", mime_type="image/png")

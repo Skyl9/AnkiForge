@@ -5,15 +5,15 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtWidgets import QStackedWidget, QWidget
 
-from ankiforge.ui.layouts.base_layout import BaseLayout
-from ankiforge.ui.layouts.dashboard_layout import DashboardLayout
-from ankiforge.ui.layouts.glass_layout import GlassmorphismLayout
-from ankiforge.ui.layouts.ide_layout import IdeLayout
-from ankiforge.ui.layouts.layout_manager import LayoutManager
-from ankiforge.ui.layouts.macos_layout import MacosLayout
-from ankiforge.ui.main_window import MainWindow
-from ankiforge.ui.style_engine import get_style_engine
-from ankiforge.ui.theme import DesignTokens
+from ankidraft.ui.layouts.base_layout import BaseLayout
+from ankidraft.ui.layouts.dashboard_layout import DashboardLayout
+from ankidraft.ui.layouts.glass_layout import GlassmorphismLayout
+from ankidraft.ui.layouts.ide_layout import IdeLayout
+from ankidraft.ui.layouts.layout_manager import LayoutManager
+from ankidraft.ui.layouts.macos_layout import MacosLayout
+from ankidraft.ui.main_window import MainWindow
+from ankidraft.ui.style_engine import get_style_engine
+from ankidraft.ui.theme import DesignTokens
 
 pytestmark = pytest.mark.ui
 
@@ -67,7 +67,7 @@ def test_main_window_layout_hot_reload_and_tokens(qtbot, mock_db):
     LayoutManager.save_layout_id("test_profile", "ide")
     # Aucune Famille persistée : chaque layout impose donc sa Famille par défaut (ADR 0004).
     assert get_style_engine().get_appearance_preference("test_profile").family_id is None
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="test_profile")
         qtbot.addWidget(window)
 
@@ -121,7 +121,7 @@ def test_layout_persistence(tmp_path):
 @pytest.mark.slow
 def test_ide_layout_sidebar_toggle(qtbot, mock_db):
     """Vérifie que le bouton de la sidebar et l'icône du logo rétractent et ré-étendent correctement la sidebar."""
-    with patch("ankiforge.ui.views.dashboard_view.StatsWorker.start"):
+    with patch("ankidraft.ui.views.dashboard_view.StatsWorker.start"):
         window = MainWindow(ai_manager=None, profile_name="test_profile")
         window.apply_layout("ide")
         qtbot.addWidget(window)
@@ -147,7 +147,7 @@ def test_flow_layout_wrapping_and_crud(qtbot):
     """Vérifie le bon fonctionnement du FlowLayout (ajout, calcul de taille, suppression)."""
     from PySide6.QtWidgets import QLabel, QWidget
 
-    from ankiforge.ui.components.flow_layout import FlowLayout
+    from ankidraft.ui.components.flow_layout import FlowLayout
 
     container = QWidget()
     qtbot.addWidget(container)
@@ -176,7 +176,7 @@ def test_flow_layout_fixed_height_widgets_no_overlap(qtbot):
     """Vérifie que les widgets à hauteur fixe dans FlowLayout ne se chevauchent pas et que heightForWidth est exact."""
     from PySide6.QtWidgets import QPushButton, QWidget
 
-    from ankiforge.ui.components.flow_layout import FlowLayout
+    from ankidraft.ui.components.flow_layout import FlowLayout
 
     container = QWidget()
     qtbot.addWidget(container)
@@ -198,7 +198,7 @@ def test_flow_layout_fixed_height_widgets_no_overlap(qtbot):
 @pytest.mark.slow
 def test_generate_layout_thumbnails_preserves_profile_settings(tmp_path, mock_db):
     """Vérifie la génération des miniatures statiques et la préservation de la configuration du profil."""
-    from ankiforge.ui.style_engine import get_style_engine
+    from ankidraft.ui.style_engine import get_style_engine
     from script.capture_view import generate_layout_thumbnails
 
     engine = get_style_engine()

@@ -6,15 +6,15 @@ import pytest
 from PIL import Image
 from pypdf import PdfReader
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DocumentChunkModel,
     DocumentModel,
     DocumentPageModel,
     FolderModel,
     MediaModel,
 )
-from ankiforge.services.cards.album_service import AlbumService, extract_exif_timestamp, natural_sort_key
-from ankiforge.services.cards.media_manager import MediaManager
+from ankidraft.services.cards.album_service import AlbumService, extract_exif_timestamp, natural_sort_key
+from ankidraft.services.cards.media_manager import MediaManager
 
 pytestmark = pytest.mark.integration
 
@@ -379,7 +379,7 @@ def test_cascade_delete_document(tmp_path: Path):
 
 def test_clean_orphaned_media_preserves_album_media(tmp_path: Path):
     """Vérifie que clean_orphaned_media() ne détruit pas les images d'albums."""
-    with patch("ankiforge.services.cards.media_manager.get_app_data_dir", return_value=tmp_path):
+    with patch("ankidraft.services.cards.media_manager.get_app_data_dir", return_value=tmp_path):
         manager = MediaManager()
         service = AlbumService(media_manager=manager)
 

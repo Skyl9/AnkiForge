@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.repositories.audit_repository import AuditRepository
-from ankiforge.repositories.deck_repository import DeckRepository
-from ankiforge.repositories.document_repository import DocumentRepository
-from ankiforge.repositories.note_repository import NoteRepository
-from ankiforge.repositories.setting_repository import SettingRepository
-from ankiforge.ui.viewmodels.dashboard_viewmodel import DashboardViewModel
-from ankiforge.utils.event_bus import AppEventBus
+from ankidraft.repositories.audit_repository import AuditRepository
+from ankidraft.repositories.deck_repository import DeckRepository
+from ankidraft.repositories.document_repository import DocumentRepository
+from ankidraft.repositories.note_repository import NoteRepository
+from ankidraft.repositories.setting_repository import SettingRepository
+from ankidraft.ui.viewmodels.dashboard_viewmodel import DashboardViewModel
+from ankidraft.utils.event_bus import AppEventBus
 
 pytestmark = pytest.mark.integration
 

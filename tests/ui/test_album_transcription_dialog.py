@@ -3,9 +3,9 @@
 import pytest
 from PySide6.QtCore import Qt
 
-from ankiforge.database.models import DocumentModel, DocumentPageModel, MediaModel
-from ankiforge.services.ai.album_transcription_types import AlbumTranscriptionOptions
-from ankiforge.ui.dialogs.album_transcription_dialog import AlbumTranscriptionDialog
+from ankidraft.database.models import DocumentModel, DocumentPageModel, MediaModel
+from ankidraft.services.ai.album_transcription_types import AlbumTranscriptionOptions
+from ankidraft.ui.dialogs.album_transcription_dialog import AlbumTranscriptionDialog
 
 pytestmark = pytest.mark.ui
 
@@ -237,7 +237,7 @@ def test_dialog_token_budget_follows_model_never_type(qtbot, mock_db, album_with
 
 def test_dialog_options_contain_both_axes_and_persist(qtbot, mock_db, album_with_mixed_pages):
     """Vérifie que get_options() renvoie les deux axes et que _on_start_clicked persiste la préférence."""
-    from ankiforge.services.settings_service import SettingsService
+    from ankidraft.services.settings_service import SettingsService
 
     doc, pages = album_with_mixed_pages
     dialog = AlbumTranscriptionDialog(doc)

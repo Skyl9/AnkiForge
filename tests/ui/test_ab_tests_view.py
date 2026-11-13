@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     DeckModel,
     DocumentModel,
     LLMConfigModel,
@@ -12,11 +12,11 @@ from ankiforge.database.models import (
     PersonaModel,
     PipelineModel,
 )
-from ankiforge.services.ai.base import LLMProvider
-from ankiforge.ui.components import ModalField, StyledTextEdit
-from ankiforge.ui.style_engine import get_style_engine
-from ankiforge.ui.views.ab_tests_view import ABTestsView
-from ankiforge.ui.views.creation_view.widgets.document_editor import DocumentEditorWidget
+from ankidraft.services.ai.base import LLMProvider
+from ankidraft.ui.components import ModalField, StyledTextEdit
+from ankidraft.ui.style_engine import get_style_engine
+from ankidraft.ui.views.ab_tests_view import ABTestsView
+from ankidraft.ui.views.creation_view.widgets.document_editor import DocumentEditorWidget
 
 pytestmark = pytest.mark.ui
 
@@ -394,7 +394,7 @@ def test_ab_tests_view_document_import(qtbot):
     qtbot.addWidget(view)
 
     # Bouton d'exemples supprimé, sélecteur de document conservé
-    from ankiforge.ui.components import DocumentPickerButton
+    from ankidraft.ui.components import DocumentPickerButton
 
     assert not hasattr(view, "btn_samples")
     assert hasattr(view, "doc_picker")

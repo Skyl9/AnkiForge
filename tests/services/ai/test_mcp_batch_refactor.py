@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     NoteModel,
@@ -15,8 +15,8 @@ from ankiforge.database.models import (
     StagedPatchModel,
     db,
 )
-from ankiforge.services.ai.mcp_server import mcp
-from ankiforge.services.ai.staged_patch_registry import StagedPatchRegistry
+from ankidraft.services.ai.mcp_server import mcp
+from ankidraft.services.ai.staged_patch_registry import StagedPatchRegistry
 
 pytestmark = pytest.mark.integration
 
@@ -289,7 +289,7 @@ def test_apply_staged_patch_and_bundle_with_tags(batch_refactor_setup: dict[str,
 
 def test_card_semantic_diff_widget_displays_tags(batch_refactor_setup: dict[str, Any], qtbot: Any) -> None:
     """Vérifie que CardSemanticDiffWidget instancie une rangée pour les tags modifiés sans polluer get_modified_content."""
-    from ankiforge.ui.widgets.card_semantic_diff_widget import CardSemanticDiffWidget
+    from ankidraft.ui.widgets.card_semantic_diff_widget import CardSemanticDiffWidget
 
     notes = batch_refactor_setup["notes"]
     widget = CardSemanticDiffWidget()

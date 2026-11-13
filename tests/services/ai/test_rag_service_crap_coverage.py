@@ -8,8 +8,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ankiforge.database.models import DocumentModel
-from ankiforge.services.ai.rag_service import RAGService
+from ankidraft.database.models import DocumentModel
+from ankidraft.services.ai.rag_service import RAGService
 
 pytestmark = pytest.mark.unit
 

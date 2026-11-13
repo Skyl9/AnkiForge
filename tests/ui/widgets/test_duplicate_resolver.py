@@ -5,8 +5,8 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog
 
-from ankiforge.database.models import DeckModel, IgnoredDuplicateModel, NoteModel, NoteTypeModel
-from ankiforge.ui.widgets.duplicate_resolver import DuplicateResolverDialog
+from ankidraft.database.models import DeckModel, IgnoredDuplicateModel, NoteModel, NoteTypeModel
+from ankidraft.ui.widgets.duplicate_resolver import DuplicateResolverDialog
 
 pytestmark = pytest.mark.ui
 
@@ -88,7 +88,7 @@ def test_ignore_conflict_saves_to_db(dialog, qtbot, mock_db_notes):
     assert ignored_entry.note_b.id == expected_id_2
 
 
-@patch("ankiforge.ui.widgets.duplicate_resolver.QMessageBox.information")
+@patch("ankidraft.ui.widgets.duplicate_resolver.QMessageBox.information")
 def test_end_of_conflicts_closes_dialog(mock_info, dialog, qtbot):
     qtbot.mouseClick(dialog.btn_ignore, Qt.MouseButton.LeftButton)
     qtbot.mouseClick(dialog.btn_ignore, Qt.MouseButton.LeftButton)

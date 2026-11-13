@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.repositories.persona_repository import PersonaRepository
+from ankidraft.repositories.persona_repository import PersonaRepository
 
 pytestmark = pytest.mark.integration
 

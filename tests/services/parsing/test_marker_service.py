@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.services.parsing.marker_service import MarkerService
+from ankidraft.services.parsing.marker_service import MarkerService
 
 pytestmark = pytest.mark.unit
 
@@ -40,7 +40,7 @@ def test_is_python_compatible_handles_nonexistent_or_crash() -> None:
 
 def test_find_python_selects_first_compatible_candidate(monkeypatch: pytest.MonkeyPatch) -> None:
     """Vérifie que _find_python ignore les binaires incompatibles (ex: 3.9) et sélectionne le premier compatible."""
-    monkeypatch.setattr("ankiforge.utils.environment.is_standalone_runtime", lambda: True)
+    monkeypatch.setattr("ankidraft.utils.environment.is_standalone_runtime", lambda: True)
     monkeypatch.setattr(MarkerService, "_find_uv", lambda: None)
 
     def mock_which(cmd: str) -> str | None:
@@ -63,7 +63,7 @@ def test_find_python_selects_first_compatible_candidate(monkeypatch: pytest.Monk
 
 def test_find_python_raises_runtime_error_if_no_compatible_python(monkeypatch: pytest.MonkeyPatch) -> None:
     """Vérifie qu'une exception détaillée est levée si aucun Python compatible n'est présent."""
-    monkeypatch.setattr("ankiforge.utils.environment.is_standalone_runtime", lambda: True)
+    monkeypatch.setattr("ankidraft.utils.environment.is_standalone_runtime", lambda: True)
     monkeypatch.setattr(MarkerService, "_find_uv", lambda: None)
     monkeypatch.setattr("shutil.which", lambda _: None)
     monkeypatch.setattr(MarkerService, "_is_python_compatible", lambda _: False)
@@ -89,7 +89,7 @@ def test_get_executable_rejects_incompatible_venv(tmp_path: Path, monkeypatch: p
     python = bin_dir / "python"
     python.write_text("#!/bin/sh")
 
-    monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
+    monkeypatch.setattr("ankidraft.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
     # Simuler un Python incompatible (ex: 3.9)
     monkeypatch.setattr(MarkerService, "_is_python_compatible", lambda _: False)
 
@@ -110,7 +110,7 @@ def test_install_purges_incompatible_venv(tmp_path: Path, monkeypatch: pytest.Mo
     marker_path.write_text("old 3.9 marker")
     python_path.write_text("old 3.9 python")
 
-    monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
+    monkeypatch.setattr("ankidraft.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
     monkeypatch.setattr(MarkerService, "_find_python", lambda: "/usr/local/bin/python3.12")
     monkeypatch.setattr(MarkerService, "_find_uv", lambda: None)
 
@@ -145,7 +145,7 @@ def test_install_purges_incompatible_venv(tmp_path: Path, monkeypatch: pytest.Mo
         marker_path.chmod(marker_path.stat().st_mode | stat.S_IXUSR)
         return FakeProcess()
 
-    monkeypatch.setattr("ankiforge.services.parsing.marker_service.subprocess.Popen", fake_popen)
+    monkeypatch.setattr("ankidraft.services.parsing.marker_service.subprocess.Popen", fake_popen)
 
     executable = MarkerService.install()
     assert executable == marker_path
@@ -188,7 +188,7 @@ def test_is_venv_compatible_rejects_marker_2(tmp_path: Path, monkeypatch: pytest
 def test_marker_service_disk_space_helpers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Vérifie le calcul d'espace disque disponible et le formatage des tailles."""
     tools_dir = tmp_path / "tools"
-    monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
+    monkeypatch.setattr("ankidraft.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
 
     assert MarkerService.get_installation_target_dir() == tools_dir / "marker"
 
@@ -214,7 +214,7 @@ def test_marker_service_purge_installation(tmp_path: Path, monkeypatch: pytest.M
     marker_dir.mkdir(parents=True)
     (marker_dir / "some_file.txt").write_text("residue")
 
-    monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
+    monkeypatch.setattr("ankidraft.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
     assert marker_dir.exists()
 
     MarkerService.purge_installation()
@@ -226,7 +226,7 @@ def test_marker_service_install_cleans_up_on_failure(tmp_path: Path, monkeypatch
     tools_dir = tmp_path / "tools"
     venv_dir = tools_dir / "marker" / "venv"
 
-    monkeypatch.setattr("ankiforge.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
+    monkeypatch.setattr("ankidraft.services.parsing.marker_service.get_tools_search_dirs", lambda: [tools_dir])
     monkeypatch.setattr(MarkerService, "_find_python", lambda: "/usr/local/bin/python3.12")
     monkeypatch.setattr(MarkerService, "_find_uv", lambda: None)
     monkeypatch.setattr(MarkerService, "_is_python_compatible", lambda _: True)

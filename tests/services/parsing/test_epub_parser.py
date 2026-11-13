@@ -7,9 +7,9 @@ from unittest.mock import MagicMock
 import pytest
 from bs4 import BeautifulSoup
 
-from ankiforge.services.parsing.chunking_service import ChunkingService
-from ankiforge.services.parsing.document_parser import DocumentParser
-from ankiforge.services.parsing.epub_parser import (
+from ankidraft.services.parsing.chunking_service import ChunkingService
+from ankidraft.services.parsing.document_parser import DocumentParser
+from ankidraft.services.parsing.epub_parser import (
     EpubParser,
     convert_mathml_to_latex,
 )

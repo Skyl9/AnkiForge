@@ -2,9 +2,9 @@ import pytest
 from PIL import Image
 from PySide6.QtCore import QRect
 
-from ankiforge.database.models import DocumentPageModel
-from ankiforge.services.cards.album_service import AlbumService
-from ankiforge.ui.views.documents_view.widgets.album_viewer import (
+from ankidraft.database.models import DocumentPageModel
+from ankidraft.services.cards.album_service import AlbumService
+from ankidraft.ui.views.documents_view.widgets.album_viewer import (
     AlbumPageCard,
     AlbumViewerWidget,
     CropImageLabel,

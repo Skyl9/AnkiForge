@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from jinja2.exceptions import SecurityError
 
-from ankiforge.utils.jinja_sandbox import create_prompt_environment
+from ankidraft.utils.jinja_sandbox import create_prompt_environment
 
 pytestmark = pytest.mark.unit
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.services.ai.linter import WozniakLinterEngine
+from ankidraft.services.ai.linter import WozniakLinterEngine
 
 pytestmark = pytest.mark.integration
 
@@ -99,7 +99,7 @@ def test_detect_interference_no_false_positive_on_different_notes():
 
 def test_sources_diagnostic_service_removed():
     """La classe morte SourcesDiagnosticService n'existe plus dans le module linter."""
-    import ankiforge.services.ai.linter as linter_mod
+    import ankidraft.services.ai.linter as linter_mod
 
     assert not hasattr(linter_mod, "SourcesDiagnosticService")
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from ankiforge.database.models import PersonaModel
-from ankiforge.repositories.pipeline_repository import PipelineRepository
+from ankidraft.database.models import PersonaModel
+from ankidraft.repositories.pipeline_repository import PipelineRepository
 
 pytestmark = pytest.mark.integration
 

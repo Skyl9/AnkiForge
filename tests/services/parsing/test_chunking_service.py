@@ -1,6 +1,6 @@
 import pytest
 
-from ankiforge.services.parsing.chunking_service import ChunkingService
+from ankidraft.services.parsing.chunking_service import ChunkingService
 
 pytestmark = pytest.mark.unit
 

@@ -5,10 +5,10 @@ from unittest.mock import MagicMock
 import pytest
 from pytestqt.qtbot import QtBot
 
-from ankiforge.database.models import DocumentModel
-from ankiforge.services.markdown.ai_structurer import AIDocumentStructurer, StructuringProfile
-from ankiforge.ui.views.documents_view.dialogs.ai_structure_dialog import AIDocumentStructureDialog
-from ankiforge.ui.views.documents_view.view import DocumentsView
+from ankidraft.database.models import DocumentModel
+from ankidraft.services.markdown.ai_structurer import AIDocumentStructurer, StructuringProfile
+from ankidraft.ui.views.documents_view.dialogs.ai_structure_dialog import AIDocumentStructureDialog
+from ankidraft.ui.views.documents_view.view import DocumentsView
 
 pytestmark = pytest.mark.ui
 

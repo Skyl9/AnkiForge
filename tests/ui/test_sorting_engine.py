@@ -13,8 +13,8 @@ from typing import Any
 import peewee
 import pytest
 
-from ankiforge.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
-from ankiforge.ui.models.sorting import (
+from ankidraft.database.models import CardModel, DeckModel, NoteModel, NoteTypeModel, NoteVersionModel
+from ankidraft.ui.models.sorting import (
     SortCriterion,
     SortDirection,
     SortOrder,

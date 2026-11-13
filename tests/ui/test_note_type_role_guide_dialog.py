@@ -4,12 +4,12 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog
 
-from ankiforge.services.cards.note_type_roles import (
+from ankidraft.services.cards.note_type_roles import (
     generate_markdown_table,
     get_standard_role_archetypes,
     is_markdown_table,
 )
-from ankiforge.ui.dialogs.note_type_role_guide_dialog import NoteTypeRoleGuideDialog
+from ankidraft.ui.dialogs.note_type_role_guide_dialog import NoteTypeRoleGuideDialog
 
 
 @pytest.mark.ui

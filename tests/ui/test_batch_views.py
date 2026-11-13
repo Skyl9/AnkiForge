@@ -6,7 +6,7 @@ import pytest
 from PySide6.QtCore import QItemSelectionModel, QPoint, Qt
 from PySide6.QtWidgets import QScrollArea, QVBoxLayout, QWidget
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     CardModel,
     DeckModel,
     DocumentChunkModel,
@@ -19,11 +19,11 @@ from ankiforge.database.models import (
     PipelineModel,
     PipelineStepModel,
 )
-from ankiforge.services.ai.orchestrator import PipelineOrchestrator
-from ankiforge.services.batch.models import BatchTaskSnapshot
-from ankiforge.services.workers.batch_worker import BatchTaskPayload, BatchWorker
-from ankiforge.ui.theme import StyledMenu
-from ankiforge.ui.views.batch_view import BatchTab
+from ankidraft.services.ai.orchestrator import PipelineOrchestrator
+from ankidraft.services.batch.models import BatchTaskSnapshot
+from ankidraft.services.workers.batch_worker import BatchTaskPayload, BatchWorker
+from ankidraft.ui.theme import StyledMenu
+from ankidraft.ui.views.batch_view import BatchTab
 
 pytestmark = pytest.mark.ui
 
@@ -69,7 +69,7 @@ def test_batch_view_initialization_with_data(qtbot: Any) -> None:
 
 def test_batch_view_composer_accepts_tasks_and_memorizes_doc(qtbot: Any, monkeypatch: Any, mock_db: Any) -> None:
     """L'ouverture du composeur (bouton unique) ajoute les tâches à la file et mémorise le document."""
-    from ankiforge.ui.views.batch_view.dialogs.batch_slice_composer_dialog import BatchSliceComposerDialog
+    from ankidraft.ui.views.batch_view.dialogs.batch_slice_composer_dialog import BatchSliceComposerDialog
 
     doc = DocumentModel.create(title="Doc Composé.pdf", content="Contenu source", file_type="pdf")
 
@@ -494,7 +494,7 @@ def test_batch_view_full_execution_persists_notes_in_db(qtbot: Any, monkeypatch:
 
 def test_batch_view_sections_scope_restoration_and_queue(qtbot: Any, mock_db: Any) -> None:
     """Vérifie que BatchView mémorise la portée par section par document et l'injecte dans la queue."""
-    from ankiforge.ui.dialogs.document_scope_dialog import DocumentScopeDialog
+    from ankidraft.ui.dialogs.document_scope_dialog import DocumentScopeDialog
 
     deck = DeckModel.create(name="Deck Batch Sections")
     nt = NoteTypeModel.create(name="Model Batch Sections", fields_schema='["Front", "Back"]', templates="[]", css_style="")
@@ -642,7 +642,7 @@ def test_batch_worker_resume_incomplete(qtbot: Any, monkeypatch: Any) -> None:
 
 def test_batch_view_slice_to_queue_manual_task(qtbot: Any) -> None:
     """Le mode auto/wizard construit une tâche de file à partir d'un SliceUnit."""
-    from ankiforge.services.batch.slicing_service import SlicingService
+    from ankidraft.services.batch.slicing_service import SlicingService
 
     doc = DocumentModel.create(
         title="Doc Slice.pdf",
@@ -876,7 +876,7 @@ def _make_snapshot_task(
     provider: str = "mock",
     max_tokens: int = 2048,
 ) -> Any:
-    from ankiforge.services.batch.models import (
+    from ankidraft.services.batch.models import (
         BatchGenerationConfig,
         BatchScopeSnapshot,
         BatchSourceBlock,
@@ -915,8 +915,8 @@ def _make_snapshot_task(
 
 def test_batch_worker_scope_propagates_generation_vars_into_state(qtbot: Any, monkeypatch: Any) -> None:
     """Le chemin par portées injecte température/max_tokens/use_vision dans l'état du DAG."""
-    from ankiforge.services.ai.base import MockProvider
-    from ankiforge.services.batch.models import BatchTaskStatus
+    from ankidraft.services.ai.base import MockProvider
+    from ankidraft.services.batch.models import BatchTaskStatus
 
     deck = DeckModel.create(name="Deck Snapshot")
     nt = NoteTypeModel.create(
@@ -963,8 +963,8 @@ def test_batch_worker_scope_propagates_generation_vars_into_state(qtbot: Any, mo
 
 def test_batch_worker_scope_auto_validation_routes_accepted(qtbot: Any, monkeypatch: Any) -> None:
     """Auto-validation : une tâche de portée passe en ACCEPTED (persistance côté vue)."""
-    from ankiforge.services.ai.base import MockProvider
-    from ankiforge.services.batch.models import BatchTaskStatus
+    from ankidraft.services.ai.base import MockProvider
+    from ankidraft.services.batch.models import BatchTaskStatus
 
     deck = DeckModel.create(name="Deck Snapshot Auto")
     nt = NoteTypeModel.create(name="NT Snapshot Auto", fields_schema='["Front", "Back"]', templates="[]", css_style="")
@@ -996,8 +996,8 @@ def test_batch_worker_scope_auto_validation_routes_accepted(qtbot: Any, monkeypa
 
 def test_batch_worker_scope_human_validation_forced_review(qtbot: Any, monkeypatch: Any) -> None:
     """Une étape HUMAN_VALIDATION contournée force le retour en revue, même en auto-validation."""
-    from ankiforge.services.ai.base import MockProvider
-    from ankiforge.services.batch.models import BatchTaskStatus
+    from ankidraft.services.ai.base import MockProvider
+    from ankidraft.services.batch.models import BatchTaskStatus
 
     deck = DeckModel.create(name="Deck Snapshot Human")
     nt = NoteTypeModel.create(name="NT Snapshot Human", fields_schema='["Front", "Back"]', templates="[]", css_style="")
@@ -1030,7 +1030,7 @@ def test_batch_worker_scope_human_validation_forced_review(qtbot: Any, monkeypat
 
 def test_batch_worker_blocks_mockprovider_fallback_for_real_provider(qtbot: Any, monkeypatch: Any) -> None:
     """Le repli silencieux sur MockProvider est bloqué pour un provider réel sans clé."""
-    from ankiforge.services.batch.models import BatchTaskStatus
+    from ankidraft.services.batch.models import BatchTaskStatus
 
     deck = DeckModel.create(name="Deck Snapshot Guard")
     nt = NoteTypeModel.create(name="NT Snapshot Guard", fields_schema='["Front", "Back"]', templates="[]", css_style="")
@@ -1061,7 +1061,7 @@ def test_batch_worker_blocks_mockprovider_fallback_for_real_provider(qtbot: Any,
 
 def test_batch_worker_mixed_snapshot_and_legacy_dispatch(qtbot: Any, monkeypatch: Any) -> None:
     """Une file mixte (portées + legacy) est traitée séquentiellement avec les bons index de file."""
-    from ankiforge.services.ai.base import MockProvider
+    from ankidraft.services.ai.base import MockProvider
 
     deck = DeckModel.create(name="Deck Snapshot Mix")
     nt = NoteTypeModel.create(name="NT Snapshot Mix", fields_schema='["Front", "Back"]', templates="[]", css_style="")
@@ -1434,7 +1434,7 @@ def test_batch_review_badge_tab_title_et_pastille_edition(qtbot: Any, monkeypatc
 
     from PySide6.QtWidgets import QDialog
 
-    from ankiforge.ui.views.creation_view.dialogs.card_edit_dialog import CardEditDialog
+    from ankidraft.ui.views.creation_view.dialogs.card_edit_dialog import CardEditDialog
 
     monkeypatch.setattr(CardEditDialog, "exec", lambda self: QDialog.DialogCode.Accepted)
     monkeypatch.setattr(CardEditDialog, "get_fields", lambda self: {"Front": "Q2 éditée", "Back": "A2"})
@@ -1604,7 +1604,7 @@ def test_batch_staging_keyboard_shortcuts(qtbot: Any) -> None:
         force=True,
     )
 
-    from ankiforge.ui.shortcuts import ShortcutId
+    from ankidraft.ui.shortcuts import ShortcutId
 
     # Déclencher le raccourci V (Valider)
     rec_v = [rec for rec in view.shortcut_manager._bindings if rec.id == ShortcutId.REVIEW_VALIDATE_V][0]
@@ -1872,7 +1872,7 @@ def test_direct_part_scope_falls_back_to_a_single_block(qtbot: Any) -> None:
 
 def test_batch_persistence_links_a_multi_block_card_to_its_own_chunk(qtbot: Any) -> None:
     """Critère d'acceptation : la carte d'une partie multi-blocs obtient un lien de couverture réel."""
-    from ankiforge.services.batch.provenance import scope_provenance, stamp_scope_provenance
+    from ankidraft.services.batch.provenance import scope_provenance, stamp_scope_provenance
 
     view = BatchTab(ai_manager=None)
     qtbot.addWidget(view)
@@ -1884,7 +1884,7 @@ def test_batch_persistence_links_a_multi_block_card_to_its_own_chunk(qtbot: Any)
     )
     doc, chunks = _direct_part_document("Lien")
 
-    from ankiforge.services.batch.models import BatchSourceBlock
+    from ankidraft.services.batch.models import BatchSourceBlock
 
     parts = [
         BatchSourceBlock(
@@ -1967,7 +1967,7 @@ def test_batch_finished_reports_the_unlinked_card_count(qtbot: Any, monkeypatch:
     """Le récapitulatif de fin de lot annonce les cartes restées hors couverture."""
     shown: list[tuple[str, Any]] = []
     monkeypatch.setattr(
-        "ankiforge.ui.views.batch_view.view.show_toast",
+        "ankidraft.ui.views.batch_view.view.show_toast",
         lambda parent, message, **kwargs: shown.append((str(message), kwargs)),
     )
     view = BatchTab(ai_manager=None)
@@ -1982,8 +1982,8 @@ def test_batch_finished_reports_the_unlinked_card_count(qtbot: Any, monkeypatch:
 
 def test_batch_worker_stamps_explicit_multi_block_provenance(qtbot: Any, monkeypatch: Any) -> None:
     """Le chemin par portées n'estampe plus de fil d'Ariane concaténé ni de page du premier bloc."""
-    from ankiforge.services.ai.base import MockProvider
-    from ankiforge.services.batch.models import (
+    from ankidraft.services.ai.base import MockProvider
+    from ankidraft.services.batch.models import (
         BatchGenerationConfig,
         BatchScopeSnapshot,
         BatchSourceBlock,
@@ -2038,7 +2038,7 @@ def test_batch_worker_stamps_explicit_multi_block_provenance(qtbot: Any, monkeyp
 
 def test_batch_worker_stamps_exact_provenance_for_a_single_block_part(qtbot: Any, monkeypatch: Any) -> None:
     """Une partie mono-bloc conserve la provenance exacte de son fragment."""
-    from ankiforge.services.ai.base import MockProvider
+    from ankidraft.services.ai.base import MockProvider
 
     deck = DeckModel.create(name="Deck Portee Mono")
     nt = NoteTypeModel.create(name="NT Portee Mono", fields_schema='["Front", "Back"]', templates="[]", css_style="")

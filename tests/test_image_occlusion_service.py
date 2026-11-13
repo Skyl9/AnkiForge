@@ -14,16 +14,16 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from ankiforge.database.models import CardModel, DeckModel
-from ankiforge.services.ai.base import LLMProvider, MockProvider
-from ankiforge.services.cards.export_manager import ExportManager
-from ankiforge.services.cards.image_occlusion_service import (
+from ankidraft.database.models import CardModel, DeckModel
+from ankidraft.services.ai.base import LLMProvider, MockProvider
+from ankidraft.services.cards.export_manager import ExportManager
+from ankidraft.services.cards.image_occlusion_service import (
     IOE_FIELDS,
     IOE_MODEL_NAME,
     ImageOcclusionService,
     OcclusionBox,
 )
-from ankiforge.services.cards.media_manager import MediaManager
+from ankidraft.services.cards.media_manager import MediaManager
 
 pytestmark = pytest.mark.unit
 

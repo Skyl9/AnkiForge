@@ -5,9 +5,9 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
-from ankiforge.database.models import PersonaModel
-from ankiforge.services.ai.persona_templates import PROMPT_STARTER_FRAMEWORKS
-from ankiforge.ui.views.agents_view import (
+from ankidraft.database.models import PersonaModel
+from ankidraft.services.ai.persona_templates import PROMPT_STARTER_FRAMEWORKS
+from ankidraft.ui.views.agents_view import (
     AgentsView,
     AgentTestDialog,
     PersonaEmptyStateWidget,
@@ -149,7 +149,7 @@ def test_agents_view_prompt_buttons_height_and_density(qtbot):
     assert not view.btn_preview_prompt.icon().isNull()
 
     # 4. TagPillButton préservés (24px)
-    from ankiforge.ui.views.agents_view.widgets import TagPillButton
+    from ankidraft.ui.views.agents_view.widgets import TagPillButton
 
     pills = view.findChildren(TagPillButton)
     assert len(pills) > 0
@@ -159,8 +159,8 @@ def test_agents_view_prompt_buttons_height_and_density(qtbot):
 
 def test_agents_view_scope_filter_chips_and_alignment(qtbot):
     """Vérifie que les filtres de portée sont des FilterChipButton avec icônes Phosphor (sans émojis), et que la barre de recherche et le bouton 'Nouvel Agent' sont alignés verticalement à 30px."""
-    from ankiforge.ui.components import FilterChipButton
-    from ankiforge.ui.style_engine import JETBRAINS_LIGHT
+    from ankidraft.ui.components import FilterChipButton
+    from ankidraft.ui.style_engine import JETBRAINS_LIGHT
 
     view = AgentsView()
     qtbot.addWidget(view)
@@ -232,7 +232,7 @@ def test_agents_view_scope_filter_chips_and_alignment(qtbot):
 
 def test_agents_view_tools_permissions_buttons_and_alignment(qtbot):
     """Vérifie l'alignement et la densité compacte des boutons 'Tout Cocher' / 'Tout Décocher' et de la liste déroulante des presets d'outils."""
-    from ankiforge.ui.components import SecondaryButton
+    from ankidraft.ui.components import SecondaryButton
 
     view = AgentsView()
     qtbot.addWidget(view)
@@ -261,7 +261,7 @@ def test_agents_view_tools_permissions_buttons_and_alignment(qtbot):
 
 def test_agents_view_no_dashed_border_and_no_child_cascade(qtbot):
     """Vérifie que la bordure pointillée est supprimée et qu'aucun enfant de engine_info_card n'hérite d'une bordure en cascade."""
-    from ankiforge.ui.style_engine import JETBRAINS_LIGHT
+    from ankidraft.ui.style_engine import JETBRAINS_LIGHT
 
     view = AgentsView()
     qtbot.addWidget(view)
@@ -291,8 +291,8 @@ def test_agents_view_no_dashed_border_and_no_child_cascade(qtbot):
 
 def test_agents_view_auto_expanding_description_and_identity_height(qtbot: Any) -> None:
     """Vérifie l'auto-agrandissement du champ description lors de l'édition et le chargement d'un agent."""
-    from ankiforge.ui.components.inputs import AutoExpandingTextEdit
-    from ankiforge.ui.theme import DesignTokens
+    from ankidraft.ui.components.inputs import AutoExpandingTextEdit
+    from ankidraft.ui.theme import DesignTokens
 
     uid = uuid.uuid4().hex[:6]
     initial_desc = "Description courte sur une ligne."
@@ -356,8 +356,8 @@ def test_agents_view_auto_expanding_description_and_identity_height(qtbot: Any) 
 
 def test_agents_view_across_all_four_layouts_and_themes(qtbot: Any) -> None:
     """Vérifie le comportement et l'alignement du widget description dans les 4 layouts et les thèmes."""
-    from ankiforge.ui.layouts.layout_manager import LayoutManager
-    from ankiforge.ui.style_engine.themes import BUILTIN_THEMES
+    from ankidraft.ui.layouts.layout_manager import LayoutManager
+    from ankidraft.ui.style_engine.themes import BUILTIN_THEMES
 
     uid = uuid.uuid4().hex[:6]
     PersonaModel.create(

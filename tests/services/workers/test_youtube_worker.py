@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 import pytest
 
-from ankiforge.services.parsing.yt_dlp_service import YtDlpUnavailableError
-from ankiforge.services.workers.youtube_worker import YouTubeWorker
+from ankidraft.services.parsing.yt_dlp_service import YtDlpUnavailableError
+from ankidraft.services.workers.youtube_worker import YouTubeWorker
 
 pytestmark = pytest.mark.integration
 

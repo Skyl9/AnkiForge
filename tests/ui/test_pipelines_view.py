@@ -4,9 +4,9 @@ from typing import Any
 import pytest
 from PySide6.QtWidgets import QLabel, QPlainTextEdit
 
-from ankiforge.database.models import PersonaModel, PipelineModel, PipelineStepModel
-from ankiforge.ui.components import IconButton
-from ankiforge.ui.views.pipelines_view import (
+from ankidraft.database.models import PersonaModel, PipelineModel, PipelineStepModel
+from ankidraft.ui.components import IconButton
+from ankidraft.ui.views.pipelines_view import (
     DAG_HELP_SECTION_KEYS,
     PRESET_TEMPLATES,
     STEP_TYPES_META,
@@ -312,7 +312,7 @@ def test_prompt_preview_dialog_fallback_to_persona_when_empty(qtbot):
 
 def test_step_inspector_preview_button_triggers(qtbot):
     """Vérifie que l'inspecteur ouvre l'aperçu avec les données d'étape et boutons."""
-    from ankiforge.ui.views.pipelines_view.widgets.step_inspector import StepInspectorPanel
+    from ankidraft.ui.views.pipelines_view.widgets.step_inspector import StepInspectorPanel
 
     p = PersonaModel.create(name="Inspecteur Agent", system_prompt="Agent prompt {{ text_source }}")
     inspector = StepInspectorPanel()
@@ -467,7 +467,7 @@ def test_step_inspector_displays_jinja_syntax_error(qtbot: Any) -> None:
 
 def test_step_test_dialog_blocks_on_invalid_jinja(qtbot: Any) -> None:
     """Vérifie que la simulation unitaire d'étape refuse l'exécution si le template Jinja2 est cassé."""
-    from ankiforge.ui.views.pipelines_view.widgets.dialogs import StepTestDialog
+    from ankidraft.ui.views.pipelines_view.widgets.dialogs import StepTestDialog
 
     invalid_step = {
         "type": "LLM_PROMPT",

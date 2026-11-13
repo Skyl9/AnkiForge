@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ankiforge.database.models import (
+from ankidraft.database.models import (
     AuditRecordModel,
     DeckModel,
     DocumentChunkModel,
@@ -12,12 +12,12 @@ from ankiforge.database.models import (
     NoteTypeModel,
     NoteVersionModel,
 )
-from ankiforge.services.workers.ab_worker import AbWorker
-from ankiforge.services.workers.batch_edit_worker import BatchEditWorker
-from ankiforge.services.workers.coverage_worker import CoverageWorker
-from ankiforge.services.workers.duplicate_worker import DuplicateWorker
-from ankiforge.services.workers.linter_worker import LinterWorker
-from ankiforge.services.workers.vector_worker import VectorWorker
+from ankidraft.services.workers.ab_worker import AbWorker
+from ankidraft.services.workers.batch_edit_worker import BatchEditWorker
+from ankidraft.services.workers.coverage_worker import CoverageWorker
+from ankidraft.services.workers.duplicate_worker import DuplicateWorker
+from ankidraft.services.workers.linter_worker import LinterWorker
+from ankidraft.services.workers.vector_worker import VectorWorker
 
 pytestmark = pytest.mark.integration
 
@@ -133,11 +133,11 @@ def test_linter_worker_flow_and_caching(mock_db, qtbot) -> None:
         ]
     )
 
-    from ankiforge.database.models import LLMConfigModel
+    from ankidraft.database.models import LLMConfigModel
 
     cfg = LLMConfigModel.create(display_name="Linter Mock LLM", model_id="mock-model", provider="mock", is_default=True)
 
-    with patch("ankiforge.services.ai.flexible_service.AIManager.create_provider_from_config", return_value=mock_llm):
+    with patch("ankidraft.services.ai.flexible_service.AIManager.create_provider_from_config", return_value=mock_llm):
         worker = LinterWorker(note_ids=[note.id], llm_config_id=cfg.id, force_recheck=True)
 
         with qtbot.waitSignal(worker.finished_processing, timeout=3000) as blocker:

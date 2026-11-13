@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from ankiforge.services.ai.mcp_server import (
+from ankidraft.services.ai.mcp_server import (
     DEFAULT_MCP_MUTATION_DOMAIN,
     MCP_MUTATION_DOMAINS,
     _notify_mcp_mutation,
@@ -20,7 +20,7 @@ from ankiforge.services.ai.mcp_server import (
     resolve_mcp_mutation_domain,
     unregister_mutation_listener,
 )
-from ankiforge.utils.event_bus import MCPDataMutatedEvent, event_bus
+from ankidraft.utils.event_bus import MCPDataMutatedEvent, event_bus
 
 pytestmark = pytest.mark.unit
 
