@@ -195,6 +195,11 @@ def main(argv: list[str] | None = None) -> None:
     setup_logging()
     install_crash_handlers()
 
+    # 1bis. Migration transparente et non destructive des données legacy AnkiForge si nécessaire
+    from ankidraft.utils.legacy_migration import ensure_legacy_migration
+
+    ensure_legacy_migration()
+
     env_name = get_current_environment().value
     import logging
 

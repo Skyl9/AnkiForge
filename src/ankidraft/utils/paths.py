@@ -101,6 +101,9 @@ def get_resource_path(*subpaths: str) -> Path:
     return candidates[0] if candidates else rel
 
 
+_legacy_migration_checked = False
+
+
 def get_app_data_dir() -> Path:
     """Retourne le chemin vers le dossier de données persistant de l'application selon l'environnement actif.
 
@@ -128,7 +131,19 @@ def get_app_data_dir() -> Path:
         else:
             app_dir = Path.home() / ".ankidraft"
 
+    is_new = not app_dir.exists()
     app_dir.mkdir(parents=True, exist_ok=True)
+
+    global _legacy_migration_checked
+    if is_new and not _legacy_migration_checked:
+        _legacy_migration_checked = True
+        try:
+            from ankidraft.utils.legacy_migration import migrate_legacy_data
+
+            migrate_legacy_data(target_dir=app_dir)
+        except Exception as e:
+            logger.debug("Échec migration legacy automatique dans get_app_data_dir: %s", e)
+
     return app_dir
 
 
