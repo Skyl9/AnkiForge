@@ -10,6 +10,11 @@ export default defineConfig({
         fr: 'AnkiDraft',
         en: 'AnkiDraft',
       },
+      favicon: '/assets/icons/ankidraft.svg',
+      logo: {
+        src: './public/assets/icons/ankidraft.svg',
+        alt: 'AnkiDraft',
+      },
       description:
         "L'atelier de création et d'audit de flashcards Anki assisté par IA.",
       defaultLocale: 'en',

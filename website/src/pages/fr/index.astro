@@ -8,309 +8,500 @@ const release = await getLatestRelease();
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AnkiDraft — L'Atelier IA de Création et d'Audit de Flashcards Anki</title>
+    <title>AnkiDraft — Transformez vos cours en cartes mémoire Anki</title>
     <meta
       name="description"
-      content="Transformez vos cours PDF, vidéos YouTube et notes en paquets Anki atomiques. Application desktop rapide, hors ligne et respectueuse des 20 règles de Wozniak."
+      content="Déposez vos cours PDF, vidéos YouTube et notes. AnkiDraft en extrait des flashcards claires, prêtes à être révisées dans Anki sur votre ordinateur et votre téléphone."
     />
     <meta
       name="google-site-verification"
       content="aoyROBDMk0qbvP7PuiHXrvPdCRpsJeLWc904iaDzvBc"
     />
+    <link rel="icon" type="image/svg+xml" href="/assets/icons/ankidraft.svg" />
     <link rel="canonical" href="https://ankidraft.app/fr/" />
     <link rel="alternate" hreflang="fr" href="https://ankidraft.app/fr/" />
     <link rel="alternate" hreflang="en" href="https://ankidraft.app/en/" />
     <link rel="alternate" hreflang="x-default" href="https://ankidraft.app/en/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
-        --bg: #0b0f19;
-        --bg-card: #131c31;
-        --border: #1e293b;
-        --text: #f8fafc;
-        --muted: #94a3b8;
-        --accent: #3b82f6;
-        --accent-hover: #2563eb;
+        --paper: #f6f5f0;
+        --surface: #ffffff;
+        --surface-alt: #efede6;
+        --ink: #0f1117;
+        --muted: #525663;
+        --accent: #3730a3;
+        --accent-bright: #4f46e5;
+        --display: 'Archivo', -apple-system, BlinkMacSystemFont, sans-serif;
+        --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       }
+
       * {
         box-sizing: border-box;
       }
+
       body {
         margin: 0;
-        background: radial-gradient(circle at top, #172554 0%, var(--bg) 55%);
-        color: var(--text);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        line-height: 1.6;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--sans);
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
       }
-      header {
-        max-width: 1120px;
+
+      .swiss-container {
+        max-width: 1200px;
         margin: 0 auto;
-        padding: 1.25rem 1.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
+        padding: 0 2rem;
       }
+
+      header {
+        padding: 1.75rem 0 1.25rem;
+        border-bottom: 4px solid var(--ink);
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        align-items: end;
+      }
+      @media (max-width: 760px) {
+        header {
+          grid-template-columns: 1fr;
+          gap: 1rem;
+        }
+      }
+
       .brand {
-        font-size: 1.25rem;
-        font-weight: 800;
-        color: var(--text);
+        font-family: var(--display);
+        font-weight: 900;
+        font-size: 1.65rem;
+        letter-spacing: -0.04em;
+        color: var(--ink);
         text-decoration: none;
-        letter-spacing: -0.02em;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+      }
+      .brand img {
+        width: 28px;
+        height: 28px;
+      }
+
+      .header-meta {
+        font-size: 0.82rem;
+        color: var(--muted);
+        line-height: 1.35;
+      }
+
+      nav {
+        text-align: right;
       }
       nav a {
-        color: var(--muted);
+        color: var(--ink);
         text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
         margin-left: 1.5rem;
-        font-size: 0.95rem;
       }
       nav a:hover {
-        color: var(--text);
+        color: var(--accent-bright);
       }
+
+      /* Swiss Poster Hero (Variante A) */
       .hero {
-        max-width: 960px;
-        margin: 3.5rem auto 2.5rem;
-        padding: 0 1.5rem;
-        text-align: center;
+        padding: 4.5rem 0 4rem;
+        border-bottom: 2px solid var(--ink);
+        display: grid;
+        grid-template-columns: 8fr 4fr;
+        gap: 3rem;
+        align-items: end;
       }
-      .badge {
-        display: inline-block;
-        padding: 0.25rem 0.85rem;
-        border-radius: 999px;
-        background: rgba(59, 130, 246, 0.15);
-        border: 1px solid rgba(59, 130, 246, 0.4);
-        color: #93c5fd;
-        font-size: 0.85rem;
-        font-weight: 600;
-        margin-bottom: 1.25rem;
+      @media (max-width: 900px) {
+        .hero {
+          grid-template-columns: 1fr;
+        }
       }
+
       h1 {
-        font-size: clamp(2.2rem, 5vw, 3.6rem);
-        line-height: 1.12;
-        margin: 0 0 1.25rem;
-        letter-spacing: -0.03em;
+        font-family: var(--display);
+        font-weight: 900;
+        font-size: clamp(3rem, 6.4vw, 5.5rem);
+        line-height: 0.94;
+        letter-spacing: -0.045em;
+        margin: 0;
+        text-transform: uppercase;
       }
-      .subtitle {
-        font-size: 1.15rem;
-        color: var(--muted);
-        max-width: 680px;
-        margin: 0 auto 2.25rem;
+      h1 span {
+        color: var(--accent-bright);
+        display: block;
       }
-      .cta-group {
+
+      .hero-aside {
+        border-left: 2px solid var(--ink);
+        padding-left: 2rem;
+      }
+      @media (max-width: 900px) {
+        .hero-aside {
+          border-left: none;
+          border-top: 2px solid var(--ink);
+          padding-left: 0;
+          padding-top: 2rem;
+        }
+      }
+      .hero-aside p {
+        font-size: 1.1rem;
+        margin: 0 0 2rem;
+        color: var(--ink);
+        font-weight: 500;
+      }
+
+      .btn-swiss {
         display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-        justify-content: center;
-        margin-bottom: 1rem;
-      }
-      .btn-primary {
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
         background: var(--accent);
-        color: #fff;
-        padding: 0.85rem 1.6rem;
-        border-radius: 0.6rem;
+        color: #ffffff;
+        font-family: var(--display);
         font-weight: 700;
+        font-size: 1.02rem;
+        padding: 1.1rem 1.4rem;
         text-decoration: none;
         transition: background 0.15s;
       }
-      .btn-primary:hover {
-        background: var(--accent-hover);
+      .btn-swiss:hover {
+        background: var(--ink);
       }
-      .btn-secondary {
-        background: var(--bg-card);
-        color: var(--text);
-        border: 1px solid var(--border);
-        padding: 0.85rem 1.5rem;
-        border-radius: 0.6rem;
+
+      .os-strip {
+        margin-top: 0.85rem;
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        font-size: 0.82rem;
+        color: var(--muted);
+        border-top: 1px solid var(--ink);
+        padding-top: 0.65rem;
+      }
+      .os-strip a {
+        color: var(--ink);
         font-weight: 600;
         text-decoration: none;
       }
-      .os-links {
-        font-size: 0.9rem;
-        color: var(--muted);
-        margin-top: 0.75rem;
+      .os-strip a:hover {
+        color: var(--accent-bright);
+        text-decoration: underline;
       }
-      .os-links a {
-        color: #93c5fd;
-        text-decoration: none;
-        margin: 0 0.4rem;
-      }
-      .grid {
-        max-width: 1120px;
-        margin: 3.5rem auto;
-        padding: 0 1.5rem;
+
+      /* Numbered Index Rows (01 / 02 / 03) */
+      .index-row {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 1.25rem;
+        grid-template-columns: 2fr 5fr 5fr;
+        gap: 2rem;
+        padding: 3rem 0;
+        border-bottom: 1px solid var(--ink);
+        align-items: start;
       }
-      .card {
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: 0.85rem;
-        padding: 1.5rem;
+      @media (max-width: 860px) {
+        .index-row {
+          grid-template-columns: 1fr;
+          gap: 1rem;
+        }
       }
-      .card h2 {
-        font-size: 1.15rem;
-        margin: 0 0 0.5rem;
+
+      .index-num {
+        font-family: var(--display);
+        font-weight: 900;
+        font-size: 3.5rem;
+        line-height: 0.85;
+        letter-spacing: -0.04em;
+        color: var(--accent-bright);
       }
-      .card p {
+
+      .index-title {
+        font-family: var(--display);
+        font-weight: 700;
+        font-size: 1.85rem;
+        line-height: 1.1;
+        margin: 0;
+        letter-spacing: -0.025em;
+      }
+
+      .index-body {
+        font-size: 1.02rem;
         color: var(--muted);
         margin: 0;
-        font-size: 0.95rem;
       }
-      .downloads {
-        max-width: 960px;
-        margin: 4rem auto;
-        padding: 2rem 1.5rem;
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: 1rem;
+      .index-body strong {
+        color: var(--ink);
       }
-      .downloads h2 {
-        margin-top: 0;
-        text-align: center;
-      }
-      .dl-grid {
+
+      /* Study Transformation Specimen */
+      .specimen-section {
+        padding: 4rem 0;
+        border-bottom: 4px solid var(--ink);
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 1rem;
-        margin-top: 1.5rem;
+        grid-template-columns: 4fr 8fr;
+        gap: 3rem;
       }
-      .dl-box {
-        padding: 1.25rem;
-        border: 1px solid var(--border);
-        border-radius: 0.75rem;
-        background: rgba(11, 15, 25, 0.5);
+      @media (max-width: 860px) {
+        .specimen-section {
+          grid-template-columns: 1fr;
+        }
       }
-      .dl-box h3 {
-        margin: 0 0 0.4rem;
+
+      .specimen-label {
+        font-family: var(--display);
+        font-weight: 900;
+        font-size: 1.5rem;
+        text-transform: uppercase;
+        margin: 0 0 0.75rem;
       }
-      .dl-box a {
-        display: inline-block;
-        margin-top: 0.75rem;
-        color: #60a5fa;
-        font-weight: 600;
+
+      .specimen-pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border: 2px solid var(--ink);
+        background: var(--surface);
+      }
+      @media (max-width: 700px) {
+        .specimen-pair {
+          grid-template-columns: 1fr;
+        }
+      }
+      .spec-col {
+        padding: 2rem;
+      }
+      .spec-col:first-child {
+        border-right: 2px solid var(--ink);
+        background: var(--surface-alt);
+      }
+      @media (max-width: 700px) {
+        .spec-col:first-child {
+          border-right: none;
+          border-bottom: 2px solid var(--ink);
+        }
+      }
+      .spec-tag {
+        font-family: var(--display);
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin-bottom: 1rem;
+        display: block;
+      }
+      .spec-col.highlight .spec-tag {
+        color: var(--accent-bright);
+      }
+
+      /* Download Table */
+      .dl-section {
+        padding: 4rem 0;
+        border-bottom: 2px solid var(--ink);
+      }
+      .dl-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 2rem;
+      }
+      .dl-table tr {
+        border-top: 1px solid var(--ink);
+      }
+      .dl-table tr:last-child {
+        border-bottom: 1px solid var(--ink);
+      }
+      .dl-table td {
+        padding: 1.35rem 0;
+        font-size: 1.05rem;
+      }
+      .dl-table td.os-name {
+        font-family: var(--display);
+        font-weight: 700;
+        font-size: 1.3rem;
+      }
+      .dl-table td.dl-link {
+        text-align: right;
+      }
+      .dl-table td.dl-link a {
+        color: var(--accent-bright);
+        font-weight: 700;
         text-decoration: none;
       }
+      .dl-table td.dl-link a:hover {
+        text-decoration: underline;
+      }
+
       footer {
-        max-width: 1120px;
-        margin: 4rem auto 2rem;
-        padding: 1.5rem;
-        border-top: 1px solid var(--border);
-        color: var(--muted);
-        font-size: 0.88rem;
+        padding: 2.5rem 0 4rem;
         display: flex;
         justify-content: space-between;
         flex-wrap: wrap;
         gap: 1rem;
+        font-size: 0.88rem;
+        color: var(--muted);
       }
       footer a {
-        color: var(--muted);
+        color: var(--ink);
+        text-decoration: none;
+        font-weight: 600;
+      }
+      footer a:hover {
+        color: var(--accent-bright);
       }
     </style>
   </head>
   <body>
-    <header>
-      <a class="brand" href="/fr/">AnkiDraft</a>
-      <nav>
-        <a href="/fr/getting-started/quickstart/">Guides &amp; Aide</a>
-        <a href="#telecharger">Télécharger</a>
-        <a href="/fr/guides/raccourcis_clavier/">Raccourcis</a>
-        <a href="/fr/guides/faq_depannage/">FAQ</a>
-        <a href="/en/" hreflang="en">English</a>
-      </nav>
-    </header>
-
-    <main>
-      <section class="hero">
-        <span class="badge">Version {release.version} disponible · 100 % Local-First</span>
-        <h1>Transformez vos cours en flashcards Anki mémorisables</h1>
-        <p class="subtitle">
-          Importez vos PDF, vidéos YouTube et pages web, générez des cartes atomiques avec l'IA de votre choix,
-          vérifiez leur qualité pédagogique et exportez-les directement vers Anki.
-        </p>
-        <div class="cta-group">
-          <a id="primary-dl" class="btn-primary" href={release.macos.url}>
-            Télécharger AnkiDraft v{release.version}
-          </a>
-          <a class="btn-secondary" href="/fr/getting-started/quickstart/">
-            Consulter le guide de démarrage
-          </a>
+    <div class="swiss-container">
+      <header>
+        <a class="brand" href="/fr/">
+          <img src="/assets/icons/ankidraft.svg" alt="AnkiDraft" />
+          <span>ANKIDRAFT</span>
+        </a>
+        <div class="header-meta">
+          Préparation de cartes Anki à partir de vos cours<br />
+          Édition {release.version} — macOS, Windows, Linux
         </div>
-        <div class="os-links">
-          Installateurs directs :
-          <a href={release.macos.url}>macOS (.dmg)</a> ·
-          <a href={release.windows.url}>Windows (.exe)</a> ·
-          <a href={release.linux.url}>Linux (.AppImage)</a>
-        </div>
-      </section>
+        <nav>
+          <a href="/fr/getting-started/quickstart/">Guides</a>
+          <a href="#telecharger">Télécharger</a>
+          <a href="/fr/guides/faq_depannage/">FAQ</a>
+          <a href="/en/" hreflang="en">EN</a>
+        </nav>
+      </header>
 
-      <section class="grid">
-        <article class="card">
-          <h2>1. Importez tous vos supports</h2>
-          <p>
-            Glissez un cours PDF (avec formules mathématiques LaTeX), collez un lien YouTube ou une page web :
-            AnkiDraft découpe proprement vos chapitres et suit les parties déjà couvertes.
-          </p>
-        </article>
-        <article class="card">
-          <h2>2. Générez et éditez avec précision</h2>
-          <p>
-            Utilisez OpenAI, Gemini, Claude ou un modèle local gratuit via Ollama. Éditez vos cartes avec aperçu
-            mathématique KaTeX en direct, textes à trous et synthèse vocale.
-          </p>
-        </article>
-        <article class="card">
-          <h2>3. Auditez et synchronisez avec Anki</h2>
-          <p>
-            L'audit qualité intégré détecte les cartes trop longues ou ambiguës selon les 20 règles de Wozniak avant
-            l'export en paquet <code>.apkg</code> vers Anki Desktop et AnkiMobile.
-          </p>
-        </article>
-      </section>
+      <main>
+        <section class="hero">
+          <h1>
+            Passez vos heures à apprendre,
+            <span>pas à copier-coller.</span>
+          </h1>
+          <div class="hero-aside">
+            <p>
+              Déposez vos cours PDF, vos vidéos ou vos notes. AnkiDraft en extrait des flashcards claires, prêtes à être révisées dans Anki sur votre ordinateur et votre téléphone.
+            </p>
+            <a id="primary-dl" class="btn-swiss" href={release.macos.url}>
+              <span id="primary-dl-label">Télécharger AnkiDraft v{release.version}</span>
+              <span>↓</span>
+            </a>
+            <div class="os-strip">
+              <a href={release.macos.url}>macOS (.dmg)</a>
+              <a href={release.windows.url}>Windows (.exe)</a>
+              <a href={release.linux.url}>Linux (.AppImage)</a>
+              <a href="/fr/getting-started/quickstart/">Manuel →</a>
+            </div>
+          </div>
+        </section>
 
-      <section id="telecharger" class="downloads">
-        <h2>Télécharger AnkiDraft v{release.version}</h2>
-        <div class="dl-grid">
-          <div class="dl-box">
-            <h3>macOS (Apple Silicon)</h3>
-            <p>macOS 13+ · Image disque signée (<code>.dmg</code>)</p>
-            <a href={release.macos.url}>Télécharger pour macOS →</a>
+        <section aria-label="Fonctionnement en trois étapes">
+          <div class="index-row">
+            <div class="index-num">01</div>
+            <h2 class="index-title">Déposez votre cours tel qu'il est</h2>
+            <p class="index-body">
+              Polycopié PDF de 300 pages, diaporama d'amphi, enregistrement audio ou vidéo YouTube : <strong>aucune remise en forme préalable n'est nécessaire</strong>. Choisissez simplement les chapitres qui tombent à votre prochain examen.
+            </p>
           </div>
-          <div class="dl-box">
-            <h3>Windows (64-bit)</h3>
-            <p>Windows 10 / 11 · Installateur autonome (<code>.exe</code>)</p>
-            <a href={release.windows.url}>Télécharger pour Windows →</a>
-          </div>
-          <div class="dl-box">
-            <h3>Linux (x86_64)</h3>
-            <p>Exécutable portable sans installation (<code>.AppImage</code>)</p>
-            <a href={release.linux.url}>Télécharger pour Linux →</a>
-          </div>
-        </div>
-      </section>
-    </main>
 
-    <footer>
-      <span>&copy; 2026 AnkiDraft · Application libre et locale</span>
-      <span>
-        <a href="/fr/getting-started/installation/">Guide d'installation</a> ·
-        <a href="https://github.com/Skyl9/AnkiDraft">Code source GitHub</a> ·
-        <a href="https://skyl9.github.io/AnkiDraft/">Documentation Développeur</a>
-      </span>
-    </footer>
+          <div class="index-row">
+            <div class="index-num">02</div>
+            <h2 class="index-title">Obtenez des questions courtes et précises</h2>
+            <p class="index-body">
+              Fini les cartes interminables que l'on finit par réciter par cœur sans les comprendre. Chaque idée importante de votre cours devient <strong>une question simple, une réponse directe</strong>, une formule mathématique propre ou un texte à trous.
+            </p>
+          </div>
+
+          <div class="index-row">
+            <div class="index-num">03</div>
+            <h2 class="index-title">Révisez partout dans Anki, sans rien perdre</h2>
+            <p class="index-body">
+              Exportez votre paquet en un clic vers Anki. Si vous modifiez vos cartes plus tard après avoir déjà révisé dans les transports, <strong>votre progression et vos statistiques de révision restent intactes</strong>.
+            </p>
+          </div>
+        </section>
+
+        <section class="specimen-section">
+          <div>
+            <h2 class="specimen-label">Ce que vous donnez.<br />Ce que vous retenez.</h2>
+            <p style="color: var(--muted); margin: 0;">
+              Un paragraphe dense de votre polycopié se transforme immédiatement en questions ciblées, faciles à réviser en quelques secondes chaque matin.
+            </p>
+          </div>
+
+          <div class="specimen-pair">
+            <div class="spec-col">
+              <span class="spec-tag">Extrait de votre cours PDF</span>
+              <p style="margin: 0; font-size: 0.98rem;">
+                « Au cours d'un effort physique intense, le débit cardiaque peut passer de 5 L/min au repos jusqu'à 25 L/min chez le sujet entraîné, principalement grâce à l'augmentation de la fréquence cardiaque et du volume d'éjection systolique. »
+              </p>
+            </div>
+            <div class="spec-col highlight">
+              <span class="spec-tag">Carte prête dans votre paquet Anki</span>
+              <p style="margin: 0 0 0.75rem; font-weight: 700; font-size: 1.05rem;">
+                Quelle est la valeur du débit cardiaque au repos, et jusqu'où peut-il monter à l'effort intense ?
+              </p>
+              <p style="margin: 0; color: var(--muted);">
+                <strong>5 L/min</strong> au repos → jusqu'à <strong>25 L/min</strong> à l'effort.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section id="telecharger" class="dl-section">
+          <h2 class="index-title">Téléchargement gratuit · Fonctionne hors connexion</h2>
+          <table class="dl-table">
+            <tbody>
+              <tr>
+                <td class="os-name">macOS</td>
+                <td style="color: var(--muted);">macOS 13 ou supérieur (Apple Silicon) · Image disque .dmg</td>
+                <td class="dl-link"><a href={release.macos.url}>Télécharger v{release.version} →</a></td>
+              </tr>
+              <tr>
+                <td class="os-name">Windows</td>
+                <td style="color: var(--muted);">Windows 10 &amp; 11 (64-bit) · Installateur autonome .exe</td>
+                <td class="dl-link"><a href={release.windows.url}>Télécharger v{release.version} →</a></td>
+              </tr>
+              <tr>
+                <td class="os-name">Linux</td>
+                <td style="color: var(--muted);">Distribution x86_64 · Exécutable portable .AppImage</td>
+                <td class="dl-link"><a href={release.linux.url}>Télécharger v{release.version} →</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </main>
+
+      <footer>
+        <span>© 2026 AnkiDraft — Vos cours et vos cartes restent sur votre ordinateur.</span>
+        <span>
+          <a href="/fr/getting-started/installation/">Guide d'installation</a> ·
+          <a href="/fr/getting-started/quickstart/">Premiers pas</a> ·
+          <a href="/fr/guides/raccourcis_clavier/">Raccourcis</a> ·
+          <a href="https://github.com/Skyl9/AnkiDraft">GitHub</a>
+        </span>
+      </footer>
+    </div>
 
     <script is:inline define:vars={{ macosUrl: release.macos.url, windowsUrl: release.windows.url, linuxUrl: release.linux.url, version: release.version }}>
       (function () {
-        var btn = document.getElementById('primary-dl');
-        if (!btn) return;
         var ua = navigator.userAgent || '';
+        var btn = document.getElementById('primary-dl');
+        var lbl = document.getElementById('primary-dl-label');
+        if (!btn || !lbl) return;
         if (/Win/i.test(ua)) {
           btn.href = windowsUrl;
-          btn.textContent = 'Télécharger pour Windows (v' + version + ')';
+          lbl.textContent = 'Télécharger pour Windows (v' + version + ')';
         } else if (/Linux/i.test(ua) && !/Android/i.test(ua)) {
           btn.href = linuxUrl;
-          btn.textContent = 'Télécharger pour Linux (v' + version + ')';
-        } else if (/Mac/i.test(ua)) {
+          lbl.textContent = 'Télécharger pour Linux (v' + version + ')';
+        } else {
           btn.href = macosUrl;
-          btn.textContent = 'Télécharger pour macOS (v' + version + ')';
+          lbl.textContent = 'Télécharger pour macOS (v' + version + ')';
         }
       })();
     </script>
