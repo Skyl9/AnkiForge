@@ -60,6 +60,7 @@ Pour les analyses documentaires massives (lecture de spécifications très dense
 
 ## When NOT to use this skill
 
+- Pour une recherche de graphismes, d'icônes, de logos, de designers ou d'identité visuelle → utiliser `conception-graphisme`.
 - Pour une vérification rapide d'une signature d'API ou d'un fichier source du projet réalisable en un tour → consulter directement le code.
 - Pour affûter une décision d'architecture une fois la documentation déjà établie et assimilée → utiliser `/grill-with-docs`.
 - Pour implémenter du code de production → utiliser `/implement` ou `/tdd`.

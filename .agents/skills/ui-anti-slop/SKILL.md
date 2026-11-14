@@ -101,6 +101,10 @@ validés. La correction de défauts existants relève de `ui-visual-polish`.
 
 ## Ne pas utiliser ce skill si...
 
+- la demande porte sur la recherche iconographique ou la fabrication d'icônes,
+  logos ou pages vitrines : utiliser `conception-graphisme` ;
+- la demande exige un jury contradictoire poussant une icône, un logo ou une
+  page vitrine dans ses retranchements : utiliser `critique-design-contradictoire` ;
 - la demande porte uniquement sur les tokens et couleurs codées en dur :
   utiliser `audit-design-ui` ;
 - elle porte sur des défauts graphiques existants, des captures avant/après ou

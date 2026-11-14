@@ -24,7 +24,7 @@ Si ta tâche touche à l'un de ces domaines, **TU DOIS** lire le fichier `.md` c
 
 ## Catalogue des Compétences Agentiques (`.agents/skills/`)
 
-Le dépôt héberge 54 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
+Le dépôt héberge 56 compétences agentiques autonomes conformes au standard international `agentskills.io` et au principe de divulgation progressive (Progressive Disclosure à 3 niveaux).
 
 > [!IMPORTANT]
 > **Langue de communication & restitution obligatoire** : Toutes les synthèses, explications, interactions et propositions de commits adressées à l'utilisateur doivent être rédigées en **français**, même pour les compétences dont la spécification ou les déclencheurs emploient l'anglais.
@@ -47,6 +47,8 @@ Le dépôt héberge 54 compétences agentiques autonomes conformes au standard i
 - `ui-visual-polish` (`.agents/skills/ui-visual-polish/SKILL.md`) : Diagnostic et correction ciblée des défauts graphiques PySide6, avec validation des états et régressions visuelles.
 - `impeccable-pyside6` (`.agents/skills/impeccable-pyside6/SKILL.md`) : Craft UI de précision, éradication du slop Qt, regard nouvel utilisateur (first-eyes, clarify) et passes de finition chirurgicales (distill, arrange, typeset, harden, polish, quieter, bolder) selon DESIGN.md.
 - `ui-screenshot` (`.agents/skills/ui-screenshot/SKILL.md`) : Capture d'écrans haute résolution en mode headless/offscreen et inspection visuelle des vues.
+- `conception-graphisme` (`.agents/skills/conception-graphisme/SKILL.md`) : Recherche iconographique décentrée (artisans de niche et maîtres), laboratoire comparatif par écoles et fabrication vectorielle déterministe (`QPainterPath` CSG, glyphes typographiques, Gestalt).
+- `critique-design-contradictoire` (`.agents/skills/critique-design-contradictoire/SKILL.md`) : Jury contradictoire multi-experts (système/16px, anatomie OS/Bézier, métaphore/Gestalt & faux-amis du marché) poussant les icônes, logos et pages vitrines dans leurs retranchements.
 - `ingestion-multimedia` (`.agents/skills/ingestion-multimedia/SKILL.md`) : Parsing et extraction multimédia de sources brutes (Marker OCR, PDF, YouTube, audio, docx, epub) vers Markdown.
 - `rag-smart-coverage` (`.agents/skills/rag-smart-coverage/SKILL.md`) : Découpage sémantique (`ChunkingService`), vecteurs FAISS/ChromaDB et alignement déterministe de couverture (`ADR 0009` et `ADR 0010`).
 - `pipeline-dag-ia` (`.agents/skills/pipeline-dag-ia/SKILL.md`) : Moteur de DAG `PipelineOrchestrator`, 6 types d'étapes, budgets de tokens, surcharge locale `persona_override.py` et intégration MCP.
@@ -136,7 +138,7 @@ uv run python script/crap.py --top 15        # top 15 des fonctions les plus à 
 
 ### Gouvernance des Compétences Agentiques & Métadonnées
 ```bash
-uv run python .agents/skills/gouvernance-skills/scripts/auditer_coherence_skills.py # audit statique des 54 skills
+uv run python .agents/skills/gouvernance-skills/scripts/auditer_coherence_skills.py # audit statique des 56 skills
 ```
 
 ### Documentation Zensical
